@@ -67,7 +67,7 @@ class MainActivity : AppCompatActivity() {
                     log("测试数据已放进应用目录。连点两次「合成」，第二次的时间才算数。")
                 }
             } catch (error: Exception) {
-                ui { log(error.stackTraceToString()) }
+                ui { logFailure(error) }
             } finally {
                 ui { setBusy(false) }
             }
@@ -94,7 +94,7 @@ class MainActivity : AppCompatActivity() {
                     log("目录已复制到应用里。连点两次「合成」，第二次的时间才算数。")
                 }
             } catch (error: Exception) {
-                ui { log(error.stackTraceToString()) }
+                ui { logFailure(error) }
             } finally {
                 ui { setBusy(false) }
             }
@@ -131,7 +131,7 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
             } catch (error: Exception) {
-                ui { log(error.stackTraceToString()) }
+                ui { logFailure(error) }
             } finally {
                 ui { setBusy(false) }
             }
@@ -164,6 +164,12 @@ class MainActivity : AppCompatActivity() {
     private fun expectedPath(): File {
         val base = getExternalFilesDir(null) ?: filesDir
         return File(base, "android_case")
+    }
+
+    private fun logFailure(error: Exception) {
+        val summary = error.message?.lineSequence()?.firstOrNull { it.isNotBlank() }
+        if (!summary.isNullOrBlank()) log(summary)
+        log(error.stackTraceToString())
     }
 
     private fun copyLog() {

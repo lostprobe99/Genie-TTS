@@ -10,7 +10,7 @@ import java.net.URL
 
 object CaseFetcher {
     const val RAW_BASE =
-        "https://github.com/lostprobe99/Genie-TTS/raw/cursor/android-onnx-demo-doc-3875/android_case"
+        "https://raw.githubusercontent.com/lostprobe99/Genie-TTS/cursor/android-onnx-demo-doc-3875/android_case"
 
     fun download(context: Context, onStatus: (String) -> Unit): File {
         val root = File(context.filesDir, "android_case")
@@ -111,15 +111,15 @@ object CaseFetcher {
         }
         val pieces = spec.getJSONArray("parts")
         val temp = File(dest.parentFile, dest.name + ".part")
+        val cache = File(root, "models/cache")
         temp.outputStream().use { output ->
             for (index in 0 until pieces.length()) {
                 val relative = pieces.getString(index)
-                appendUrl(
-                    "$RAW_BASE/models/$relative",
-                    output,
-                    "$name ${index + 1}/${pieces.length()}",
-                    onStatus,
-                )
+                val label = "$name ${index + 1}/${pieces.length()}"
+                val piece = File(cache, relative.replace('/', '_'))
+                downloadFile("$RAW_BASE/models/$relative", piece, label, onStatus)
+                piece.inputStream().use { input -> input.copyTo(output, 256 * 1024) }
+                piece.delete()
             }
         }
         if (temp.length() != expected) {
@@ -131,94 +131,92 @@ object CaseFetcher {
         onStatus("已完成 $name")
     }
 
-    private fun appendUrl(url: String, output: java.io.OutputStream, label: String, onStatus: (String) -> Unit) {
-        val connection = open(url)
-        try {
-            connection.inputStream.use { input ->
-                val buffer = ByteArray(256 * 1024)
-                var readTotal = 0L
-                val total = connection.contentLengthLong
-                var lastReport = -1
-                var checked = false
-                while (true) {
-                    val count = input.read(buffer)
-                    if (count < 0) break
-                    if (!checked) {
-                        val head = String(buffer, 0, minOf(count, 40), Charsets.US_ASCII)
-                        if (head.startsWith("version https://git-lfs")) {
-                            throw IllegalStateException("$label 只下到了 Git LFS 指针。")
-                        }
-                        checked = true
-                    }
-                    output.write(buffer, 0, count)
-                    readTotal += count
-                    if (total > 0) {
-                        val percent = ((readTotal * 100) / total).toInt()
-                        if (percent != lastReport && percent % 10 == 0) {
-                            lastReport = percent
-                            onStatus("下载 $label $percent%")
-                        }
-                    }
-                }
+    private fun open(url: String): HttpURLConnection {
+        var current = url
+        repeat(5) {
+            val connection = (URL(current).openConnection() as HttpURLConnection).apply {
+                instanceFollowRedirects = false
+                connectTimeout = 30_000
+                readTimeout = 300_000
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) GenieOnnxDemo")
+                setRequestProperty("Accept", "*/*")
+                setRequestProperty("Accept-Encoding", "identity")
             }
-        } finally {
-            connection.disconnect()
+            try {
+                connection.connect()
+                val code = connection.responseCode
+                if (code in 300..399) {
+                    val next = connection.getHeaderField("Location")
+                        ?: throw IllegalStateException("下载重定向没有目标")
+                    connection.disconnect()
+                    current = if (next.startsWith("http")) next else URL(URL(current), next).toString()
+                    return@repeat
+                }
+                if (code !in 200..299) {
+                    connection.disconnect()
+                    throw IllegalStateException("下载失败，HTTP $code")
+                }
+                return connection
+            } catch (error: Exception) {
+                connection.disconnect()
+                throw error
+            }
         }
+        throw IllegalStateException("下载重定向次数过多")
     }
 
-    private fun open(url: String): HttpURLConnection {
-        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-            instanceFollowRedirects = true
-            connectTimeout = 30_000
-            readTimeout = 300_000
-            setRequestProperty("User-Agent", "GenieOnnxDemo")
+    private fun <T> withRetry(label: String, onStatus: (String) -> Unit, block: () -> T): T {
+        var last: Exception? = null
+        repeat(4) { attempt ->
+            try {
+                return block()
+            } catch (error: java.io.IOException) {
+                last = error
+                onStatus("$label 连接中断，正在重试 ${attempt + 1}/4")
+                Thread.sleep(1500L * (attempt + 1))
+            }
         }
-        connection.connect()
-        if (connection.responseCode !in 200..299) {
-            val code = connection.responseCode
-            connection.disconnect()
-            throw IllegalStateException("下载失败，HTTP $code：$url")
-        }
-        return connection
+        throw IllegalStateException(
+            "和 GitHub 的连接被中断。请再点一次「下载测试数据」，或换 Wi-Fi / 移动数据。",
+            last,
+        )
     }
 
     private fun downloadFile(url: String, dest: File, label: String, onStatus: (String) -> Unit) {
         dest.parentFile?.mkdirs()
+        onStatus("正在下载 $label")
         val temp = File(dest.parentFile, dest.name + ".part")
-        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
-            instanceFollowRedirects = true
-            connectTimeout = 30_000
-            readTimeout = 300_000
-            setRequestProperty("User-Agent", "GenieOnnxDemo")
-        }
-        try {
-            connection.connect()
-            if (connection.responseCode !in 200..299) {
-                throw IllegalStateException("下载 $label 失败，HTTP ${connection.responseCode}")
-            }
-            val total = connection.contentLengthLong
-            connection.inputStream.use { input ->
-                temp.outputStream().use { output ->
-                    val buffer = ByteArray(256 * 1024)
-                    var readTotal = 0L
-                    var lastReport = -1
-                    while (true) {
-                        val count = input.read(buffer)
-                        if (count < 0) break
-                        output.write(buffer, 0, count)
-                        readTotal += count
-                        if (total > 0) {
-                            val percent = ((readTotal * 100) / total).toInt()
-                            if (percent != lastReport && percent % 5 == 0) {
-                                lastReport = percent
-                                onStatus("下载 $label $percent%")
+        withRetry(label, onStatus) {
+            if (temp.exists() && !temp.delete()) throw IllegalStateException("无法清理 ${temp.name}")
+            val connection = open(url)
+            try {
+                val total = connection.contentLengthLong
+                connection.inputStream.use { input ->
+                    temp.outputStream().use { output ->
+                        val buffer = ByteArray(256 * 1024)
+                        var readTotal = 0L
+                        var lastReport = -1
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            readTotal += count
+                            if (total > 0) {
+                                val percent = ((readTotal * 100) / total).toInt()
+                                if (percent != lastReport && percent % 10 == 0) {
+                                    lastReport = percent
+                                    onStatus("下载 $label $percent%")
+                                }
                             }
                         }
                     }
                 }
+            } catch (error: Exception) {
+                temp.delete()
+                throw error
+            } finally {
+                connection.disconnect()
             }
-        } finally {
-            connection.disconnect()
         }
         val head = temp.inputStream().use { input ->
             val bytes = ByteArray(40)
