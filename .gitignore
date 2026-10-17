@@ -21,6 +21,12 @@ env/
 venv/
 .venv/
 
+# 完整 ONNX 超过 GitHub 单文件限制，仓库里只放分片。
+android_case/models/vits_fp32.onnx
+android_case/models/t2s_first_stage_decoder_fp32.onnx
+android_case/models/t2s_stage_decoder_fp32.onnx
+android_case/models/*.part
+
 # Build artifacts
 build/
 dist/

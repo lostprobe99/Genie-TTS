@@ -3,9 +3,11 @@ package com.genie.onnxdemo
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import ai.onnxruntime.OrtEnvironment
 import java.io.File
@@ -20,23 +22,22 @@ class MainActivity : AppCompatActivity() {
     private var engine: TtsEngine? = null
     private lateinit var logView: TextView
     private lateinit var button: Button
+    private lateinit var downloadButton: Button
+    private lateinit var pickButton: Button
+    private val pickFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) importFolder(uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         logView = findViewById(R.id.log)
         button = findViewById(R.id.synthesize)
-        val caseDir = locateCase()
-        findViewById<TextView>(R.id.casePath).text = caseDir?.absolutePath ?: expectedPath().absolutePath
-        if (caseDir == null) {
-            log(
-                "还没有模型。在电脑上执行：\n\n" +
-                    "adb push android_case ${expectedPath().parentFile?.absolutePath}/\n\n" +
-                    "推送的是 android_case 目录本身，里面要有 manifest.json、models 和 tensors。"
-            )
-        } else {
-            log("已找到 ${caseDir.absolutePath}")
-        }
+        downloadButton = findViewById(R.id.download)
+        pickButton = findViewById(R.id.pickFolder)
+        showCase()
+        downloadButton.setOnClickListener { downloadCase() }
+        pickButton.setOnClickListener { pickFolder.launch(null) }
         button.setOnClickListener { synthesize(locateCase()) }
     }
 
@@ -46,15 +47,58 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    private fun downloadCase() {
+        setBusy(true)
+        worker.execute {
+            try {
+                engine?.close()
+                engine = null
+                CaseFetcher.download(this) { line -> ui { log(line) } }
+                ui {
+                    showCase()
+                    log("测试数据已放进应用目录。连点两次「合成」，第二次的时间才算数。")
+                }
+            } catch (error: Exception) {
+                ui { log(error.stackTraceToString()) }
+            } finally {
+                ui { setBusy(false) }
+            }
+        }
+    }
+
+    private fun importFolder(uri: Uri) {
+        try {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
+            )
+        } catch (_: SecurityException) {
+            // 本次选择已经带有读取授权，复制完成前不需要长期保存。
+        }
+        setBusy(true)
+        worker.execute {
+            try {
+                engine?.close()
+                engine = null
+                CaseFetcher.importTree(this, uri) { line -> ui { log(line) } }
+                ui {
+                    showCase()
+                    log("目录已复制到应用里。连点两次「合成」，第二次的时间才算数。")
+                }
+            } catch (error: Exception) {
+                ui { log(error.stackTraceToString()) }
+            } finally {
+                ui { setBusy(false) }
+            }
+        }
+    }
+
     private fun synthesize(caseDir: File?) {
         if (caseDir == null) {
-            log(
-                "还没有模型。在电脑上执行：\n\n" +
-                    "adb push android_case ${expectedPath().parentFile?.absolutePath}/"
-            )
+            log("还没有模型。点「下载测试数据」，大约 840MB，请用 Wi-Fi。")
             return
         }
-        button.isEnabled = false
+        setBusy(true)
         worker.execute {
             try {
                 val threads = min(6, max(1, Runtime.getRuntime().availableProcessors()))
@@ -81,9 +125,26 @@ class MainActivity : AppCompatActivity() {
             } catch (error: Exception) {
                 ui { log(error.stackTraceToString()) }
             } finally {
-                ui { button.isEnabled = true }
+                ui { setBusy(false) }
             }
         }
+    }
+
+    private fun showCase() {
+        val caseDir = locateCase()
+        findViewById<TextView>(R.id.casePath).text = caseDir?.absolutePath ?: expectedPath().absolutePath
+        logView.text = ""
+        if (caseDir == null) {
+            log("还没有模型。点「下载测试数据」，大约 840MB，请用 Wi-Fi。")
+        } else {
+            log("已找到 ${caseDir.absolutePath}")
+        }
+    }
+
+    private fun setBusy(busy: Boolean) {
+        downloadButton.isEnabled = !busy
+        pickButton.isEnabled = !busy
+        button.isEnabled = !busy
     }
 
     private fun locateCase(): File? {

@@ -41,17 +41,20 @@
 
 工程在 `android/onnx-demo`，包名 `com.genie.onnxdemo`，只保留 `arm64-v8a`。依赖是 `com.microsoft.onnxruntime:onnxruntime-android:1.22.0`。
 
-在装好 Android SDK 的电脑上编译并安装：
+没有电脑时，用手机浏览器打开安装包并安装，安装时允许未知来源：
+
+https://github.com/lostprobe99/Genie-TTS/raw/cursor/android-onnx-demo-doc-3875/android/onnx-demo/genie-onnx-demo.apk
+
+打开应用，点「下载测试数据」。应用会从上面这个仓库分支下载 `android_case`，大约 840MB，请用 Wi-Fi。四个模型被切成不到 50MB 的分片，应用下完后自己拼回去。下完后连点两次「合成」，第二次的时间才算数。
+
+如果手机里已经有解压好的 `android_case`，点「选择已解压的目录」，选中包含 `manifest.json` 的那一层。Android 11 以后，文件管理器写不进 `Android/data`，所以应用会把选中的文件复制进自己的目录。
+
+在装好 Android SDK 的电脑上也可以自己编译：
 
 ```bash
 cd android/onnx-demo
 gradle :app:assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-先打开一次应用，让系统创建应用目录，再把导出结果推上去。推送的是 `android_case` 目录本身：
-
-```bash
 adb push android_case /sdcard/Android/data/com.genie.onnxdemo/files/
 ```
 

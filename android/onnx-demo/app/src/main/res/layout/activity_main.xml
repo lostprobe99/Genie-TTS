@@ -32,13 +32,29 @@
         android:textSize="12sp" />
 
     <Button
-        android:id="@+id/synthesize"
+        android:id="@+id/download"
         android:layout_width="match_parent"
         android:layout_height="56dp"
         android:layout_marginTop="20dp"
         android:backgroundTint="@color/amber"
-        android:text="@string/synthesize"
+        android:text="@string/download"
         android:textColor="@color/ink"
+        android:textSize="18sp" />
+
+    <Button
+        android:id="@+id/pickFolder"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="@string/pick_folder"
+        android:textSize="15sp" />
+
+    <Button
+        android:id="@+id/synthesize"
+        android:layout_width="match_parent"
+        android:layout_height="56dp"
+        android:layout_marginTop="8dp"
+        android:text="@string/synthesize"
         android:textSize="18sp" />
 
     <ScrollView
