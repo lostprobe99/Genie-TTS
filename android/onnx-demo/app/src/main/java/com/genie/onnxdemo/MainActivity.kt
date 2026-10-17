@@ -13,6 +13,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import ai.onnxruntime.OrtEnvironment
+import org.json.JSONObject
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
@@ -168,6 +169,7 @@ class MainActivity : AppCompatActivity() {
     private fun showCase() {
         val caseDir = locateCase()
         findViewById<TextView>(R.id.casePath).text = caseDir?.absolutePath ?: expectedPath().absolutePath
+        findViewById<TextView>(R.id.sentence).text = readSentence(caseDir) ?: getString(R.string.sentence)
         logView.text = ""
         if (caseDir == null) {
             log("还没有模型。请先单独下载 feibi-case.zip，再点「导入」。应用会把它解压到应用目录。")
@@ -181,6 +183,15 @@ class MainActivity : AppCompatActivity() {
         pickButton.isEnabled = !busy
         pickZipButton.isEnabled = !busy
         button.isEnabled = !busy
+    }
+
+    private fun readSentence(caseDir: File?): String? {
+        if (caseDir == null) return null
+        return try {
+            JSONObject(File(caseDir, "manifest.json").readText()).optString("text").ifBlank { null }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private fun locateCase(): File? {

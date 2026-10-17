@@ -47,6 +47,13 @@ https://github.com/lostprobe99/Genie-TTS/raw/cursor/android-onnx-demo-doc-3875/a
 
 测试数据是单独的一个压缩包 `feibi-case.zip`，不打进安装包。下载完成后，在应用里点「导入」并选中这个文件。应用把它解压到自己的目录。解压完成后连点两次「合成」，第二次的时间才算数。
 
+换句子时不用重新下载模型。下面四个小包只带新的音素和全零韵律特征，导入后会盖住原来的 `text_seq`、`text_bert` 和 `manifest.json`。屏幕上的句子来自包里的 `text`。
+
+- `android/onnx-demo/sentences/01-qiyan.zip`：朝辞白帝彩云间，千里江陵一日还。
+- `android/onnx-demo/sentences/02-luoshen-yuan.zip`：远而望之，皎若太阳升朝霞。
+- `android/onnx-demo/sentences/03-luoshen-po.zip`：迫而察之，灼若芙蕖出渌波。
+- `android/onnx-demo/sentences/04-lun-chijiuzhan.zip`：战争的伟力之最深厚的根源，存在于民众之中。
+
 如果手机里已经有解压好的 `android_case`，点「选择已解压的目录」，选中包含 `manifest.json` 的那一层。Android 11 以后，文件管理器写不进 `Android/data`，所以应用会把选中的文件复制进自己的目录。应用内的「下载测试数据」仍可使用。
 
 在装好 Android SDK 的电脑上也可以自己编译：
