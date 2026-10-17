@@ -41,10 +41,10 @@
     "desktop_seconds": 3.76
   },
   {
-    "file": "02-luoshen-yuan.zip",
-    "text": "远而望之，皎若太阳升朝霞。",
-    "infer_text": "。远而望之，皎若太阳升朝霞。",
-    "normalized": ".远而望之,皎若太阳升朝霞.",
+    "file": "02-luoshen.zip",
+    "text": "远而望之，皎若太阳升朝霞。迫而察之，灼若芙蕖出渌波。",
+    "infer_text": "。远而望之，皎若太阳升朝霞。迫而察之，灼若芙蕖出渌波。",
+    "normalized": ".远而望之,皎若太阳升朝霞.迫而察之,灼若芙蕖出渌波.",
     "phones": [
       ".",
       "y",
@@ -70,17 +70,6 @@
       "ao1",
       "x",
       "ia2",
-      "."
-    ],
-    "phone_count": 25,
-    "desktop_seconds": 3.24
-  },
-  {
-    "file": "03-luoshen-po.zip",
-    "text": "迫而察之，灼若芙蕖出渌波。",
-    "infer_text": "。迫而察之，灼若芙蕖出渌波。",
-    "normalized": ".迫而察之,灼若芙蕖出渌波.",
-    "phones": [
       ".",
       "p",
       "o4",
@@ -107,11 +96,11 @@
       "o1",
       "."
     ],
-    "phone_count": 25,
-    "desktop_seconds": 3.24
+    "phone_count": 49,
+    "desktop_seconds": 5.8
   },
   {
-    "file": "04-lun-chijiuzhan.zip",
+    "file": "03-lun-chijiuzhan.zip",
     "text": "战争的伟力之最深厚的根源，存在于民众之中。",
     "infer_text": "。战争的伟力之最深厚的根源，存在于民众之中。",
     "normalized": ".战争的伟力之最深厚的根源,存在于民众之中.",
