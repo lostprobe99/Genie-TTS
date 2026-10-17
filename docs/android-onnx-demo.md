@@ -39,11 +39,23 @@
 
 ## 手机应用
 
-只保留 `arm64-v8a`。依赖使用 `com.microsoft.onnxruntime:onnxruntime-android:1.22.0`，贴近仓库钉死的 ONNX Runtime 1.22.1。
+工程在 `android/onnx-demo`，包名 `com.genie.onnxdemo`，只保留 `arm64-v8a`。依赖是 `com.microsoft.onnxruntime:onnxruntime-android:1.22.0`。
 
-模型不要打进 APK。用 `adb push` 把 `android_case/models`、`android_case/tensors` 和 `android_case/manifest.json` 推到应用私有目录。
+在装好 Android SDK 的电脑上编译并安装：
 
-界面上放一个「合成」按钮。按下后：
+```bash
+cd android/onnx-demo
+gradle :app:assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+先打开一次应用，让系统创建应用目录，再把导出结果推上去。推送的是 `android_case` 目录本身：
+
+```bash
+adb push android_case /sdcard/Android/data/com.genie.onnxdemo/files/
+```
+
+模型不要打进 APK。界面上有一个「合成」按钮。按下后：
 
 1. 按 `manifest.json` 读入七个数组。
 2. 依次运行 encoder、first-stage decoder、stage decoder、VITS。stage decoder 一步一个语义 token，直到停止标志为真，最多 500 步。停止条件和张量顺序与 `Core/Inference.py` 的 `t2s_cpu` 一致。

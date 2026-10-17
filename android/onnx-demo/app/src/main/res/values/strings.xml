@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Genie ONNX</string>
+    <string name="synthesize">合成</string>
+    <string name="sentence">今天天气不错，我们出去走走吧。</string>
+</resources>
