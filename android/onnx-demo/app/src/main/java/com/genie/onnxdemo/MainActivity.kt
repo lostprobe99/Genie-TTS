@@ -1,5 +1,7 @@
 package com.genie.onnxdemo
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -7,6 +9,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import ai.onnxruntime.OrtEnvironment
@@ -39,6 +42,11 @@ class MainActivity : AppCompatActivity() {
         downloadButton.setOnClickListener { downloadCase() }
         pickButton.setOnClickListener { pickFolder.launch(null) }
         button.setOnClickListener { synthesize(locateCase()) }
+        findViewById<Button>(R.id.copyLog).setOnClickListener { copyLog() }
+        logView.setOnLongClickListener {
+            copyLog()
+            true
+        }
     }
 
     override fun onDestroy() {
@@ -156,6 +164,17 @@ class MainActivity : AppCompatActivity() {
     private fun expectedPath(): File {
         val base = getExternalFilesDir(null) ?: filesDir
         return File(base, "android_case")
+    }
+
+    private fun copyLog() {
+        val text = logView.text?.toString().orEmpty().trim()
+        if (text.isEmpty()) {
+            Toast.makeText(this, "还没有日志", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("genie-onnx-log", text))
+        Toast.makeText(this, "日志已复制", Toast.LENGTH_SHORT).show()
     }
 
     private fun log(line: String) {

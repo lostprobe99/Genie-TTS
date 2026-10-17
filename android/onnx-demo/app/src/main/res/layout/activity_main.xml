@@ -57,6 +57,14 @@
         android:text="@string/synthesize"
         android:textSize="18sp" />
 
+    <Button
+        android:id="@+id/copyLog"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="@string/copy_log"
+        android:textSize="15sp" />
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"

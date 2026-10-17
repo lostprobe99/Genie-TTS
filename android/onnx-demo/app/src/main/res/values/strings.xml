@@ -4,5 +4,6 @@
     <string name="download">下载测试数据</string>
     <string name="pick_folder">选择已解压的目录</string>
     <string name="synthesize">合成</string>
+    <string name="copy_log">复制日志</string>
     <string name="sentence">今天天气不错，我们出去走走吧。</string>
 </resources>
