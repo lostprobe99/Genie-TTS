@@ -3,14 +3,22 @@ package com.genie.onnxdemo
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import org.json.JSONObject
 import java.io.File
+import java.io.InputStream
+import java.io.SequenceInputStream
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Collections
+import java.util.zip.ZipInputStream
 
 object CaseFetcher {
     const val RAW_BASE =
         "https://raw.githubusercontent.com/lostprobe99/Genie-TTS/cursor/android-onnx-demo-doc-3875/android_case"
+    const val PACKAGE_PAGE =
+        "https://github.com/lostprobe99/Genie-TTS/tree/cursor/android-onnx-demo-doc-3875/android/onnx-demo/package"
+    private val partCount = Regex("""of-(\d+)""")
 
     fun download(context: Context, onStatus: (String) -> Unit): File {
         val root = File(context.filesDir, "android_case")
@@ -31,6 +39,50 @@ object CaseFetcher {
         }
         downloadFile("$RAW_BASE/desktop.wav", File(root, "desktop.wav"), "desktop.wav", onStatus)
         return root
+    }
+
+    fun importArchives(context: Context, uris: List<Uri>, onStatus: (String) -> Unit): File {
+        if (uris.isEmpty()) throw IllegalStateException("没有选中文件")
+        val named = uris.map { it to displayName(context, it) }.sortedBy { it.second }
+        val expected = named.mapNotNull { partCount.find(it.second)?.groupValues?.get(1)?.toInt() }.distinct()
+        if (expected.size == 1 && named.size != expected[0]) {
+            throw IllegalStateException("压缩包共 ${expected[0]} 个分卷，当前选了 ${named.size} 个。请一次全选。")
+        }
+        onStatus("正在解压 ${named.size} 个文件")
+        val streams = named.map { (uri, name) ->
+            context.contentResolver.openInputStream(uri) ?: throw IllegalStateException("读不到 $name")
+        }
+        val root = File(context.filesDir, "android_case")
+        root.mkdirs()
+        unzip(SequenceInputStream(Collections.enumeration(streams)), root, onStatus)
+        if (!File(root, "manifest.json").isFile || !File(root, "models/vits_fp32.onnx").isFile) {
+            throw IllegalStateException("压缩包不完整。请把 feibi-case 全部分卷一次选中。")
+        }
+        return root
+    }
+
+    private fun displayName(context: Context, uri: Uri): String {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) return cursor.getString(0) ?: "part"
+        }
+        return uri.lastPathSegment ?: "part"
+    }
+
+    private fun unzip(input: InputStream, root: File, onStatus: (String) -> Unit) {
+        ZipInputStream(input).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                if (entry.isDirectory) continue
+                val name = entry.name.trimStart('/')
+                if (name.isEmpty() || name.contains("..")) throw IllegalStateException("压缩包路径不安全")
+                val dest = File(root, name)
+                dest.parentFile?.mkdirs()
+                val rootPath = root.canonicalPath + File.separator
+                if (!dest.canonicalPath.startsWith(rootPath)) throw IllegalStateException("压缩包路径不安全")
+                onStatus("正在解压 ${dest.name}")
+                dest.outputStream().use { output -> zip.copyTo(output, 256 * 1024) }
+            }
+        }
     }
 
     fun importTree(context: Context, tree: Uri, onStatus: (String) -> Unit): File {
