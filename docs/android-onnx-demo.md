@@ -45,7 +45,7 @@
 
 https://github.com/lostprobe99/Genie-TTS/raw/cursor/android-onnx-demo-doc-3875/android/onnx-demo/genie-onnx-demo.apk
 
-打开应用，点「在浏览器打开压缩包」，把目录里的 `feibi-case-01-of-10` 到 `feibi-case-10-of-10` 全部下载到手机。回到应用，点「选择压缩包」，一次全选这 10 个分卷。应用会按文件名拼回去并解压。解压完成后连点两次「合成」，第二次的时间才算数。
+测试数据是单独的一个压缩包 `feibi-case.zip`，不打进安装包。下载完成后，在应用里点「导入」并选中这个文件。应用把它解压到自己的目录。解压完成后连点两次「合成」，第二次的时间才算数。
 
 如果手机里已经有解压好的 `android_case`，点「选择已解压的目录」，选中包含 `manifest.json` 的那一层。Android 11 以后，文件管理器写不进 `Android/data`，所以应用会把选中的文件复制进自己的目录。应用内的「下载测试数据」仍可使用。
 

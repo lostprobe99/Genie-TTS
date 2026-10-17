@@ -42,14 +42,6 @@
         android:textSize="18sp" />
 
     <Button
-        android:id="@+id/openPackage"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="8dp"
-        android:text="@string/open_package"
-        android:textSize="15sp" />
-
-    <Button
         android:id="@+id/pickFolder"
         android:layout_width="match_parent"
         android:layout_height="48dp"

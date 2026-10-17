@@ -2,7 +2,6 @@ package com.genie.onnxdemo
 
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
@@ -29,12 +28,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var downloadButton: Button
     private lateinit var pickButton: Button
     private lateinit var pickZipButton: Button
-    private lateinit var openPackageButton: Button
     private val pickFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         if (uri != null) importFolder(uri)
     }
-    private val pickZip = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (!uris.isNullOrEmpty()) importZip(uris)
+    private val pickZip = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) importZip(uri)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,12 +43,12 @@ class MainActivity : AppCompatActivity() {
         downloadButton = findViewById(R.id.download)
         pickButton = findViewById(R.id.pickFolder)
         pickZipButton = findViewById(R.id.pickZip)
-        openPackageButton = findViewById(R.id.openPackage)
         showCase()
         downloadButton.setOnClickListener { downloadCase() }
         pickButton.setOnClickListener { pickFolder.launch(null) }
-        pickZipButton.setOnClickListener { pickZip.launch(arrayOf("*/*")) }
-        openPackageButton.setOnClickListener { openPackage() }
+        pickZipButton.setOnClickListener {
+            pickZip.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+        }
         button.setOnClickListener { synthesize(locateCase()) }
         findViewById<Button>(R.id.copyLog).setOnClickListener { copyLog() }
         logView.setOnLongClickListener {
@@ -84,26 +82,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun openPackage() {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(CaseFetcher.PACKAGE_PAGE))
-        try {
-            startActivity(intent)
-        } catch (error: Exception) {
-            log(CaseFetcher.PACKAGE_PAGE)
-            logFailure(error)
-        }
-    }
-
-    private fun importZip(uris: List<Uri>) {
+    private fun importZip(uri: Uri) {
         setBusy(true)
         worker.execute {
             try {
                 engine?.close()
                 engine = null
-                CaseFetcher.importArchives(this, uris) { line -> ui { log(line) } }
+                CaseFetcher.importArchive(this, uri) { line -> ui { log(line) } }
                 ui {
                     showCase()
-                    log("压缩包已解压。连点两次「合成」，第二次的时间才算数。")
+                    log("测试数据已解压到应用目录。连点两次「合成」，第二次的时间才算数。")
                 }
             } catch (error: Exception) {
                 ui { logFailure(error) }
@@ -142,7 +130,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun synthesize(caseDir: File?) {
         if (caseDir == null) {
-            log("还没有模型。先在浏览器下载全部分卷，再点「选择压缩包」一次全选。")
+            log("还没有模型。请先单独下载 feibi-case.zip，再点「导入」。")
             return
         }
         setBusy(true)
@@ -182,7 +170,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.casePath).text = caseDir?.absolutePath ?: expectedPath().absolutePath
         logView.text = ""
         if (caseDir == null) {
-            log("还没有模型。先点「在浏览器打开压缩包」，把 feibi-case 全部分卷下载到手机，再点「选择压缩包」一次全选。")
+            log("还没有模型。请先单独下载 feibi-case.zip，再点「导入」。应用会把它解压到应用目录。")
         } else {
             log("已找到 ${caseDir.absolutePath}")
         }
@@ -192,7 +180,6 @@ class MainActivity : AppCompatActivity() {
         downloadButton.isEnabled = !busy
         pickButton.isEnabled = !busy
         pickZipButton.isEnabled = !busy
-        openPackageButton.isEnabled = !busy
         button.isEnabled = !busy
     }
 
