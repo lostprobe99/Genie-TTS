@@ -191,6 +191,7 @@ class TtsEngine(
         textBert: OwnedTensor,
         log: (String) -> Unit,
         refBert: OwnedTensor? = null,
+        speed: Double = 1.0,
     ): SynthesisReport {
         val totalStart = SystemClock.elapsedRealtime()
         val encoderStart = SystemClock.elapsedRealtime()
@@ -250,7 +251,8 @@ class TtsEngine(
         }
         val decoderMs = SystemClock.elapsedRealtime() - decoderStart
 
-        val semantic = finishSemantic(stoppedY ?: error("解码没有输出"), steps)
+        val semantic = applySpeed(finishSemantic(stoppedY ?: error("解码没有输出"), steps), speed)
+        val semanticTokens = semantic.shape.last().toInt()
         val vocoderStart = SystemClock.elapsedRealtime()
         val audioTensor = run(
             sessions.getValue("vits_fp32.onnx"),
@@ -272,6 +274,7 @@ class TtsEngine(
             sampleRate = case.sampleRate,
             encoderMs = encoderMs,
             decoderSteps = steps + 1,
+            semanticTokens = semanticTokens,
             decoderMs = decoderMs,
             vocoderMs = vocoderMs,
             totalMs = totalMs,
@@ -302,12 +305,23 @@ data class SynthesisReport(
     val sampleRate: Int,
     val encoderMs: Long,
     val decoderSteps: Int,
+    val semanticTokens: Int,
     val decoderMs: Long,
     val vocoderMs: Long,
     val totalMs: Long,
 ) {
     val durationSec: Double = samples.size.toDouble() / sampleRate
     val realTimeFactor: Double = (totalMs / 1000.0) / durationSec
+}
+
+private fun applySpeed(semantic: OwnedTensor, speed: Double): OwnedTensor {
+    val length = semantic.shape.last().toInt()
+    val buf = semantic.bytes.duplicate().order(ByteOrder.nativeOrder())
+    buf.position(0)
+    val tokens = LongArray(length) { buf.long }
+    val stretched = stretchTokens(tokens, speed)
+    if (stretched.size == tokens.size) return semantic
+    return OwnedTensor.fromLongs(longArrayOf(1, 1, stretched.size.toLong()), stretched)
 }
 
 private fun readBool(tensor: OnnxTensor): Boolean {

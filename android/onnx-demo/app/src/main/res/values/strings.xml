@@ -8,4 +8,5 @@
     <string name="copy_log">复制日志</string>
     <string name="sentence">今天天气不错，我们出去走走吧。</string>
     <string name="sentence_hint">在这里输入中文，多句会逐句播放</string>
+    <string name="speed_label">语速 %1$.2f</string>
 </resources>

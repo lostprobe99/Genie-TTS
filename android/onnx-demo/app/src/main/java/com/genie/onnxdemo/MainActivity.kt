@@ -13,6 +13,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -43,6 +44,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prosodyButton: Button
     private lateinit var pickZipButton: Button
     private lateinit var characters: Spinner
+    private lateinit var speedBar: SeekBar
+    private lateinit var speedLabel: TextView
     private var shown: List<CharacterInfo> = emptyList()
     private var selectedId: String? = null
     private var bindingSpinner = false
@@ -59,6 +62,20 @@ class MainActivity : AppCompatActivity() {
         prosodyButton = findViewById(R.id.downloadProsody)
         pickZipButton = findViewById(R.id.pickZip)
         characters = findViewById(R.id.characters)
+        speedBar = findViewById(R.id.speed)
+        speedLabel = findViewById(R.id.speedLabel)
+        speedBar.progress = savedSpeedProgress()
+        showSpeed()
+        speedBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                showSpeed()
+                if (fromUser) persistSpeed(progress)
+            }
+
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
         CharacterPack.migrateLegacy(filesDir)
         selectedId = File(filesDir, "selected-character.txt").takeIf { it.isFile }?.readText()?.trim()
         refreshCharacters(announce = true)
@@ -157,6 +174,7 @@ class MainActivity : AppCompatActivity() {
             log("这句话切完没有可合成的内容")
             return
         }
+        val speed = speechSpeed()
         setBusy(true)
         worker.execute {
             try {
@@ -194,6 +212,7 @@ class MainActivity : AppCompatActivity() {
                         textBert,
                         { line -> ui { log(line) } },
                         refBert,
+                        speed,
                     )
                     val wav = File(caseDir, if (total == 1) "phone.wav" else "phone-$nth.wav")
                     writeWav(wav, report.samples, report.sampleRate)
@@ -203,7 +222,8 @@ class MainActivity : AppCompatActivity() {
                     played += 1
                     ui {
                         log(
-                            "encoder ${report.encoderMs} ms\n" +
+                            "语速 ${"%.2f".format(speed)}，语义 ${report.semanticTokens} 帧\n" +
+                                "encoder ${report.encoderMs} ms\n" +
                                 "decoder ${report.decoderSteps} 步，${report.decoderMs} ms\n" +
                                 "声码器 ${report.vocoderMs} ms\n" +
                                 "总计 ${report.totalMs} ms\n" +
@@ -293,7 +313,23 @@ class MainActivity : AppCompatActivity() {
         prosodyButton.isEnabled = !busy
         pickZipButton.isEnabled = !busy
         characters.isEnabled = !busy
+        speedBar.isEnabled = !busy
         button.isEnabled = !busy && selectedDir() != null
+    }
+
+    private fun speechSpeed(): Double = 0.6 + speedBar.progress * 0.05
+
+    private fun showSpeed() {
+        speedLabel.text = getString(R.string.speed_label, speechSpeed())
+    }
+
+    private fun savedSpeedProgress(): Int {
+        val saved = File(filesDir, "speech-speed.txt").takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull()
+        return saved?.coerceIn(0, 16) ?: 8
+    }
+
+    private fun persistSpeed(progress: Int) {
+        File(filesDir, "speech-speed.txt").writeText(progress.toString())
     }
 
     private fun textBert(caseDir: File, phones: com.genie.onnxdemo.g2p.PhoneResult, threads: Int): OwnedTensor {
