@@ -1,5 +1,7 @@
 # Android ONNX 实测 Demo
 
+下一步要加的第二个中文角色，写在 [android-agent-handoff.md](android-agent-handoff.md)。那份是给下一个 agent 的交接。
+
 在真机上跑通菲比。输入框里打中文，点「合成」。一段话先按原仓库的 `TextSplitter` 切开，一句合成完就播放，再合下一句。每一句由手机自己变成音素，再用中文 RoBERTa 填这一句的 `text_bert`。参考句的 `ref_bert` 只算一次。然后交给 T2S 和声码器。参考音色仍用已经放在手机里的录音特征。NPU 不在这次范围内。
 
 ## 已完成的导出
