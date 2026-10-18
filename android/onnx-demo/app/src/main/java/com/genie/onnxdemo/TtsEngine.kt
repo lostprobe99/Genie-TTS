@@ -139,8 +139,6 @@ class TtsEngine(
     private val env: OrtEnvironment,
     private val caseDir: File,
     private val threads: Int,
-    private val sampling: Sampling? = null,
-    private val workDir: File = caseDir,
 ) : AutoCloseable {
     private val sessions = HashMap<String, OrtSession>()
 
@@ -155,10 +153,9 @@ class TtsEngine(
     }
 
     private fun openSession(name: String, optionsDir: File, useXnnpack: Boolean, log: (String) -> Unit): OrtSession {
-        val model = modelFile(name, log).absolutePath
-        val tag = sampling?.stamp ?: "baked"
+        val model = File(caseDir, "models/$name").absolutePath
         if (useXnnpack) {
-            val options = sessionOptions(optFile(optionsDir, "$name.$tag.t$threads.xnnpack.opt"))
+            val options = sessionOptions(optFile(optionsDir, "$name.t$threads.xnnpack.opt"))
             try {
                 options.addXnnpack(mapOf("intra_op_num_threads" to threads.toString()))
                 val session = env.createSession(model, options)
@@ -170,7 +167,7 @@ class TtsEngine(
                 options.close()
             }
         }
-        val options = sessionOptions(optFile(optionsDir, "$name.$tag.t$threads.opt"))
+        val options = sessionOptions(optFile(optionsDir, "$name.t$threads.opt"))
         try {
             val session = env.createSession(model, options)
             log("已加载 $name（CPU）")
@@ -178,30 +175,6 @@ class TtsEngine(
         } finally {
             options.close()
         }
-    }
-
-    private fun modelFile(name: String, log: (String) -> Unit): File {
-        val source = File(caseDir, "models/$name")
-        val current = sampling
-        val kind = when (name) {
-            "t2s_stage_decoder_fp32.onnx" -> DecoderKind.STAGE
-            "t2s_first_stage_decoder_fp32.onnx" -> DecoderKind.FIRST
-            else -> null
-        }
-        if (current == null || kind == null) return source
-        val dest = File(workDir, "patched/${current.stamp}-$name")
-        if (dest.isFile && dest.length() == source.length()) return dest
-        val temp = File(workDir, "patched/${current.stamp}-$name.part")
-        val wrote = patchModel(source, temp, samplingEdits(kind, current.temperature, current.topK, current.repetitionPenalty))
-        if (!wrote || !temp.renameTo(dest)) {
-            temp.delete()
-            dest.delete()
-            log("采样参数没有写进 $name，仍用模型原值")
-            return source
-        }
-        dest.parentFile?.listFiles()?.filter { it.name.endsWith(name) && it != dest }?.forEach { it.delete() }
-        log("已写入 $name 的温度 ${current.temperature}、TopK ${current.topK}、重复惩罚 ${current.repetitionPenalty}")
-        return dest
     }
 
     private fun optFile(dir: File, name: String): String {

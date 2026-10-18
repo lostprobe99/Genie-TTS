@@ -1,31 +1,29 @@
 package com.genie.onnxdemo
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SynthParamsTest {
     @Test
-    fun defaultsMatchTheBakedModel() {
-        val params = SynthParams.fromProgress(8, 16, 14, 7, 4, 30, 20, 0, true)
+    fun defaultsMatchTheDesktopCall() {
+        val params = SynthParams.fromProgress(8, 4, 30, 20, 0, true)
         assertEquals(1.0, params.speed, 0.001)
-        assertEquals(1.0, params.temperature, 0.001)
-        assertEquals(15, params.topK)
-        assertEquals(1.35, params.repetitionPenalty, 0.001)
         assertEquals(5, params.minSentence)
         assertEquals(40, params.maxSentence)
         assertEquals(500, params.maxSteps)
-        assertTrue(params.samplingIsBaked)
+        assertEquals(0, params.threads)
         assertTrue(params.leadingPeriod)
     }
 
     @Test
-    fun movedSamplingIsNotBaked() {
-        val params = SynthParams.fromProgress(4, 16, 14, 7, 4, 30, 20, 0, true)
+    fun slowerSpeedAndShorterSentences() {
+        val params = SynthParams.fromProgress(4, 2, 20, 10, 4, false)
         assertEquals(0.80, params.speed, 0.001)
-        assertTrue(params.samplingIsBaked)
-        val hotter = params.copy(temperature = 1.2, topK = 8)
-        assertFalse(hotter.samplingIsBaked)
+        assertEquals(3, params.minSentence)
+        assertEquals(30, params.splitMax())
+        assertEquals(300, params.maxSteps)
+        assertEquals(4, params.threads)
+        assertEquals(false, params.leadingPeriod)
     }
 }

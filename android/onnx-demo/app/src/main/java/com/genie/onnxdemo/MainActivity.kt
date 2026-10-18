@@ -190,7 +190,7 @@ class MainActivity : AppCompatActivity() {
                         refReady = true
                     }
                     mark("加载声学模型")
-                    val stamp = "${caseDir.name}|$threads|${if (chosen.samplingIsBaked) "baked" else chosen.samplingStamp()}"
+                    val stamp = "${caseDir.name}|$threads"
                     if (engine != null && engineStamp != stamp) {
                         engine?.close()
                         engine = null
@@ -199,12 +199,6 @@ class MainActivity : AppCompatActivity() {
                         OrtEnvironment.getEnvironment(),
                         caseDir,
                         threads,
-                        sampling = if (chosen.samplingIsBaked) {
-                            null
-                        } else {
-                            Sampling(chosen.temperature, chosen.topK, chosen.repetitionPenalty)
-                        },
-                        workDir = filesDir,
                     ).also {
                         engine = it
                         engineStamp = stamp

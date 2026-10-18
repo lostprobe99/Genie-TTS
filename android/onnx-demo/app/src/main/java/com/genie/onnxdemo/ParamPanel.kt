@@ -10,9 +10,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
     private val toggle = activity.findViewById<TextView>(R.id.paramsToggle)
     private val panel = activity.findViewById<android.view.View>(R.id.paramsPanel)
     private val speed = activity.findViewById<SeekBar>(R.id.speed)
-    private val temperature = activity.findViewById<SeekBar>(R.id.temperature)
-    private val topK = activity.findViewById<SeekBar>(R.id.topK)
-    private val penalty = activity.findViewById<SeekBar>(R.id.penalty)
     private val minSentence = activity.findViewById<SeekBar>(R.id.minSentence)
     private val maxSentence = activity.findViewById<SeekBar>(R.id.maxSentence)
     private val maxSteps = activity.findViewById<SeekBar>(R.id.maxSteps)
@@ -23,9 +20,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
     fun bind() {
         val saved = readFile()
         speed.progress = saved.speed
-        temperature.progress = saved.temperature
-        topK.progress = saved.topK
-        penalty.progress = saved.penalty
         minSentence.progress = saved.minSentence
         maxSentence.progress = saved.maxSentence
         maxSteps.progress = saved.maxSteps
@@ -43,7 +37,7 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         }
-        listOf(speed, temperature, topK, penalty, minSentence, maxSentence, maxSteps, threads)
+        listOf(speed, minSentence, maxSentence, maxSteps, threads)
             .forEach { it.setOnSeekBarChangeListener(listener) }
         leading.setOnCheckedChangeListener { _, _ ->
             refreshLabels()
@@ -59,9 +53,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
 
     fun read(): SynthParams = SynthParams.fromProgress(
         speed = speed.progress,
-        temperature = temperature.progress,
-        topK = topK.progress,
-        penalty = penalty.progress,
         minSentence = minSentence.progress,
         maxSentence = maxSentence.progress,
         maxSteps = maxSteps.progress,
@@ -70,7 +61,7 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
     )
 
     fun setEnabled(enabled: Boolean) {
-        listOf(speed, temperature, topK, penalty, minSentence, maxSentence, maxSteps, threads)
+        listOf(speed, minSentence, maxSentence, maxSteps, threads)
             .forEach { it.isEnabled = enabled }
         leading.isEnabled = enabled
     }
@@ -79,12 +70,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
         val params = read()
         activity.findViewById<TextView>(R.id.speedLabel).text =
             activity.getString(R.string.speed_label, params.speed)
-        activity.findViewById<TextView>(R.id.temperatureLabel).text =
-            activity.getString(R.string.temperature_label, params.temperature)
-        activity.findViewById<TextView>(R.id.topKLabel).text =
-            activity.getString(R.string.topk_label, params.topK)
-        activity.findViewById<TextView>(R.id.penaltyLabel).text =
-            activity.getString(R.string.penalty_label, params.repetitionPenalty)
         activity.findViewById<TextView>(R.id.minSentenceLabel).text =
             activity.getString(R.string.min_sentence_label, params.minSentence)
         activity.findViewById<TextView>(R.id.maxSentenceLabel).text =
@@ -103,9 +88,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
         File(filesDir, FILE).writeText(
             listOf(
                 "speed=${speed.progress}",
-                "temperature=${temperature.progress}",
-                "topK=${topK.progress}",
-                "penalty=${penalty.progress}",
                 "minSentence=${minSentence.progress}",
                 "maxSentence=${maxSentence.progress}",
                 "maxSteps=${maxSteps.progress}",
@@ -129,9 +111,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
         }
         return Saved(
             speed = values["speed"] ?: 8,
-            temperature = values["temperature"] ?: 16,
-            topK = values["topK"] ?: 14,
-            penalty = values["penalty"] ?: 7,
             minSentence = values["minSentence"] ?: 4,
             maxSentence = values["maxSentence"] ?: 30,
             maxSteps = values["maxSteps"] ?: 20,
@@ -143,9 +122,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
 
     private data class Saved(
         val speed: Int = 8,
-        val temperature: Int = 16,
-        val topK: Int = 14,
-        val penalty: Int = 7,
         val minSentence: Int = 4,
         val maxSentence: Int = 30,
         val maxSteps: Int = 20,

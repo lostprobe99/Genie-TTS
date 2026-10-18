@@ -79,36 +79,6 @@
                 android:progress="8" />
 
             <TextView
-                android:id="@+id/temperatureLabel"
-                style="@style/ParamLabel" />
-
-            <SeekBar
-                android:id="@+id/temperature"
-                style="@style/ParamSeek"
-                android:max="26"
-                android:progress="16" />
-
-            <TextView
-                android:id="@+id/topKLabel"
-                style="@style/ParamLabel" />
-
-            <SeekBar
-                android:id="@+id/topK"
-                style="@style/ParamSeek"
-                android:max="29"
-                android:progress="14" />
-
-            <TextView
-                android:id="@+id/penaltyLabel"
-                style="@style/ParamLabel" />
-
-            <SeekBar
-                android:id="@+id/penalty"
-                style="@style/ParamSeek"
-                android:max="20"
-                android:progress="7" />
-
-            <TextView
                 android:id="@+id/minSentenceLabel"
                 style="@style/ParamLabel" />
 
