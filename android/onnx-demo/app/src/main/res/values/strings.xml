@@ -11,7 +11,6 @@
     <string name="speed_label">语速 %1$.2f</string>
     <string name="min_sentence_label">分句最短 %1$d</string>
     <string name="max_sentence_label">分句最长 %1$d</string>
-    <string name="max_steps_label">解码步数 %1$d</string>
     <string name="threads_auto">线程 自动</string>
     <string name="threads_fixed">线程 %1$d</string>
     <string name="params_toggle">参数 · 语速 %1$.2f %2$s</string>

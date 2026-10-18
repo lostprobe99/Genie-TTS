@@ -11,7 +11,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
     private val speed = activity.findViewById<SeekBar>(R.id.speed)
     private val minSentence = activity.findViewById<SeekBar>(R.id.minSentence)
     private val maxSentence = activity.findViewById<SeekBar>(R.id.maxSentence)
-    private val maxSteps = activity.findViewById<SeekBar>(R.id.maxSteps)
     private val threads = activity.findViewById<SeekBar>(R.id.threads)
     private var open = false
 
@@ -20,7 +19,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
         speed.progress = saved.speed
         minSentence.progress = saved.minSentence
         maxSentence.progress = saved.maxSentence
-        maxSteps.progress = saved.maxSteps
         threads.progress = saved.threads
         open = saved.open
         panel.visibility = if (open) android.view.View.VISIBLE else android.view.View.GONE
@@ -34,7 +32,7 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         }
-        listOf(speed, minSentence, maxSentence, maxSteps, threads)
+        listOf(speed, minSentence, maxSentence, threads)
             .forEach { it.setOnSeekBarChangeListener(listener) }
         toggle.setOnClickListener {
             open = !open
@@ -48,13 +46,11 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
         speed = speed.progress,
         minSentence = minSentence.progress,
         maxSentence = maxSentence.progress,
-        maxSteps = maxSteps.progress,
         threads = threads.progress,
     )
 
     fun setEnabled(enabled: Boolean) {
-        listOf(speed, minSentence, maxSentence, maxSteps, threads)
-            .forEach { it.isEnabled = enabled }
+        listOf(speed, minSentence, maxSentence, threads).forEach { it.isEnabled = enabled }
     }
 
     private fun refreshLabels() {
@@ -65,8 +61,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
             activity.getString(R.string.min_sentence_label, params.minSentence)
         activity.findViewById<TextView>(R.id.maxSentenceLabel).text =
             activity.getString(R.string.max_sentence_label, params.splitMax())
-        activity.findViewById<TextView>(R.id.maxStepsLabel).text =
-            activity.getString(R.string.max_steps_label, params.maxSteps)
         activity.findViewById<TextView>(R.id.threadsLabel).text = if (params.threads == 0) {
             activity.getString(R.string.threads_auto)
         } else {
@@ -81,7 +75,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
                 "speed=${speed.progress}",
                 "minSentence=${minSentence.progress}",
                 "maxSentence=${maxSentence.progress}",
-                "maxSteps=${maxSteps.progress}",
                 "threads=${threads.progress}",
                 "open=${if (open) 1 else 0}",
             ).joinToString("\n")
@@ -103,7 +96,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
             speed = values["speed"] ?: 8,
             minSentence = values["minSentence"] ?: 4,
             maxSentence = values["maxSentence"] ?: 30,
-            maxSteps = values["maxSteps"] ?: 20,
             threads = values["threads"] ?: 0,
             open = (values["open"] ?: 0) != 0,
         )
@@ -113,7 +105,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
         val speed: Int = 8,
         val minSentence: Int = 4,
         val maxSentence: Int = 30,
-        val maxSteps: Int = 20,
         val threads: Int = 0,
         val open: Boolean = false,
     )

@@ -219,7 +219,6 @@ class MainActivity : AppCompatActivity() {
                         { line -> ui { log(line) } },
                         refBert,
                         chosen.speed,
-                        chosen.maxSteps,
                     )
                     val wav = File(caseDir, if (total == 1) "phone.wav" else "phone-$nth.wav")
                     writeWav(wav, report.samples, report.sampleRate)

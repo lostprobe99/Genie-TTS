@@ -12,6 +12,8 @@ import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
+private const val MAX_DECODE_STEPS = 500
+
 data class OwnedTensor(
     val shape: LongArray,
     val type: OnnxJavaType,
@@ -200,7 +202,6 @@ class TtsEngine(
         log: (String) -> Unit,
         refBert: OwnedTensor? = null,
         speed: Double = 1.0,
-        maxSteps: Int = 500,
     ): SynthesisReport {
         val totalStart = SystemClock.elapsedRealtime()
         val encoderStart = SystemClock.elapsedRealtime()
@@ -232,7 +233,7 @@ class TtsEngine(
         var closeInputs = true
         var stoppedY: OwnedTensor? = null
         try {
-            for (idx in 0 until maxSteps) {
+            for (idx in 0 until MAX_DECODE_STEPS) {
                 steps = idx
                 val feed = HashMap<String, OnnxTensor>(STAGE_INPUTS.size)
                 feed[STAGE_INPUTS[0]] = yTensor
