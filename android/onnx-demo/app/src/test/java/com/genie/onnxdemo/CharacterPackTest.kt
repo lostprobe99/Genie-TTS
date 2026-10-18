@@ -47,6 +47,15 @@ class CharacterPackTest {
     }
 
     @Test
+    fun caseAllowsManifestWithoutSampleSentence() {
+        val root = File("build/case-no-text").apply { deleteRecursively(); mkdirs() }
+        File(root, "manifest.json").writeText("""{"sample_rate":32000,"tensors":{}}""")
+        val case = GenieCase(root)
+        assertEquals("", case.text)
+        assertEquals(32000, case.sampleRate)
+    }
+
+    @Test
     fun migrateMovesLegacyFeibiAndRoberta() {
         val root = File("build/character-migrate-test").apply { deleteRecursively(); mkdirs() }
         val files = File(root, "files").apply { mkdirs() }

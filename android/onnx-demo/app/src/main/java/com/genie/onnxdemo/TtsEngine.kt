@@ -97,7 +97,7 @@ class GenieCase(val root: File) {
 
     init {
         val manifest = JSONObject(File(root, "manifest.json").readText())
-        text = manifest.getString("text")
+        text = manifest.optString("text")
         sampleRate = manifest.getInt("sample_rate")
         val tensorJson = manifest.getJSONObject("tensors")
         val loaded = HashMap<String, OwnedTensor>()
