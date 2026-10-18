@@ -6,6 +6,7 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.widget.AdapterView
@@ -216,11 +217,13 @@ class MainActivity : AppCompatActivity() {
                 clearMark()
             } catch (error: Throwable) {
                 val summary = error.javaClass.simpleName + ": " + error.message.orEmpty()
-                mark("失败 $summary")
-                ui {
-                    log(summary)
-                    if (error is Exception) logFailure(error)
+                val version = try {
+                    installedVersion()
+                } catch (_: Exception) {
+                    "未知"
                 }
+                mark("失败 $version $summary")
+                ui { logFailure(error) }
             } finally {
                 ui { setBusy(false) }
             }
@@ -382,10 +385,50 @@ class MainActivity : AppCompatActivity() {
         return result
     }
 
-    private fun logFailure(error: Exception) {
-        val summary = error.message?.lineSequence()?.firstOrNull { it.isNotBlank() }
-        if (!summary.isNullOrBlank()) log(summary)
+    private fun logFailure(error: Throwable) {
+        val context = try {
+            failureContext()
+        } catch (failure: Exception) {
+            "版本读取失败 ${failure.message.orEmpty()}"
+        }
+        log(context)
+        log(error.javaClass.simpleName + ": " + error.message.orEmpty())
         log(error.stackTraceToString())
+    }
+
+    private fun installedVersion(): String {
+        val (name, code) = packageVersion()
+        return "$name（$code）"
+    }
+
+    private fun failureContext(): String {
+        val (name, code) = packageVersion()
+        return formatFailureContext(
+            RuntimeFacts(
+                versionName = name,
+                versionCode = code,
+                androidRelease = Build.VERSION.RELEASE ?: "未知",
+                api = Build.VERSION.SDK_INT,
+                manufacturer = Build.MANUFACTURER ?: "未知",
+                model = Build.MODEL ?: "未知",
+                abi = Build.SUPPORTED_ABIS.firstOrNull() ?: "未知",
+                cores = Runtime.getRuntime().availableProcessors(),
+                maxMemoryMb = Runtime.getRuntime().maxMemory() / (1024 * 1024),
+                characterId = selectedId,
+                prosodyReady = Prosody.isReady(filesDir),
+            )
+        )
+    }
+
+    private fun packageVersion(): Pair<String, Long> {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        val code = if (Build.VERSION.SDK_INT >= 28) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
+        return (info.versionName ?: "未知") to code
     }
 
     private fun copyLog() {

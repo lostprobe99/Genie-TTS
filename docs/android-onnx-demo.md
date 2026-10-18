@@ -43,11 +43,11 @@
 
 ## 手机应用
 
-工程在 `android/onnx-demo`，包名 `com.genie.onnxdemo`，只保留 `arm64-v8a`。当前安装包版本是 1.15。依赖是 `com.microsoft.onnxruntime:onnxruntime-android:1.22.0`。
+工程在 `android/onnx-demo`，包名 `com.genie.onnxdemo`，只保留 `arm64-v8a`。当前安装包版本是 1.16。依赖是 `com.microsoft.onnxruntime:onnxruntime-android:1.22.0`。
 
 安装包里没有角色。点「导入角色包」选一个 zip，列表里就多一个角色。同一个 `id` 再导一次只替换这一份。
 
-从手机上的 1.13 换成这一版，要先卸载再安装。两版调试签名不同，Android 不允许直接覆盖。卸载会清掉应用里已经下好的菲比和韵律模型，装好后重新导入角色包，并再点一次「下载韵律模型」。这一版之后的包都用仓库里的 `debug.keystore` 签名。已经装上 1.14 的话，直接覆盖安装 1.15，已导入的角色和韵律模型都还在。
+从手机上的 1.13 换成这一版，要先卸载再安装。两版调试签名不同，Android 不允许直接覆盖。卸载会清掉应用里已经下好的菲比和韵律模型，装好后重新导入角色包，并再点一次「下载韵律模型」。这一版之后的包都用仓库里的 `debug.keystore` 签名。已经装上 1.14 或 1.15 的话，直接覆盖安装 1.16，已导入的角色和韵律模型都还在。
 
 角色包用 `tools/pack_android_character.py` 生成。zip 里是 `manifest.json`、四个自包含 FP32 ONNX，以及 `ref_seq`、`ref_bert`、`ssl_content`、`ge`、`ge_advanced`。不写 `text`。`id` 用小写，菲比是 `feibi`，三月七是 `sanyueqi`。
 
@@ -100,6 +100,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 - 端到端时间
 - 音频时长
 - 实时率 = 计算时间 / 音频时长
+- 出错时先写版本和运行环境：版本号、Android 版本、机型、ABI、核心数、内存上限、当前角色、韵律模型是否已在
 
 第一次运行包含图优化和把韵律模型读进内存。和桌面端对比、以及记录耗时，都以第二次为准。
 
