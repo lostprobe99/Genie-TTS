@@ -74,6 +74,12 @@
 
 未安装时，页面上是「下载」和「从文件导入」。已安装时，显示占用空间，并可以删除。模型文件大小必须是 599,034,176 字节，大约 572 MB。对不上就视为没装好，提示重新下载或重新导入。下载有进度，中断后再点会从已下载的部分继续。再次导入会替换原来的那一份。
 
+韵律包和安装包、角色包打在同一次 GitHub release 里。文件名固定是 `prosody.zip`，根目录只有 `manifest.json` 和 `model_fp16.onnx`。应用里的下载地址就是这次 release 的文件链接：
+
+https://github.com/lostprobe99/Genie-TTS/releases/download/<版本>/prosody.zip
+
+`<版本>` 和这次发出的安装包是同一个 release，不使用 `releases/latest`，也不使用演示程序的 `android-*` 标签。角色包在同一次 release 里是 `feibi.zip` 和 `sanyueqi.zip`。用 `tools/pack_android_prosody.py` 从那份 599,034,176 字节的模型打出 `prosody.zip`。
+
 删除只去掉韵律包，已导入的角色还在。删掉角色，韵律包还在。
 
 没装韵律模型也允许合成。点合成或试听时，如果韵律包不在，先弹出告警，先不开始合成。
