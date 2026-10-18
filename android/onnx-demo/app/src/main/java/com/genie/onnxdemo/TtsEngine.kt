@@ -39,6 +39,20 @@ data class OwnedTensor(
             return OwnedTensor(shape, type, bytes)
         }
 
+        fun fromLongs(shape: LongArray, values: LongArray): OwnedTensor {
+            val copy = ByteBuffer.allocateDirect(values.size * 8).order(ByteOrder.nativeOrder())
+            values.forEach { copy.putLong(it) }
+            copy.flip()
+            return OwnedTensor(shape, OnnxJavaType.INT64, copy)
+        }
+
+        fun fromFloats(shape: LongArray, values: FloatArray): OwnedTensor {
+            val copy = ByteBuffer.allocateDirect(values.size * 4).order(ByteOrder.nativeOrder())
+            values.forEach { copy.putFloat(it) }
+            copy.flip()
+            return OwnedTensor(shape, OnnxJavaType.FLOAT, copy)
+        }
+
         fun fromOutput(tensor: OnnxTensor): OwnedTensor {
             val info = tensor.info as TensorInfo
             if (info.type == OnnxJavaType.BOOL) {
@@ -171,16 +185,21 @@ class TtsEngine(
         }
     }
 
-    fun synthesize(case: GenieCase, log: (String) -> Unit): SynthesisReport {
+    fun synthesize(
+        case: GenieCase,
+        textSeq: OwnedTensor,
+        textBert: OwnedTensor,
+        log: (String) -> Unit,
+    ): SynthesisReport {
         val totalStart = SystemClock.elapsedRealtime()
         val encoderStart = SystemClock.elapsedRealtime()
         val encoded = run(
             sessions.getValue("t2s_encoder_fp32.onnx"),
             mapOf(
                 "ref_seq" to case.tensors.getValue("ref_seq"),
-                "text_seq" to case.tensors.getValue("text_seq"),
+                "text_seq" to textSeq,
                 "ref_bert" to case.tensors.getValue("ref_bert"),
-                "text_bert" to case.tensors.getValue("text_bert"),
+                "text_bert" to textBert,
                 "ssl_content" to case.tensors.getValue("ssl_content"),
             ),
         )
@@ -235,7 +254,7 @@ class TtsEngine(
         val audioTensor = run(
             sessions.getValue("vits_fp32.onnx"),
             mapOf(
-                "text_seq" to case.tensors.getValue("text_seq"),
+                "text_seq" to textSeq,
                 "pred_semantic" to semantic,
                 "ge" to case.tensors.getValue("ge"),
                 "ge_advanced" to case.tensors.getValue("ge_advanced"),

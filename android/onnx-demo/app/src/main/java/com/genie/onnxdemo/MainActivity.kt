@@ -7,12 +7,16 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.net.Uri
 import android.os.Bundle
+import android.os.SystemClock
 import android.widget.Button
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import ai.onnxruntime.OrtEnvironment
+import com.genie.onnxdemo.g2p.ChineseFrontend
+import com.genie.onnxdemo.g2p.G2pFiles
 import org.json.JSONObject
 import java.io.File
 import java.nio.ByteBuffer
@@ -24,7 +28,9 @@ import kotlin.math.min
 class MainActivity : AppCompatActivity() {
     private val worker = Executors.newSingleThreadExecutor()
     private var engine: TtsEngine? = null
+    private var frontend: ChineseFrontend? = null
     private lateinit var logView: TextView
+    private lateinit var sentence: EditText
     private lateinit var button: Button
     private lateinit var downloadButton: Button
     private lateinit var pickButton: Button
@@ -40,6 +46,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         logView = findViewById(R.id.log)
+        sentence = findViewById(R.id.sentence)
         button = findViewById(R.id.synthesize)
         downloadButton = findViewById(R.id.download)
         pickButton = findViewById(R.id.pickFolder)
@@ -50,7 +57,7 @@ class MainActivity : AppCompatActivity() {
         pickZipButton.setOnClickListener {
             pickZip.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
         }
-        button.setOnClickListener { synthesize(locateCase()) }
+        button.setOnClickListener { synthesize(locateCase(), sentence.text?.toString()?.trim().orEmpty()) }
         findViewById<Button>(R.id.copyLog).setOnClickListener { copyLog() }
         logView.setOnLongClickListener {
             copyLog()
@@ -129,21 +136,32 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun synthesize(caseDir: File?) {
+    private fun synthesize(caseDir: File?, typed: String) {
         if (caseDir == null) {
             log("还没有模型。请先单独下载 feibi-case.zip，再点「导入」。")
+            return
+        }
+        if (typed.isBlank()) {
+            log("请先输入一句中文。")
             return
         }
         setBusy(true)
         worker.execute {
             try {
+                val phones = phonesOf(typed) ?: return@execute
                 val threads = min(6, max(1, Runtime.getRuntime().availableProcessors()))
                 val current = engine ?: TtsEngine(OrtEnvironment.getEnvironment(), caseDir, threads).also {
                     engine = it
                     val loadMs = it.load { line -> ui { log(line) } }
                     ui { log("模型加载 ${loadMs} ms，线程 $threads") }
                 }
-                val report = current.synthesize(GenieCase(caseDir)) { line -> ui { log(line) } }
+                val length = phones.ids.size
+                val textSeq = OwnedTensor.fromLongs(
+                    longArrayOf(1, length.toLong()),
+                    LongArray(length) { phones.ids[it].toLong() },
+                )
+                val textBert = OwnedTensor.fromFloats(longArrayOf(length.toLong(), 1024), FloatArray(length * 1024))
+                val report = current.synthesize(GenieCase(caseDir), textSeq, textBert) { line -> ui { log(line) } }
                 val wav = File(caseDir, "phone.wav")
                 writeWav(wav, report.samples, report.sampleRate)
                 play(report.samples, report.sampleRate)
@@ -169,7 +187,7 @@ class MainActivity : AppCompatActivity() {
     private fun showCase() {
         val caseDir = locateCase()
         findViewById<TextView>(R.id.casePath).text = caseDir?.absolutePath ?: expectedPath().absolutePath
-        findViewById<TextView>(R.id.sentence).text = readSentence(caseDir) ?: getString(R.string.sentence)
+        sentence.setText(readSentence(caseDir)?.removePrefix("。") ?: getString(R.string.sentence))
         logView.text = ""
         if (caseDir == null) {
             log("还没有模型。请先单独下载 feibi-case.zip，再点「导入」。应用会把它解压到应用目录。")
@@ -183,6 +201,27 @@ class MainActivity : AppCompatActivity() {
         pickButton.isEnabled = !busy
         pickZipButton.isEnabled = !busy
         button.isEnabled = !busy
+    }
+
+    private fun phonesOf(typed: String): com.genie.onnxdemo.g2p.PhoneResult? {
+        val current = frontend ?: run {
+            val started = SystemClock.elapsedRealtime()
+            val loaded = ChineseFrontend(G2pFiles { name -> assets.open("g2p/$name") })
+            frontend = loaded
+            ui { log("前端加载 ${SystemClock.elapsedRealtime() - started} ms") }
+            loaded
+        }
+        val result = current.infer(typed)
+        if (result.ids.isEmpty()) {
+            ui { log("这句话没有得到音素") }
+            return null
+        }
+        ui {
+            log("归一化 ${result.normalized}")
+            log("音素 ${result.ids.size}")
+            log(result.phones.joinToString(" "))
+        }
+        return result
     }
 
     private fun readSentence(caseDir: File?): String? {

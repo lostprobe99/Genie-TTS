@@ -1,0 +1,13 @@
+embeddings	5398,64
+weight_ih	128,64
+weight_hh	128,32
+bias_ih	128
+bias_hh	128
+weight_ih_reverse	128,64
+weight_hh_reverse	128,32
+bias_ih_reverse	128
+bias_hh_reverse	128
+hidden_weight_l0	32,64
+hidden_bias_l0	32
+hidden_weight_l1	876,32
+hidden_bias_l1	876

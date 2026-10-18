@@ -7,4 +7,5 @@
     <string name="synthesize">合成</string>
     <string name="copy_log">复制日志</string>
     <string name="sentence">今天天气不错，我们出去走走吧。</string>
+    <string name="sentence_hint">在这里输入一句中文</string>
 </resources>

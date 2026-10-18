@@ -10,7 +10,7 @@ CharacterModels/
 UserData/
 GENIE_ENV/
 Deprecated/
-test/
+/test/
 
 # Python
 __pycache__/
