@@ -34,6 +34,22 @@ object CaseFetcher {
         return root
     }
 
+    fun downloadRoberta(caseDir: File, onStatus: (String) -> Unit): File {
+        val dir = File(caseDir, "roberta")
+        dir.mkdirs()
+        downloadFile("$RAW_BASE/roberta/parts.json", File(dir, "parts.json"), "韵律说明", onStatus)
+        val spec = JSONObject(File(dir, "parts.json").readText()).getJSONObject("model_fp16.onnx")
+        assembleInto(
+            dest = File(dir, "model_fp16.onnx"),
+            spec = spec,
+            urlOf = { relative -> "$RAW_BASE/roberta/$relative" },
+            cache = File(dir, "cache"),
+            title = "韵律模型",
+            onStatus = onStatus,
+        )
+        return dir
+    }
+
     fun importArchive(context: Context, uri: Uri, onStatus: (String) -> Unit): File {
         val root = File(context.filesDir, "android_case")
         root.mkdirs()
@@ -133,32 +149,48 @@ object CaseFetcher {
     }
 
     private fun assembleModel(root: File, name: String, spec: JSONObject, onStatus: (String) -> Unit) {
-        val dest = File(root, "models/$name")
+        assembleInto(
+            dest = File(root, "models/$name"),
+            spec = spec,
+            urlOf = { relative -> "$RAW_BASE/models/$relative" },
+            cache = File(root, "models/cache"),
+            title = name,
+            onStatus = onStatus,
+        )
+    }
+
+    private fun assembleInto(
+        dest: File,
+        spec: JSONObject,
+        urlOf: (String) -> String,
+        cache: File,
+        title: String,
+        onStatus: (String) -> Unit,
+    ) {
         val expected = spec.getLong("size")
         if (dest.isFile && dest.length() == expected) {
-            onStatus("已有 $name")
+            onStatus("已有 $title")
             return
         }
         val pieces = spec.getJSONArray("parts")
         val temp = File(dest.parentFile, dest.name + ".part")
-        val cache = File(root, "models/cache")
         temp.outputStream().use { output ->
             for (index in 0 until pieces.length()) {
                 val relative = pieces.getString(index)
-                val label = "$name ${index + 1}/${pieces.length()}"
+                val label = "$title ${index + 1}/${pieces.length()}"
                 val piece = File(cache, relative.replace('/', '_'))
-                downloadFile("$RAW_BASE/models/$relative", piece, label, onStatus)
+                downloadFile(urlOf(relative), piece, label, onStatus)
                 piece.inputStream().use { input -> input.copyTo(output, 256 * 1024) }
                 piece.delete()
             }
         }
         if (temp.length() != expected) {
             temp.delete()
-            throw IllegalStateException("$name 大小不对，下载不完整。")
+            throw IllegalStateException("$title 大小不对，下载不完整。")
         }
-        if (dest.exists() && !dest.delete()) throw IllegalStateException("无法覆盖 $name")
-        if (!temp.renameTo(dest)) throw IllegalStateException("无法保存 $name")
-        onStatus("已完成 $name")
+        if (dest.exists() && !dest.delete()) throw IllegalStateException("无法覆盖 $title")
+        if (!temp.renameTo(dest)) throw IllegalStateException("无法保存 $title")
+        onStatus("已完成 $title")
     }
 
     private fun open(url: String): HttpURLConnection {
@@ -207,7 +239,7 @@ object CaseFetcher {
             }
         }
         throw IllegalStateException(
-            "和 GitHub 的连接被中断。请再点一次「下载测试数据」，或换 Wi-Fi / 移动数据。",
+            "和 GitHub 的连接被中断。请再点一次下载，或换 Wi-Fi / 移动数据。",
             last,
         )
     }

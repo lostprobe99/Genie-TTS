@@ -31,11 +31,13 @@ class MainActivity : AppCompatActivity() {
         Thread(null, runnable, "genie-synth", 2L * 1024 * 1024)
     }
     private var engine: TtsEngine? = null
+    private var prosody: Prosody? = null
     private var frontend: ChineseFrontend? = null
     private lateinit var logView: TextView
     private lateinit var sentence: EditText
     private lateinit var button: Button
     private lateinit var downloadButton: Button
+    private lateinit var prosodyButton: Button
     private lateinit var pickButton: Button
     private lateinit var pickZipButton: Button
     private val pickFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -52,11 +54,13 @@ class MainActivity : AppCompatActivity() {
         sentence = findViewById(R.id.sentence)
         button = findViewById(R.id.synthesize)
         downloadButton = findViewById(R.id.download)
+        prosodyButton = findViewById(R.id.downloadProsody)
         pickButton = findViewById(R.id.pickFolder)
         pickZipButton = findViewById(R.id.pickZip)
         showCase()
         showInterruptedStep()
         downloadButton.setOnClickListener { downloadCase() }
+        prosodyButton.setOnClickListener { downloadProsody() }
         pickButton.setOnClickListener { pickFolder.launch(null) }
         pickZipButton.setOnClickListener {
             pickZip.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
@@ -71,6 +75,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         engine?.close()
+        prosody?.close()
         worker.shutdownNow()
         super.onDestroy()
     }
@@ -86,6 +91,25 @@ class MainActivity : AppCompatActivity() {
                     showCase()
                     log("测试数据已放进应用目录。连点两次「合成」，第二次的时间才算数。")
                 }
+            } catch (error: Exception) {
+                ui { logFailure(error) }
+            } finally {
+                ui { setBusy(false) }
+            }
+        }
+    }
+
+    private fun downloadProsody() {
+        setBusy(true)
+        worker.execute {
+            try {
+                val caseDir = locateCase() ?: File(filesDir, "android_case")
+                if (!Prosody.isReady(caseDir)) {
+                    prosody?.close()
+                    prosody = null
+                }
+                CaseFetcher.downloadRoberta(caseDir) { line -> ui { log(line) } }
+                ui { log("韵律模型已放进应用目录。点「合成」即可。声学模型不用重新下载。") }
             } catch (error: Exception) {
                 ui { logFailure(error) }
             } finally {
@@ -158,8 +182,9 @@ class MainActivity : AppCompatActivity() {
                     clearMark()
                     return@execute
                 }
-                mark("加载声学模型")
                 val threads = min(6, max(1, Runtime.getRuntime().availableProcessors()))
+                val textBert = textBert(caseDir, phones, threads)
+                mark("加载声学模型")
                 val current = engine ?: TtsEngine(OrtEnvironment.getEnvironment(), caseDir, threads).also {
                     engine = it
                     val loadMs = it.load { line -> ui { log(line) } }
@@ -171,7 +196,6 @@ class MainActivity : AppCompatActivity() {
                     longArrayOf(1, length.toLong()),
                     LongArray(length) { phones.ids[it].toLong() },
                 )
-                val textBert = OwnedTensor.fromFloats(longArrayOf(length.toLong(), 1024), FloatArray(length * 1024))
                 val report = current.synthesize(GenieCase(caseDir), textSeq, textBert) { line -> ui { log(line) } }
                 val wav = File(caseDir, "phone.wav")
                 writeWav(wav, report.samples, report.sampleRate)
@@ -232,14 +256,51 @@ class MainActivity : AppCompatActivity() {
             log("还没有模型。请先单独下载 feibi-case.zip，再点「导入」。应用会把它解压到应用目录。")
         } else {
             log("已找到 ${caseDir.absolutePath}")
+            if (Prosody.isReady(caseDir)) log("韵律模型已在")
+            else log("还没有韵律模型。点「下载韵律模型」后，停顿和重音会跟着句子走。没有它也能合成。")
         }
     }
 
     private fun setBusy(busy: Boolean) {
         downloadButton.isEnabled = !busy
+        prosodyButton.isEnabled = !busy
         pickButton.isEnabled = !busy
         pickZipButton.isEnabled = !busy
         button.isEnabled = !busy
+    }
+
+    private fun textBert(caseDir: File, phones: com.genie.onnxdemo.g2p.PhoneResult, threads: Int): OwnedTensor {
+        val length = phones.ids.size
+        fun zeros() = OwnedTensor.fromFloats(longArrayOf(length.toLong(), 1024), FloatArray(length * 1024))
+        if (!Prosody.isReady(caseDir)) {
+            ui { log("韵律模型还没放进来，text_bert 仍为零") }
+            return zeros()
+        }
+        mark("加载韵律模型")
+        val current = prosody ?: run {
+            val started = SystemClock.elapsedRealtime()
+            val loaded = Prosody(
+                OrtEnvironment.getEnvironment(),
+                Prosody.modelFile(caseDir),
+                threads,
+                assets.open("roberta/vocab.txt"),
+            )
+            prosody = loaded
+            ui { log("韵律模型加载 ${SystemClock.elapsedRealtime() - started} ms") }
+            loaded
+        }
+        mark("计算韵律")
+        val started = SystemClock.elapsedRealtime()
+        val values = current.features(phones)
+        val elapsed = SystemClock.elapsedRealtime() - started
+        if (values == null) {
+            ui {
+                log("韵律对齐不上（音素 ${phones.ids.size}，字 ${phones.word2ph.size}），text_bert 仍为零")
+            }
+            return zeros()
+        }
+        ui { log("韵律 $elapsed ms") }
+        return OwnedTensor.fromFloats(longArrayOf(length.toLong(), 1024), values)
     }
 
     private fun phonesOf(typed: String): com.genie.onnxdemo.g2p.PhoneResult? {

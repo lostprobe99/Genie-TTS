@@ -27,6 +27,8 @@ class ChineseFrontendTest {
             assertEquals(text, lines[1].removePrefix("NORM "), result.normalized)
             assertEquals(text, lines[2].removePrefix("PHONES "), result.phones.joinToString(" "))
             assertEquals(text, lines[3].removePrefix("IDS "), result.ids.joinToString(" "))
+            assertEquals(text, lines[4].removePrefix("WORD2PH "), result.word2ph.joinToString(" "))
+            assertEquals(text, result.ids.size, result.word2ph.sum())
         }
     }
 }

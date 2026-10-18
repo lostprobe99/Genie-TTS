@@ -4,11 +4,12 @@ data class PhoneResult(
     val normalized: String,
     val phones: List<String>,
     val ids: IntArray,
+    val word2ph: IntArray,
 )
 
 /**
  * On-device copy of ChineseG2P plus the leading period added by Core/Inference.py.
- * text_bert stays zero; this class only produces phoneme ids.
+ * word2ph counts phones per character after erhua, before the symbol filter.
  */
 class ChineseFrontend(files: G2pFiles) {
     private val normalizer = TextNormalizer(files)
@@ -37,12 +38,20 @@ class ChineseFrontend(files: G2pFiles) {
     fun phones(text: String): PhoneResult {
         val normalized = normalize(text)
         val raw = ArrayList<String>()
+        val counts = ArrayList<Int>()
         for (segment in splitKeep(SPLIT, normalized)) {
             if (segment.isBlank()) continue
-            raw.addAll(phonesOf(ENG.replace(segment, "")))
+            val piece = phonesOf(ENG.replace(segment, ""))
+            raw.addAll(piece.phones)
+            piece.counts.forEach { counts.add(it) }
         }
         val kept = raw.filter { it in symbols }
-        return PhoneResult(normalized, kept, kept.map { symbols.getValue(it) }.toIntArray())
+        return PhoneResult(
+            normalized,
+            kept,
+            kept.map { symbols.getValue(it) }.toIntArray(),
+            counts.toIntArray(),
+        )
     }
 
     private fun normalize(text: String): String {
@@ -56,11 +65,14 @@ class ChineseFrontend(files: G2pFiles) {
         return FILTER.replace(text, "")
     }
 
-    private fun phonesOf(segment: String): List<String> {
-        if (segment.isEmpty()) return emptyList()
+    private class Piece(val phones: List<String>, val counts: IntArray)
+
+    private fun phonesOf(segment: String): Piece {
+        if (segment.isEmpty()) return Piece(emptyList(), IntArray(0))
         val words = sandhi.preMerge(jieba.posCut(segment))
         val readings = model.pronounce(segment)
         val phones = ArrayList<String>()
+        val counts = ArrayList<Int>()
         var cursor = 0
         for (token in words) {
             val end = cursor + token.word.length
@@ -83,12 +95,18 @@ class ChineseFrontend(files: G2pFiles) {
             val tuned = sandhi.modify(token.word, token.pos, finals)
             val (erInitials, erFinals) = sandhi.erhua(initials, tuned, token.word, token.pos)
             for ((initial, final) in erInitials.zip(erFinals)) {
-                if (initial == final) phones.add(initial)
-                else toOpencpop(initial, final)?.let { phones.addAll(it) }
+                if (initial == final) {
+                    phones.add(initial)
+                    counts.add(1)
+                } else {
+                    val pair = toOpencpop(initial, final) ?: continue
+                    phones.addAll(pair)
+                    counts.add(pair.size)
+                }
             }
             cursor = end
         }
-        return phones
+        return Piece(phones, counts.toIntArray())
     }
 
     private fun correct(word: String, current: List<String>): List<String> {

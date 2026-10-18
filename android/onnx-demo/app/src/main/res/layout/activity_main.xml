@@ -67,6 +67,14 @@
         android:textSize="15sp" />
 
     <Button
+        android:id="@+id/downloadProsody"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="8dp"
+        android:text="@string/download_prosody"
+        android:textSize="15sp" />
+
+    <Button
         android:id="@+id/synthesize"
         android:layout_width="match_parent"
         android:layout_height="56dp"

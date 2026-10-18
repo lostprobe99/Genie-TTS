@@ -29,6 +29,9 @@ android_case/models/vits_fp32.onnx
 android_case/models/t2s_first_stage_decoder_fp32.onnx
 android_case/models/t2s_stage_decoder_fp32.onnx
 android_case/models/*.part
+android_case/roberta/model_fp16.onnx
+android_case/roberta/*.part
+android_case/roberta/cache/
 
 # Build artifacts
 build/
