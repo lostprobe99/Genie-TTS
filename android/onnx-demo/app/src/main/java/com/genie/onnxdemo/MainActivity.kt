@@ -19,6 +19,7 @@ import com.genie.onnxdemo.g2p.ChineseFrontend
 import com.genie.onnxdemo.g2p.G2pFiles
 import org.json.JSONObject
 import java.io.File
+import java.io.FileOutputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.Executors
@@ -26,7 +27,9 @@ import kotlin.math.max
 import kotlin.math.min
 
 class MainActivity : AppCompatActivity() {
-    private val worker = Executors.newSingleThreadExecutor()
+    private val worker = Executors.newSingleThreadExecutor { runnable ->
+        Thread(null, runnable, "genie-synth", 2L * 1024 * 1024)
+    }
     private var engine: TtsEngine? = null
     private var frontend: ChineseFrontend? = null
     private lateinit var logView: TextView
@@ -52,6 +55,7 @@ class MainActivity : AppCompatActivity() {
         pickButton = findViewById(R.id.pickFolder)
         pickZipButton = findViewById(R.id.pickZip)
         showCase()
+        showInterruptedStep()
         downloadButton.setOnClickListener { downloadCase() }
         pickButton.setOnClickListener { pickFolder.launch(null) }
         pickZipButton.setOnClickListener {
@@ -148,13 +152,20 @@ class MainActivity : AppCompatActivity() {
         setBusy(true)
         worker.execute {
             try {
-                val phones = phonesOf(typed) ?: return@execute
+                mark("加载中文前端")
+                val phones = phonesOf(typed)
+                if (phones == null) {
+                    clearMark()
+                    return@execute
+                }
+                mark("加载声学模型")
                 val threads = min(6, max(1, Runtime.getRuntime().availableProcessors()))
                 val current = engine ?: TtsEngine(OrtEnvironment.getEnvironment(), caseDir, threads).also {
                     engine = it
                     val loadMs = it.load { line -> ui { log(line) } }
                     ui { log("模型加载 ${loadMs} ms，线程 $threads") }
                 }
+                mark("合成")
                 val length = phones.ids.size
                 val textSeq = OwnedTensor.fromLongs(
                     longArrayOf(1, length.toLong()),
@@ -164,7 +175,9 @@ class MainActivity : AppCompatActivity() {
                 val report = current.synthesize(GenieCase(caseDir), textSeq, textBert) { line -> ui { log(line) } }
                 val wav = File(caseDir, "phone.wav")
                 writeWav(wav, report.samples, report.sampleRate)
+                mark("播放")
                 play(report.samples, report.sampleRate)
+                clearMark()
                 ui {
                     log(
                         "encoder ${report.encoderMs} ms\n" +
@@ -176,12 +189,38 @@ class MainActivity : AppCompatActivity() {
                             "已保存 ${wav.absolutePath}"
                     )
                 }
-            } catch (error: Exception) {
-                ui { logFailure(error) }
+            } catch (error: Throwable) {
+                val summary = error.javaClass.simpleName + ": " + error.message.orEmpty()
+                mark("失败 $summary")
+                ui {
+                    log(summary)
+                    if (error is Exception) logFailure(error)
+                }
             } finally {
                 ui { setBusy(false) }
             }
         }
+    }
+
+    private fun mark(step: String) {
+        try {
+            FileOutputStream(File(filesDir, "last_step.txt")).use { out ->
+                out.write(step.toByteArray(Charsets.UTF_8))
+                out.fd.sync()
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun clearMark() {
+        File(filesDir, "last_step.txt").delete()
+    }
+
+    private fun showInterruptedStep() {
+        val file = File(filesDir, "last_step.txt")
+        if (!file.isFile) return
+        val step = file.readText().trim()
+        if (step.isNotEmpty()) log("上次没有正常结束：$step")
     }
 
     private fun showCase() {

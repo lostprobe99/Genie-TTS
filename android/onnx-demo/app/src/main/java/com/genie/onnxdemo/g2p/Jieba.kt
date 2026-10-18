@@ -18,22 +18,23 @@ class Jieba(files: G2pFiles) {
 
     init {
         var sum = 0
-        for (line in files.lines("jieba_dict.txt")) {
+        files.forEachLine("jieba_dict.txt") { line ->
             val parts = line.split(' ')
-            if (parts.size < 2) continue
-            val word = parts[0]
-            val count = parts[1].toInt()
-            freq[word] = count
-            sum += count
-            if (parts.size >= 3) tags[word] = parts[2]
-            for (end in 1..word.length) {
-                val frag = word.substring(0, end)
-                if (!freq.containsKey(frag)) freq[frag] = 0
+            if (parts.size >= 2) {
+                val word = parts[0]
+                val count = parts[1].toInt()
+                freq[word] = count
+                sum += count
+                if (parts.size >= 3) tags[word] = parts[2]
+                for (end in 1..word.length) {
+                    val frag = word.substring(0, end)
+                    if (!freq.containsKey(frag)) freq[frag] = 0
+                }
             }
         }
         total = sum
-        finalHmm = Hmm.load(files.lines("hmm_final.txt"), withChars = false)
-        posHmm = Hmm.load(files.lines("hmm_pos.txt"), withChars = true)
+        finalHmm = Hmm.load(files, "hmm_final.txt", withChars = false)
+        posHmm = Hmm.load(files, "hmm_pos.txt", withChars = true)
     }
 
     fun posCut(sentence: String): List<PosToken> {
@@ -107,7 +108,7 @@ class Jieba(files: G2pFiles) {
         val buf = StringBuilder()
         var cursor = 0
         while (cursor < sentence.length) {
-            val end = route[cursor] + 1
+            val end = (route[cursor] + 1).coerceAtLeast(cursor + 1).coerceAtMost(sentence.length)
             if (end - cursor == 1) buf.append(sentence[cursor])
             else {
                 flushSearch(buf, out)
@@ -136,7 +137,7 @@ class Jieba(files: G2pFiles) {
         val buf = StringBuilder()
         var cursor = 0
         while (cursor < sentence.length) {
-            val end = route[cursor] + 1
+            val end = (route[cursor] + 1).coerceAtLeast(cursor + 1).coerceAtMost(sentence.length)
             if (end - cursor == 1) buf.append(sentence[cursor])
             else {
                 flushPos(buf, out)
@@ -399,17 +400,16 @@ class Jieba(files: G2pFiles) {
                 'E' to charArrayOf('B', 'M'),
             )
 
-            fun load(lines: List<String>, withChars: Boolean): Hmm {
+            fun load(files: G2pFiles, name: String, withChars: Boolean): Hmm {
                 val start = HashMap<String, Double>()
                 val trans = HashMap<String, HashMap<String, Double>>()
                 val emit = HashMap<String, HashMap<Char, Double>>()
                 val chars = HashMap<Char, List<String>>()
                 var section = ""
-                for (line in lines) {
+                files.forEachLine(name) { line ->
                     if (line == "START" || line == "TRANS" || line == "EMIT" || line == "CHARS") {
                         section = line
-                        continue
-                    }
+                    } else {
                     val parts = line.split('\t')
                     when (section) {
                         "START" -> start[parts[0]] = parts[1].toDouble()
@@ -418,6 +418,7 @@ class Jieba(files: G2pFiles) {
                         "CHARS" -> if (withChars && parts[0].isNotEmpty()) {
                             chars[parts[0][0]] = parts[1].split(',')
                         }
+                    }
                     }
                 }
                 return Hmm(start, trans, emit, chars)
@@ -431,7 +432,8 @@ class Jieba(files: G2pFiles) {
         private val HAN_DEFAULT = Regex("([\\u4E00-\\u9FD5a-zA-Z0-9+#&._%]+)")
         private val HAN_INTERNAL = Regex("([\\u4E00-\\u9FD5a-zA-Z0-9+#&._]+)")
         private val HAN_DETAIL = Regex("([\\u4E00-\\u9FD5]+)")
-        private val SKIP_SPACE = Regex("(\\r\\n|(?U)\\s)")
+        // Java's inline (?U) is rejected on Android 8 and 9, which aborts class init.
+        private val SKIP_SPACE = Regex("(\\r\\n|[\\t\\n\\u000B\\f\\r \\u00A0\\u1680\\u2000-\\u200A\\u2028\\u2029\\u202F\\u205F\\u3000])")
         private val SKIP_DETAIL = Regex("([.0-9]+|[a-zA-Z0-9]+)")
         private val FINAL_SKIP = Regex("([a-zA-Z0-9]+(?:\\.\\d+)?%?)")
         private val NUM = Regex("[.0-9]+")

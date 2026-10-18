@@ -6,8 +6,18 @@ import java.io.InputStream
 /** Reads the frontend tables exported next to this source. */
 class G2pFiles(private val open: (String) -> InputStream) {
     fun lines(name: String): List<String> {
-        return open(name).bufferedReader(Charsets.UTF_8).use { reader ->
-            reader.readLines().filter { it.isNotEmpty() }
+        val out = ArrayList<String>()
+        forEachLine(name) { out.add(it) }
+        return out
+    }
+
+    /** Stream a table so the whole file is not kept beside the parsed map. */
+    fun forEachLine(name: String, accept: (String) -> Unit) {
+        open(name).bufferedReader(Charsets.UTF_8).use { reader ->
+            while (true) {
+                val line = reader.readLine() ?: break
+                if (line.isNotEmpty()) accept(line)
+            }
         }
     }
 
