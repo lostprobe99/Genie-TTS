@@ -3,7 +3,7 @@
     <string name="app_name">Genie ONNX</string>
     <string name="pick_zip">导入</string>
     <string name="download">下载测试数据</string>
-    <string name="download_prosody">导入韵律模型</string>
+    <string name="download_prosody">下载韵律模型</string>
     <string name="pick_folder">选择已解压的目录</string>
     <string name="synthesize">合成</string>
     <string name="copy_log">复制日志</string>

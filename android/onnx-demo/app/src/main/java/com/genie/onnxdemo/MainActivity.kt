@@ -46,9 +46,6 @@ class MainActivity : AppCompatActivity() {
     private val pickZip = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importZip(uri)
     }
-    private val pickRoberta = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (!uris.isNullOrEmpty()) importRoberta(uris)
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +60,7 @@ class MainActivity : AppCompatActivity() {
         showCase()
         showInterruptedStep()
         downloadButton.setOnClickListener { downloadCase() }
-        prosodyButton.setOnClickListener { pickRoberta.launch(arrayOf("*/*")) }
+        prosodyButton.setOnClickListener { downloadProsody() }
         pickButton.setOnClickListener { pickFolder.launch(null) }
         pickZipButton.setOnClickListener {
             pickZip.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
@@ -102,13 +99,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun importRoberta(uris: List<Uri>) {
+    private fun downloadProsody() {
         setBusy(true)
         worker.execute {
             try {
                 val caseDir = locateCase() ?: File(filesDir, "android_case")
-                CaseFetcher.importRoberta(this, caseDir, uris) { line -> ui { log(line) } }
-                ui { log("韵律模型已导入。点「合成」即可。声学模型不用重新下载。") }
+                if (!Prosody.isReady(caseDir)) {
+                    prosody?.close()
+                    prosody = null
+                }
+                CaseFetcher.downloadRoberta(caseDir) { line -> ui { log(line) } }
+                ui { log("韵律模型已放进应用目录。点「合成」即可。声学模型不用重新下载。") }
             } catch (error: Exception) {
                 ui { logFailure(error) }
             } finally {
@@ -269,10 +270,7 @@ class MainActivity : AppCompatActivity() {
         } else {
             log("已找到 ${caseDir.absolutePath}")
             if (Prosody.isReady(caseDir)) log("韵律模型已在")
-            else {
-                log("还没有韵律模型。用浏览器下载下面 13 个文件，再点「导入韵律模型」并全部选中。声学模型不用重下。")
-                log(CaseFetcher.robertaManualLinks().trimEnd())
-            }
+            else log("还没有韵律模型。点「下载韵律模型」，下完再点「合成」。声学模型不用重下。")
         }
     }
 

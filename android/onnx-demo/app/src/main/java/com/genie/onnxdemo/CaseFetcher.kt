@@ -32,6 +32,7 @@ object CaseFetcher {
             assembleModel(root, name, parts.getJSONObject(name), onStatus)
         }
         downloadFile("$RAW_BASE/desktop.wav", File(root, "desktop.wav"), "desktop.wav", onStatus)
+        downloadRoberta(root, onStatus)
         return root
     }
 
@@ -94,15 +95,6 @@ object CaseFetcher {
             copyDocument(context, tree, it, File(root, "desktop.wav"), onStatus)
         }
         return root
-    }
-
-    fun robertaManualLinks(): String = buildString {
-        for (index in 0 until RobertaParts.COUNT) {
-            append(RAW_BASE)
-            append("/roberta/chunks/model_fp16.onnx.")
-            append("%02d".format(index))
-            append('\n')
-        }
     }
 
     fun importRoberta(context: Context, caseDir: File, uris: List<Uri>, onStatus: (String) -> Unit): File {
