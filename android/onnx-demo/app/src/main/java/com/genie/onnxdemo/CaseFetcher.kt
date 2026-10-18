@@ -1,0 +1,433 @@
+package com.genie.onnxdemo
+
+import android.content.Context
+import android.net.Uri
+import android.provider.DocumentsContract
+import android.provider.OpenableColumns
+import org.json.JSONObject
+import java.io.File
+import java.io.InputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.zip.ZipInputStream
+
+object CaseFetcher {
+    const val RAW_BASE =
+        "https://raw.githubusercontent.com/lostprobe99/Genie-TTS/cursor/android-onnx-demo-doc-3875/android_case"
+    fun download(context: Context, onStatus: (String) -> Unit): File {
+        val root = File(context.filesDir, "android_case")
+        root.mkdirs()
+        downloadFile("$RAW_BASE/manifest.json", File(root, "manifest.json"), "manifest.json", onStatus)
+        val manifest = JSONObject(File(root, "manifest.json").readText())
+        val tensors = manifest.getJSONObject("tensors")
+        for (key in tensors.keys()) {
+            val relative = tensors.getJSONObject(key).getString("file")
+            downloadFile("$RAW_BASE/$relative", File(root, relative), relative, onStatus)
+        }
+        downloadFile("$RAW_BASE/models/parts.json", File(root, "models/parts.json"), "parts.json", onStatus)
+        val parts = JSONObject(File(root, "models/parts.json").readText())
+        val models = manifest.getJSONArray("models")
+        for (index in 0 until models.length()) {
+            val name = models.getString(index)
+            assembleModel(root, name, parts.getJSONObject(name), onStatus)
+        }
+        downloadFile("$RAW_BASE/desktop.wav", File(root, "desktop.wav"), "desktop.wav", onStatus)
+        downloadRoberta(root, onStatus)
+        return root
+    }
+
+    fun downloadRoberta(caseDir: File, onStatus: (String) -> Unit): File {
+        val dir = File(caseDir, "roberta")
+        dir.mkdirs()
+        downloadFile("$RAW_BASE/roberta/parts.json", File(dir, "parts.json"), "韵律说明", onStatus)
+        val spec = JSONObject(File(dir, "parts.json").readText()).getJSONObject("model_fp16.onnx")
+        assembleInto(
+            dest = File(dir, "model_fp16.onnx"),
+            spec = spec,
+            urlOf = { relative -> "$RAW_BASE/roberta/$relative" },
+            cache = File(dir, "cache"),
+            title = "韵律模型",
+            onStatus = onStatus,
+        )
+        return dir
+    }
+
+    fun importArchive(context: Context, uri: Uri, onStatus: (String) -> Unit): File {
+        val root = File(context.filesDir, "android_case")
+        root.mkdirs()
+        val input = context.contentResolver.openInputStream(uri)
+            ?: throw IllegalStateException("读不到选择的压缩包")
+        unzip(input, root, onStatus)
+        if (!File(root, "manifest.json").isFile || !File(root, "models/vits_fp32.onnx").isFile) {
+            throw IllegalStateException("压缩包里没有完整的测试数据。")
+        }
+        return root
+    }
+
+    private fun unzip(input: InputStream, root: File, onStatus: (String) -> Unit) {
+        ZipInputStream(input).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                if (entry.isDirectory) continue
+                val name = entry.name.trimStart('/')
+                if (name.isEmpty() || name.contains("..")) throw IllegalStateException("压缩包路径不安全")
+                val dest = File(root, name)
+                dest.parentFile?.mkdirs()
+                val rootPath = root.canonicalPath + File.separator
+                if (!dest.canonicalPath.startsWith(rootPath)) throw IllegalStateException("压缩包路径不安全")
+                onStatus("正在解压 ${dest.name}")
+                dest.outputStream().use { output -> zip.copyTo(output, 256 * 1024) }
+            }
+        }
+    }
+
+    fun importTree(context: Context, tree: Uri, onStatus: (String) -> Unit): File {
+        val rootId = DocumentsContract.getTreeDocumentId(tree)
+        val entries = listChildren(context, tree, rootId)
+        val manifest = entries.firstOrNull { !it.isDir && it.name == "manifest.json" }
+            ?: throw IllegalStateException("这个目录里没有 manifest.json。请选择解压后的 android_case。")
+        val root = File(context.filesDir, "android_case")
+        root.mkdirs()
+        copyDocument(context, tree, manifest, File(root, "manifest.json"), onStatus)
+        copyChildren(context, tree, entries, "tensors", File(root, "tensors"), onStatus)
+        copyChildren(context, tree, entries, "models", File(root, "models"), onStatus)
+        entries.firstOrNull { !it.isDir && it.name == "desktop.wav" }?.let {
+            copyDocument(context, tree, it, File(root, "desktop.wav"), onStatus)
+        }
+        return root
+    }
+
+    fun importRoberta(context: Context, caseDir: File, uris: List<Uri>, onStatus: (String) -> Unit): File {
+        val named = uris.map { uri -> NamedPiece(displayName(context, uri), sizeOf(context, uri)) { openUri(context, uri) } }
+        return assembleRoberta(caseDir, named, onStatus)
+    }
+
+    fun importRobertaTree(context: Context, tree: Uri, caseDir: File, onStatus: (String) -> Unit): Boolean {
+        val pieces = robertaPieces(context, tree)
+        if (pieces.isEmpty()) return false
+        assembleRoberta(caseDir, pieces, onStatus)
+        return true
+    }
+
+    private class NamedPiece(val name: String, val size: Long, val open: () -> InputStream)
+
+    private fun assembleRoberta(caseDir: File, pieces: List<NamedPiece>, onStatus: (String) -> Unit): File {
+        val dest = Prosody.modelFile(caseDir)
+        dest.parentFile?.mkdirs()
+        if (dest.isFile && dest.length() == RobertaParts.TOTAL_BYTES) {
+            onStatus("已有韵律模型")
+            return dest
+        }
+        val whole = pieces.filter { RobertaParts.isWholeModel(it.name) }
+        val exact = whole.firstOrNull { it.size == RobertaParts.TOTAL_BYTES }
+        val temp = File(dest.parentFile, dest.name + ".part")
+        if (exact != null) {
+            onStatus("正在导入韵律模型")
+            copyPiece(exact, temp)
+        } else {
+            val indexed = pieces.mapNotNull { piece -> RobertaParts.partIndex(piece.name)?.let { it to piece } }
+            val duplicates = RobertaParts.duplicates(indexed.map { it.first })
+            if (duplicates.isNotEmpty()) {
+                throw IllegalStateException("分片 ${duplicates.joinToString { "%02d".format(it) }} 选了不止一次。")
+            }
+            val missing = RobertaParts.missing(indexed.map { it.first })
+            if (missing.isNotEmpty()) {
+                val unnamed = whole.firstOrNull { it.size < 0 }
+                if (unnamed != null) {
+                    onStatus("正在导入韵律模型")
+                    copyPiece(unnamed, temp)
+                } else {
+                    throw IllegalStateException(
+                        "韵律分片不齐，还缺 ${missing.joinToString { "%02d".format(it) }}。13 个文件要一起选。",
+                    )
+                }
+            } else {
+                temp.outputStream().use { output ->
+                    for ((index, piece) in indexed.sortedBy { it.first }) {
+                        onStatus("正在导入韵律 ${index + 1}/${RobertaParts.COUNT}")
+                        piece.open().use { input ->
+                            rejectPointer(input, piece.name)
+                            input.copyTo(output, 256 * 1024)
+                        }
+                    }
+                }
+            }
+        }
+        if (temp.length() != RobertaParts.TOTAL_BYTES) {
+            temp.delete()
+            throw IllegalStateException("韵律模型大小不对，导入不完整。")
+        }
+        if (dest.exists() && !dest.delete()) throw IllegalStateException("无法覆盖韵律模型")
+        if (!temp.renameTo(dest)) throw IllegalStateException("无法保存韵律模型")
+        onStatus("已完成韵律模型")
+        return dest
+    }
+
+    private fun copyPiece(piece: NamedPiece, dest: File) {
+        dest.outputStream().use { output ->
+            piece.open().use { input ->
+                rejectPointer(input, piece.name)
+                input.copyTo(output, 256 * 1024)
+            }
+        }
+    }
+
+    private fun rejectPointer(input: InputStream, name: String) {
+        if (!input.markSupported()) return
+        input.mark(48)
+        val bytes = ByteArray(40)
+        val count = input.read(bytes)
+        input.reset()
+        val head = if (count <= 0) "" else String(bytes, 0, count, Charsets.US_ASCII)
+        if (head.startsWith("version https://git-lfs")) {
+            throw IllegalStateException("$name 只是 Git LFS 指针，不是模型。")
+        }
+    }
+
+    private fun robertaPieces(context: Context, tree: Uri): List<NamedPiece> {
+        val rootId = DocumentsContract.getTreeDocumentId(tree)
+        val entries = listChildren(context, tree, rootId)
+        val found = ArrayList<Entry>()
+        found += entries.filter { !it.isDir && isRobertaFile(it.name) }
+        for (directory in entries.filter { it.isDir && (it.name == "chunks" || it.name == "roberta") }) {
+            val nested = listChildren(context, tree, directory.id)
+            found += nested.filter { !it.isDir && isRobertaFile(it.name) }
+            val chunks = nested.firstOrNull { it.isDir && it.name == "chunks" } ?: continue
+            found += listChildren(context, tree, chunks.id).filter { !it.isDir && isRobertaFile(it.name) }
+        }
+        return found.map { entry ->
+            NamedPiece(entry.name, entry.size) {
+                val uri = DocumentsContract.buildDocumentUriUsingTree(tree, entry.id)
+                openUri(context, uri)
+            }
+        }
+    }
+
+    private fun isRobertaFile(name: String): Boolean {
+        return RobertaParts.isWholeModel(name) || RobertaParts.partIndex(name) != null
+    }
+
+    private fun displayName(context: Context, uri: Uri): String {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) return cursor.getString(0) ?: ""
+        }
+        return uri.lastPathSegment?.substringAfterLast('/') ?: ""
+    }
+
+    private fun sizeOf(context: Context, uri: Uri): Long {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) return cursor.getLong(0)
+        }
+        return -1L
+    }
+
+    private fun openUri(context: Context, uri: Uri): InputStream {
+        return context.contentResolver.openInputStream(uri)?.buffered()
+            ?: throw IllegalStateException("读不到选择的文件")
+    }
+
+    private data class Entry(val id: String, val name: String, val isDir: Boolean, val size: Long)
+
+    private fun listChildren(context: Context, tree: Uri, documentId: String): List<Entry> {
+        val uri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, documentId)
+        val result = mutableListOf<Entry>()
+        context.contentResolver.query(
+            uri,
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE,
+                DocumentsContract.Document.COLUMN_SIZE,
+            ),
+            null,
+            null,
+            null,
+        )?.use { cursor ->
+            while (cursor.moveToNext()) {
+                result += Entry(
+                    cursor.getString(0),
+                    cursor.getString(1) ?: "",
+                    cursor.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR,
+                    if (cursor.isNull(3)) -1L else cursor.getLong(3),
+                )
+            }
+        }
+        return result
+    }
+
+    private fun copyChildren(
+        context: Context,
+        tree: Uri,
+        parentEntries: List<Entry>,
+        name: String,
+        dest: File,
+        onStatus: (String) -> Unit,
+    ) {
+        val directory = parentEntries.firstOrNull { it.isDir && it.name == name }
+            ?: throw IllegalStateException("目录不完整，缺少 $name")
+        dest.mkdirs()
+        for (child in listChildren(context, tree, directory.id)) {
+            if (!child.isDir) copyDocument(context, tree, child, File(dest, child.name), onStatus)
+        }
+    }
+
+    private fun copyDocument(context: Context, tree: Uri, source: Entry, dest: File, onStatus: (String) -> Unit) {
+        dest.parentFile?.mkdirs()
+        onStatus("正在复制 ${dest.name}")
+        val uri = DocumentsContract.buildDocumentUriUsingTree(tree, source.id)
+        context.contentResolver.openInputStream(uri).use { input ->
+            requireNotNull(input) { "读不到 ${dest.name}" }
+            dest.outputStream().use { output -> input.copyTo(output, 256 * 1024) }
+        }
+    }
+
+    private fun assembleModel(root: File, name: String, spec: JSONObject, onStatus: (String) -> Unit) {
+        assembleInto(
+            dest = File(root, "models/$name"),
+            spec = spec,
+            urlOf = { relative -> "$RAW_BASE/models/$relative" },
+            cache = File(root, "models/cache"),
+            title = name,
+            onStatus = onStatus,
+        )
+    }
+
+    private fun assembleInto(
+        dest: File,
+        spec: JSONObject,
+        urlOf: (String) -> String,
+        cache: File,
+        title: String,
+        onStatus: (String) -> Unit,
+    ) {
+        val expected = spec.getLong("size")
+        if (dest.isFile && dest.length() == expected) {
+            onStatus("已有 $title")
+            return
+        }
+        val pieces = spec.getJSONArray("parts")
+        val temp = File(dest.parentFile, dest.name + ".part")
+        temp.outputStream().use { output ->
+            for (index in 0 until pieces.length()) {
+                val relative = pieces.getString(index)
+                val label = "$title ${index + 1}/${pieces.length()}"
+                val piece = File(cache, relative.replace('/', '_'))
+                downloadFile(urlOf(relative), piece, label, onStatus)
+                piece.inputStream().use { input -> input.copyTo(output, 256 * 1024) }
+                piece.delete()
+            }
+        }
+        if (temp.length() != expected) {
+            temp.delete()
+            throw IllegalStateException("$title 大小不对，下载不完整。")
+        }
+        if (dest.exists() && !dest.delete()) throw IllegalStateException("无法覆盖 $title")
+        if (!temp.renameTo(dest)) throw IllegalStateException("无法保存 $title")
+        onStatus("已完成 $title")
+    }
+
+    private fun open(url: String): HttpURLConnection {
+        var current = url
+        repeat(5) {
+            val connection = (URL(current).openConnection() as HttpURLConnection).apply {
+                instanceFollowRedirects = false
+                connectTimeout = 30_000
+                readTimeout = 300_000
+                setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 14) GenieOnnxDemo")
+                setRequestProperty("Accept", "*/*")
+                setRequestProperty("Accept-Encoding", "identity")
+            }
+            try {
+                connection.connect()
+                val code = connection.responseCode
+                if (code in 300..399) {
+                    val next = connection.getHeaderField("Location")
+                        ?: throw IllegalStateException("下载重定向没有目标")
+                    connection.disconnect()
+                    current = if (next.startsWith("http")) next else URL(URL(current), next).toString()
+                    return@repeat
+                }
+                if (code !in 200..299) {
+                    connection.disconnect()
+                    throw IllegalStateException("下载失败，HTTP $code")
+                }
+                return connection
+            } catch (error: Exception) {
+                connection.disconnect()
+                throw error
+            }
+        }
+        throw IllegalStateException("下载重定向次数过多")
+    }
+
+    private fun <T> withRetry(label: String, onStatus: (String) -> Unit, block: () -> T): T {
+        var last: Exception? = null
+        repeat(4) { attempt ->
+            try {
+                return block()
+            } catch (error: java.io.IOException) {
+                last = error
+                onStatus("$label 连接中断，正在重试 ${attempt + 1}/4")
+                Thread.sleep(1500L * (attempt + 1))
+            }
+        }
+        throw IllegalStateException(
+            "和 GitHub 的连接被中断。请再点一次下载，或换 Wi-Fi / 移动数据。",
+            last,
+        )
+    }
+
+    private fun downloadFile(url: String, dest: File, label: String, onStatus: (String) -> Unit) {
+        dest.parentFile?.mkdirs()
+        onStatus("正在下载 $label")
+        val temp = File(dest.parentFile, dest.name + ".part")
+        withRetry(label, onStatus) {
+            if (temp.exists() && !temp.delete()) throw IllegalStateException("无法清理 ${temp.name}")
+            val connection = open(url)
+            try {
+                val total = connection.contentLengthLong
+                connection.inputStream.use { input ->
+                    temp.outputStream().use { output ->
+                        val buffer = ByteArray(256 * 1024)
+                        var readTotal = 0L
+                        var lastReport = -1
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            output.write(buffer, 0, count)
+                            readTotal += count
+                            if (total > 0) {
+                                val percent = ((readTotal * 100) / total).toInt()
+                                if (percent != lastReport && percent % 10 == 0) {
+                                    lastReport = percent
+                                    onStatus("下载 $label $percent%")
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (error: Exception) {
+                temp.delete()
+                throw error
+            } finally {
+                connection.disconnect()
+            }
+        }
+        val head = temp.inputStream().use { input ->
+            val bytes = ByteArray(40)
+            val count = input.read(bytes)
+            if (count <= 0) "" else String(bytes, 0, count, Charsets.US_ASCII)
+        }
+        if (head.startsWith("version https://git-lfs")) {
+            temp.delete()
+            throw IllegalStateException("$label 只下到了 Git LFS 指针，模型文件还没有传到仓库。")
+        }
+        if (temp.length() < 32) {
+            temp.delete()
+            throw IllegalStateException("$label 文件过小，下载不完整。")
+        }
+        if (dest.exists() && !dest.delete()) throw IllegalStateException("无法覆盖 ${dest.name}")
+        if (!temp.renameTo(dest)) throw IllegalStateException("无法保存 ${dest.name}")
+        onStatus("已完成 $label")
+    }
+}

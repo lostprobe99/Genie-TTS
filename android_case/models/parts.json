@@ -1,0 +1,43 @@
+{
+  "t2s_encoder_fp32.onnx": {
+    "size": 11479856,
+    "parts": [
+      "t2s_encoder_fp32.onnx"
+    ]
+  },
+  "t2s_first_stage_decoder_fp32.onnx": {
+    "size": 307224896,
+    "parts": [
+      "chunks/t2s_first_stage_decoder_fp32.onnx.00",
+      "chunks/t2s_first_stage_decoder_fp32.onnx.01",
+      "chunks/t2s_first_stage_decoder_fp32.onnx.02",
+      "chunks/t2s_first_stage_decoder_fp32.onnx.03",
+      "chunks/t2s_first_stage_decoder_fp32.onnx.04",
+      "chunks/t2s_first_stage_decoder_fp32.onnx.05",
+      "chunks/t2s_first_stage_decoder_fp32.onnx.06"
+    ]
+  },
+  "t2s_stage_decoder_fp32.onnx": {
+    "size": 307225718,
+    "parts": [
+      "chunks/t2s_stage_decoder_fp32.onnx.00",
+      "chunks/t2s_stage_decoder_fp32.onnx.01",
+      "chunks/t2s_stage_decoder_fp32.onnx.02",
+      "chunks/t2s_stage_decoder_fp32.onnx.03",
+      "chunks/t2s_stage_decoder_fp32.onnx.04",
+      "chunks/t2s_stage_decoder_fp32.onnx.05",
+      "chunks/t2s_stage_decoder_fp32.onnx.06"
+    ]
+  },
+  "vits_fp32.onnx": {
+    "size": 250264403,
+    "parts": [
+      "chunks/vits_fp32.onnx.00",
+      "chunks/vits_fp32.onnx.01",
+      "chunks/vits_fp32.onnx.02",
+      "chunks/vits_fp32.onnx.03",
+      "chunks/vits_fp32.onnx.04",
+      "chunks/vits_fp32.onnx.05"
+    ]
+  }
+}

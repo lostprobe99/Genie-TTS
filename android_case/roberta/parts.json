@@ -1,0 +1,20 @@
+{
+  "model_fp16.onnx": {
+    "size": 599034176,
+    "parts": [
+      "chunks/model_fp16.onnx.00",
+      "chunks/model_fp16.onnx.01",
+      "chunks/model_fp16.onnx.02",
+      "chunks/model_fp16.onnx.03",
+      "chunks/model_fp16.onnx.04",
+      "chunks/model_fp16.onnx.05",
+      "chunks/model_fp16.onnx.06",
+      "chunks/model_fp16.onnx.07",
+      "chunks/model_fp16.onnx.08",
+      "chunks/model_fp16.onnx.09",
+      "chunks/model_fp16.onnx.10",
+      "chunks/model_fp16.onnx.11",
+      "chunks/model_fp16.onnx.12"
+    ]
+  }
+}

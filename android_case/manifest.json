@@ -1,0 +1,77 @@
+{
+  "character": "feibi",
+  "language": "Chinese",
+  "sample_rate": 32000,
+  "model_type": "v2proplus",
+  "text": "今天天气不错，我们出去走走吧。",
+  "infer_text": "。今天天气不错，我们出去走走吧。",
+  "ref_text": "在此之前，请您务必继续享受旅居拉古那的时光。",
+  "roberta": false,
+  "tensors": {
+    "ref_seq": {
+      "file": "tensors/ref_seq.bin",
+      "dtype": "int64",
+      "shape": [
+        1,
+        42
+      ]
+    },
+    "ref_bert": {
+      "file": "tensors/ref_bert.bin",
+      "dtype": "float32",
+      "shape": [
+        42,
+        1024
+      ]
+    },
+    "text_seq": {
+      "file": "tensors/text_seq.bin",
+      "dtype": "int64",
+      "shape": [
+        1,
+        29
+      ]
+    },
+    "text_bert": {
+      "file": "tensors/text_bert.bin",
+      "dtype": "float32",
+      "shape": [
+        29,
+        1024
+      ]
+    },
+    "ssl_content": {
+      "file": "tensors/ssl_content.bin",
+      "dtype": "float32",
+      "shape": [
+        1,
+        768,
+        231
+      ]
+    },
+    "ge": {
+      "file": "tensors/ge.bin",
+      "dtype": "float32",
+      "shape": [
+        1,
+        1024,
+        1
+      ]
+    },
+    "ge_advanced": {
+      "file": "tensors/ge_advanced.bin",
+      "dtype": "float32",
+      "shape": [
+        1,
+        512,
+        1
+      ]
+    }
+  },
+  "models": [
+    "t2s_encoder_fp32.onnx",
+    "t2s_first_stage_decoder_fp32.onnx",
+    "t2s_stage_decoder_fp32.onnx",
+    "vits_fp32.onnx"
+  ]
+}
