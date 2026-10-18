@@ -41,7 +41,7 @@
 
 ## 手机应用
 
-工程在 `android/onnx-demo`，包名 `com.genie.onnxdemo`，只保留 `arm64-v8a`。当前安装包版本是 1.9。依赖是 `com.microsoft.onnxruntime:onnxruntime-android:1.22.0`。
+工程在 `android/onnx-demo`，包名 `com.genie.onnxdemo`，只保留 `arm64-v8a`。当前安装包版本是 1.10。依赖是 `com.microsoft.onnxruntime:onnxruntime-android:1.22.0`。
 
 没有电脑时，用手机浏览器打开安装包并安装，安装时允许未知来源：
 
@@ -49,7 +49,11 @@ https://github.com/lostprobe99/Genie-TTS/raw/cursor/android-onnx-demo-doc-3875/a
 
 测试数据是单独的一个压缩包 `feibi-case.zip`，不打进安装包。下载完成后，在应用里点「导入」并选中这个文件。应用把它解压到自己的目录。解压完成后连点两次「合成」，第二次的时间才算数。如果点「合成」后应用退出，重新打开，日志里会写上次停在哪一步。
 
-已经装过 1.8、声学模型还在的话，不用重新导入测试数据。覆盖安装 1.9 后，点「下载韵律模型」。这一步只拉韵律模型，大约 572 MB，不会把已经下好的声学模型再下一遍。
+已经装过以前的版本、声学模型还在的话，不用重新导入测试数据。韵律模型有 572 MB，GitHub 单文件上限是 100 MB，所以不能打成一个压缩包。它拆成 13 个约 45 MB 的文件，放在 `android_case/roberta/chunks/`。用浏览器逐个下载，文件名是 `model_fp16.onnx.00` 到 `model_fp16.onnx.12`。下载完成后，在应用里点「导入韵律模型」，把这 13 个文件一次选中。也可以点「选择已解压的目录」，选中放着这些分片的文件夹。拼好以后大小是 599,034,176 字节。声学模型不会因此重下。
+
+分片地址：
+
+https://github.com/lostprobe99/Genie-TTS/tree/cursor/android-onnx-demo-doc-3875/android_case/roberta/chunks
 
 换句子直接改输入框。应用会在句首加一个句号，和 `Core/Inference.py` 一样，然后在手机上做分词、多音字、变调和儿化。日志里会写出归一化文本、音素个数和音素。下面三句已经和桌面前端对过，音素个数应是 31、49、41。「一日还」是 `h ai2`，「朝霞」是 `zh ao1 x ia2`。
 
@@ -72,7 +76,7 @@ adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb push android_case /sdcard/Android/data/com.genie.onnxdemo/files/
 ```
 
-声学模型和韵律模型都不要打进 APK。中文前端的词典、拼音表和 RoBERTa 分词表打进安装包。界面上有输入框、「下载韵律模型」和「合成」。按下「合成」后：
+声学模型和韵律模型都不要打进 APK。中文前端的词典、拼音表和 RoBERTa 分词表打进安装包。界面上有输入框、「导入韵律模型」和「合成」。按下「合成」后：
 
 1. 按 `manifest.json` 读入参考音色：`ref_seq`、`ref_bert`、`ssl_content`、`ge`、`ge_advanced`。
 2. 用输入框里的字现算 `text_seq`。韵律模型在的话，用归一化后的句子跑 RoBERTa，按每个字对应的音素个数把 1024 维特征铺开，得到 `text_bert`。模型不在，或对不齐，就造一块全零的。

@@ -3,6 +3,7 @@ package com.genie.onnxdemo
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
+import android.provider.OpenableColumns
 import org.json.JSONObject
 import java.io.File
 import java.io.InputStream
@@ -95,7 +96,145 @@ object CaseFetcher {
         return root
     }
 
-    private data class Entry(val id: String, val name: String, val isDir: Boolean)
+    fun robertaManualLinks(): String = buildString {
+        for (index in 0 until RobertaParts.COUNT) {
+            append(RAW_BASE)
+            append("/roberta/chunks/model_fp16.onnx.")
+            append("%02d".format(index))
+            append('\n')
+        }
+    }
+
+    fun importRoberta(context: Context, caseDir: File, uris: List<Uri>, onStatus: (String) -> Unit): File {
+        val named = uris.map { uri -> NamedPiece(displayName(context, uri), sizeOf(context, uri)) { openUri(context, uri) } }
+        return assembleRoberta(caseDir, named, onStatus)
+    }
+
+    fun importRobertaTree(context: Context, tree: Uri, caseDir: File, onStatus: (String) -> Unit): Boolean {
+        val pieces = robertaPieces(context, tree)
+        if (pieces.isEmpty()) return false
+        assembleRoberta(caseDir, pieces, onStatus)
+        return true
+    }
+
+    private class NamedPiece(val name: String, val size: Long, val open: () -> InputStream)
+
+    private fun assembleRoberta(caseDir: File, pieces: List<NamedPiece>, onStatus: (String) -> Unit): File {
+        val dest = Prosody.modelFile(caseDir)
+        dest.parentFile?.mkdirs()
+        if (dest.isFile && dest.length() == RobertaParts.TOTAL_BYTES) {
+            onStatus("已有韵律模型")
+            return dest
+        }
+        val whole = pieces.filter { RobertaParts.isWholeModel(it.name) }
+        val exact = whole.firstOrNull { it.size == RobertaParts.TOTAL_BYTES }
+        val temp = File(dest.parentFile, dest.name + ".part")
+        if (exact != null) {
+            onStatus("正在导入韵律模型")
+            copyPiece(exact, temp)
+        } else {
+            val indexed = pieces.mapNotNull { piece -> RobertaParts.partIndex(piece.name)?.let { it to piece } }
+            val duplicates = RobertaParts.duplicates(indexed.map { it.first })
+            if (duplicates.isNotEmpty()) {
+                throw IllegalStateException("分片 ${duplicates.joinToString { "%02d".format(it) }} 选了不止一次。")
+            }
+            val missing = RobertaParts.missing(indexed.map { it.first })
+            if (missing.isNotEmpty()) {
+                val unnamed = whole.firstOrNull { it.size < 0 }
+                if (unnamed != null) {
+                    onStatus("正在导入韵律模型")
+                    copyPiece(unnamed, temp)
+                } else {
+                    throw IllegalStateException(
+                        "韵律分片不齐，还缺 ${missing.joinToString { "%02d".format(it) }}。13 个文件要一起选。",
+                    )
+                }
+            } else {
+                temp.outputStream().use { output ->
+                    for ((index, piece) in indexed.sortedBy { it.first }) {
+                        onStatus("正在导入韵律 ${index + 1}/${RobertaParts.COUNT}")
+                        piece.open().use { input ->
+                            rejectPointer(input, piece.name)
+                            input.copyTo(output, 256 * 1024)
+                        }
+                    }
+                }
+            }
+        }
+        if (temp.length() != RobertaParts.TOTAL_BYTES) {
+            temp.delete()
+            throw IllegalStateException("韵律模型大小不对，导入不完整。")
+        }
+        if (dest.exists() && !dest.delete()) throw IllegalStateException("无法覆盖韵律模型")
+        if (!temp.renameTo(dest)) throw IllegalStateException("无法保存韵律模型")
+        onStatus("已完成韵律模型")
+        return dest
+    }
+
+    private fun copyPiece(piece: NamedPiece, dest: File) {
+        dest.outputStream().use { output ->
+            piece.open().use { input ->
+                rejectPointer(input, piece.name)
+                input.copyTo(output, 256 * 1024)
+            }
+        }
+    }
+
+    private fun rejectPointer(input: InputStream, name: String) {
+        if (!input.markSupported()) return
+        input.mark(48)
+        val bytes = ByteArray(40)
+        val count = input.read(bytes)
+        input.reset()
+        val head = if (count <= 0) "" else String(bytes, 0, count, Charsets.US_ASCII)
+        if (head.startsWith("version https://git-lfs")) {
+            throw IllegalStateException("$name 只是 Git LFS 指针，不是模型。")
+        }
+    }
+
+    private fun robertaPieces(context: Context, tree: Uri): List<NamedPiece> {
+        val rootId = DocumentsContract.getTreeDocumentId(tree)
+        val entries = listChildren(context, tree, rootId)
+        val found = ArrayList<Entry>()
+        found += entries.filter { !it.isDir && isRobertaFile(it.name) }
+        for (directory in entries.filter { it.isDir && (it.name == "chunks" || it.name == "roberta") }) {
+            val nested = listChildren(context, tree, directory.id)
+            found += nested.filter { !it.isDir && isRobertaFile(it.name) }
+            val chunks = nested.firstOrNull { it.isDir && it.name == "chunks" } ?: continue
+            found += listChildren(context, tree, chunks.id).filter { !it.isDir && isRobertaFile(it.name) }
+        }
+        return found.map { entry ->
+            NamedPiece(entry.name, entry.size) {
+                val uri = DocumentsContract.buildDocumentUriUsingTree(tree, entry.id)
+                openUri(context, uri)
+            }
+        }
+    }
+
+    private fun isRobertaFile(name: String): Boolean {
+        return RobertaParts.isWholeModel(name) || RobertaParts.partIndex(name) != null
+    }
+
+    private fun displayName(context: Context, uri: Uri): String {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) return cursor.getString(0) ?: ""
+        }
+        return uri.lastPathSegment?.substringAfterLast('/') ?: ""
+    }
+
+    private fun sizeOf(context: Context, uri: Uri): Long {
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) return cursor.getLong(0)
+        }
+        return -1L
+    }
+
+    private fun openUri(context: Context, uri: Uri): InputStream {
+        return context.contentResolver.openInputStream(uri)?.buffered()
+            ?: throw IllegalStateException("读不到选择的文件")
+    }
+
+    private data class Entry(val id: String, val name: String, val isDir: Boolean, val size: Long)
 
     private fun listChildren(context: Context, tree: Uri, documentId: String): List<Entry> {
         val uri = DocumentsContract.buildChildDocumentsUriUsingTree(tree, documentId)
@@ -106,6 +245,7 @@ object CaseFetcher {
                 DocumentsContract.Document.COLUMN_DOCUMENT_ID,
                 DocumentsContract.Document.COLUMN_DISPLAY_NAME,
                 DocumentsContract.Document.COLUMN_MIME_TYPE,
+                DocumentsContract.Document.COLUMN_SIZE,
             ),
             null,
             null,
@@ -116,6 +256,7 @@ object CaseFetcher {
                     cursor.getString(0),
                     cursor.getString(1) ?: "",
                     cursor.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR,
+                    if (cursor.isNull(3)) -1L else cursor.getLong(3),
                 )
             }
         }

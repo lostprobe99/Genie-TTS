@@ -46,6 +46,9 @@ class MainActivity : AppCompatActivity() {
     private val pickZip = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importZip(uri)
     }
+    private val pickRoberta = registerForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
+        if (!uris.isNullOrEmpty()) importRoberta(uris)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,7 +63,7 @@ class MainActivity : AppCompatActivity() {
         showCase()
         showInterruptedStep()
         downloadButton.setOnClickListener { downloadCase() }
-        prosodyButton.setOnClickListener { downloadProsody() }
+        prosodyButton.setOnClickListener { pickRoberta.launch(arrayOf("*/*")) }
         pickButton.setOnClickListener { pickFolder.launch(null) }
         pickZipButton.setOnClickListener {
             pickZip.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
@@ -99,17 +102,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun downloadProsody() {
+    private fun importRoberta(uris: List<Uri>) {
         setBusy(true)
         worker.execute {
             try {
                 val caseDir = locateCase() ?: File(filesDir, "android_case")
-                if (!Prosody.isReady(caseDir)) {
-                    prosody?.close()
-                    prosody = null
-                }
-                CaseFetcher.downloadRoberta(caseDir) { line -> ui { log(line) } }
-                ui { log("韵律模型已放进应用目录。点「合成」即可。声学模型不用重新下载。") }
+                CaseFetcher.importRoberta(this, caseDir, uris) { line -> ui { log(line) } }
+                ui { log("韵律模型已导入。点「合成」即可。声学模型不用重新下载。") }
             } catch (error: Exception) {
                 ui { logFailure(error) }
             } finally {
@@ -149,12 +148,25 @@ class MainActivity : AppCompatActivity() {
         setBusy(true)
         worker.execute {
             try {
-                engine?.close()
-                engine = null
-                CaseFetcher.importTree(this, uri) { line -> ui { log(line) } }
+                val caseDir = locateCase() ?: File(filesDir, "android_case")
+                val importedRoberta = CaseFetcher.importRobertaTree(this, uri, caseDir) { line -> ui { log(line) } }
+                var importedCase = false
+                try {
+                    engine?.close()
+                    engine = null
+                    CaseFetcher.importTree(this, uri) { line -> ui { log(line) } }
+                    importedCase = true
+                } catch (error: IllegalStateException) {
+                    val missingCase = error.message.orEmpty().contains("manifest.json")
+                    if (!importedRoberta || !missingCase) throw error
+                }
+                if (!importedCase && !importedRoberta) {
+                    throw IllegalStateException("这个目录里没有测试数据，也没有韵律分片。")
+                }
                 ui {
-                    showCase()
-                    log("目录已复制到应用里。连点两次「合成」，第二次的时间才算数。")
+                    if (importedCase) showCase()
+                    if (importedRoberta) log("韵律模型已导入。点「合成」即可。声学模型不用重新下载。")
+                    else log("目录已复制到应用里。连点两次「合成」，第二次的时间才算数。")
                 }
             } catch (error: Exception) {
                 ui { logFailure(error) }
@@ -257,7 +269,10 @@ class MainActivity : AppCompatActivity() {
         } else {
             log("已找到 ${caseDir.absolutePath}")
             if (Prosody.isReady(caseDir)) log("韵律模型已在")
-            else log("还没有韵律模型。点「下载韵律模型」后，停顿和重音会跟着句子走。没有它也能合成。")
+            else {
+                log("还没有韵律模型。用浏览器下载下面 13 个文件，再点「导入韵律模型」并全部选中。声学模型不用重下。")
+                log(CaseFetcher.robertaManualLinks().trimEnd())
+            }
         }
     }
 
