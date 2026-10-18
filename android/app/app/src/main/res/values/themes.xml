@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Genie" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:statusBarColor">@color/ink</item>
+        <item name="android:navigationBarColor">@color/ink</item>
+        <item name="android:windowBackground">@color/ink</item>
+        <item name="colorPrimary">@color/amber</item>
+        <item name="colorAccent">@color/amber</item>
+        <item name="android:textColor">@color/paper</item>
+        <item name="alertDialogTheme">@style/Theme.Genie.Dialog</item>
+        <item name="android:alertDialogTheme">@style/Theme.Genie.Dialog</item>
+    </style>
+
+    <style name="Theme.Genie.Dialog" parent="Theme.AppCompat.Dialog.Alert">
+        <item name="android:background">@color/ink_soft</item>
+        <item name="android:windowBackground">@color/ink_soft</item>
+        <item name="android:textColor">@color/paper</item>
+        <item name="android:textColorPrimary">@color/paper</item>
+        <item name="android:textColorAlertDialogListItem">@color/paper</item>
+        <item name="colorAccent">@color/amber</item>
+    </style>
+</resources>
