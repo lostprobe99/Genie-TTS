@@ -34,6 +34,19 @@ MODEL_NAMES = (
     "vits_fp32.onnx",
 )
 REQUIRED_TENSORS = ("ref_seq", "ref_bert", "ssl_content", "ge", "ge_advanced")
+MANIFEST_KEYS = (
+    "format",
+    "id",
+    "name",
+    "language",
+    "sample_rate",
+    "model_type",
+    "ref_text",
+    "roberta",
+    "tensors",
+    "models",
+    "model_sizes",
+)
 DTYPE_WIDTH = {"float32": 4, "int64": 8}
 DISPLAY_NAMES = {"feibi": "菲比", "sanyueqi": "三月七"}
 
@@ -62,11 +75,17 @@ def main() -> None:
     check.add_argument("zip", type=Path)
     check.add_argument("--run-encoder", action="store_true")
 
+    clean = sub.add_parser("clean", help="去掉示例句子和对应张量，只保留参考音色")
+    clean.add_argument("zip", type=Path)
+    clean.add_argument("--output", type=Path)
+
     args = parser.parse_args()
     if args.command == "pack":
         pack_case(args.source, args.output, args.id, args.name)
     elif args.command == "bake":
         bake_character(args)
+    elif args.command == "clean":
+        clean_zip(args.zip, args.output)
     else:
         check_zip(args.zip, args.run_encoder)
 
@@ -79,8 +98,7 @@ def pack_case(source: Path, output: Path, character_id: str, display_name: str) 
     models = work / "models"
     models.mkdir(parents=True)
     assemble_models(source / "models", models)
-    tensors = work / "tensors"
-    shutil.copytree(source / "tensors", tensors)
+    copy_required_tensors(source, work / "tensors", manifest)
     write_manifest(work, manifest, character_id, display_name)
     write_zip(work, output)
     shutil.rmtree(work)
@@ -114,18 +132,89 @@ def assemble_models(source: Path, dest: Path) -> None:
 
 
 def write_manifest(root: Path, manifest: dict, character_id: str, display_name: str) -> None:
-    character_id = character_id.strip().lower()
-    manifest = dict(manifest)
-    manifest["format"] = FORMAT
-    manifest["id"] = character_id
-    manifest["name"] = display_name or manifest.get("name") or DISPLAY_NAMES.get(character_id, character_id)
-    manifest["model_sizes"] = {
-        name: (root / "models" / name).stat().st_size for name in MODEL_NAMES
-    }
+    sizes = {name: (root / "models" / name).stat().st_size for name in MODEL_NAMES}
+    cleaned = canonical_manifest(manifest, character_id, display_name, sizes)
     (root / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        json.dumps(cleaned, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+
+
+def canonical_manifest(source: dict, character_id: str, display_name: str, model_sizes: dict) -> dict:
+    character_id = (character_id or source.get("id") or source.get("character") or "").strip().lower()
+    if not character_id:
+        raise SystemExit("缺少 id")
+    ref_text = source.get("ref_text") or ""
+    if not ref_text:
+        raise SystemExit("缺少 ref_text")
+    sample_rate = source.get("sample_rate")
+    if not sample_rate:
+        raise SystemExit("缺少 sample_rate")
+    tensors_in = source.get("tensors") or {}
+    tensors = {}
+    for name in REQUIRED_TENSORS:
+        spec = tensors_in.get(name)
+        if not isinstance(spec, dict):
+            raise SystemExit(f"缺少 {name}")
+        tensors[name] = {
+            "file": f"tensors/{name}.bin",
+            "dtype": spec["dtype"],
+            "shape": [int(dim) for dim in spec["shape"]],
+        }
+    return {
+        "format": FORMAT,
+        "id": character_id,
+        "name": display_name or source.get("name") or DISPLAY_NAMES.get(character_id, character_id),
+        "language": source.get("language") or "Chinese",
+        "sample_rate": int(sample_rate),
+        "model_type": source.get("model_type") or "v2proplus",
+        "ref_text": ref_text,
+        "roberta": bool(source.get("roberta", False)),
+        "tensors": tensors,
+        "models": list(MODEL_NAMES),
+        "model_sizes": {name: int(model_sizes[name]) for name in MODEL_NAMES},
+    }
+
+
+def copy_required_tensors(source: Path, dest: Path, manifest: dict) -> None:
+    dest.mkdir(parents=True)
+    for name in REQUIRED_TENSORS:
+        spec = manifest["tensors"][name]
+        src = source / spec["file"]
+        if not src.is_file():
+            raise SystemExit(f"缺少 {spec['file']}")
+        shutil.copy2(src, dest / f"{name}.bin")
+
+
+def clean_zip(source: Path, output: Path | None) -> None:
+    output = output or source
+    temporary = output.with_name(output.name + ".cleaning")
+    if temporary.exists():
+        temporary.unlink()
+    with zipfile.ZipFile(source) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        sizes = {
+            name: archive.getinfo(f"models/{name}").file_size for name in MODEL_NAMES
+        }
+        cleaned = canonical_manifest(manifest, manifest.get("id", ""), "", sizes)
+        with zipfile.ZipFile(temporary, "w", compression=zipfile.ZIP_STORED, allowZip64=True) as dest:
+            payload = json.dumps(cleaned, ensure_ascii=False, indent=2) + "\n"
+            dest.writestr("manifest.json", payload.encode("utf-8"))
+            for name in MODEL_NAMES:
+                copy_zip_entry(archive, dest, f"models/{name}")
+            for name in REQUIRED_TENSORS:
+                copy_zip_entry(archive, dest, manifest["tensors"][name]["file"], f"tensors/{name}.bin")
+    temporary.replace(output)
+    print(f"wrote {output} ({output.stat().st_size} bytes)")
+
+
+def copy_zip_entry(source: zipfile.ZipFile, dest: zipfile.ZipFile, name: str, dest_name: str | None = None) -> None:
+    info = source.getinfo(name)
+    copied = zipfile.ZipInfo(filename=dest_name or name, date_time=info.date_time)
+    copied.compress_type = zipfile.ZIP_STORED
+    copied.external_attr = info.external_attr
+    with source.open(info, "r") as incoming, dest.open(copied, "w") as outgoing:
+        shutil.copyfileobj(incoming, outgoing, 1024 * 1024)
 
 
 def write_zip(root: Path, output: Path) -> None:
@@ -331,6 +420,9 @@ def check_zip(path: Path, run_encoder: bool) -> None:
         manifest = json.loads(archive.read("manifest.json"))
     if manifest.get("format") != FORMAT:
         raise SystemExit("format 不是 1")
+    extra_keys = set(manifest) - set(MANIFEST_KEYS)
+    if extra_keys:
+        raise SystemExit(f"多余字段 {sorted(extra_keys)}")
     character_id = manifest.get("id", "")
     if not character_id:
         raise SystemExit("缺少 id")
@@ -340,10 +432,21 @@ def check_zip(path: Path, run_encoder: bool) -> None:
         if f"models/{name}" not in names:
             raise SystemExit(f"缺少 {name}")
     tensors = manifest["tensors"]
+    extra_tensors = set(tensors) - set(REQUIRED_TENSORS)
+    if extra_tensors:
+        raise SystemExit(f"多余张量 {sorted(extra_tensors)}")
+    allowed = {"manifest.json"}
+    allowed.update(f"models/{name}" for name in MODEL_NAMES)
     for name in REQUIRED_TENSORS:
         spec = tensors[name]
+        if spec["file"] != f"tensors/{name}.bin":
+            raise SystemExit(f"{name} 路径不是 tensors/{name}.bin")
         if spec["file"] not in names:
             raise SystemExit(f"缺少 {spec['file']}")
+        allowed.add(spec["file"])
+    extra_files = {name for name in names if name not in allowed and not name.endswith("/")}
+    if extra_files:
+        raise SystemExit(f"多余文件 {sorted(extra_files)}")
     work = path.parent / f".check-{path.stem}"
     if work.exists():
         shutil.rmtree(work)

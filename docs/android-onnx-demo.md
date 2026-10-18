@@ -35,11 +35,11 @@
 |---|---|---|---|
 | `ref_seq` | int64 | `[1, 42]` | 参考句音素 |
 | `ref_bert` | float32 | `[42, 1024]` | 参考句 BERT。包里的文件仍是全零；韵律模型在时，应用按参考句原文现算后送进编码器 |
-| `text_seq` | int64 | `[1, 29]` | 天气这句的音素。应用里改由输入框现算，长度随句子变化 |
-| `text_bert` | float32 | `[29, 1024]` | 目标句 BERT。应用里按音素个数现算；有韵律模型时来自 RoBERTa，否则全零 |
 | `ssl_content` | float32 | `[1, 768, 231]` | 参考音频的 HuBERT 特征 |
 | `ge` | float32 | `[1, 1024, 1]` | V2ProPlus 音色向量 |
 | `ge_advanced` | float32 | `[1, 512, 1]` | V2ProPlus 音色向量 |
+
+导出目录里还有天气这句的 `text_seq`、`text_bert`，以及 `text`、`infer_text`。角色包不带这四项。要合成的句子由输入框决定，`text_seq` 和 `text_bert` 在手机上现算。
 
 ## 手机应用
 
@@ -49,7 +49,7 @@
 
 从手机上的 1.13 换成这一版，要先卸载再安装。两版调试签名不同，Android 不允许直接覆盖。卸载会清掉应用里已经下好的菲比和韵律模型，装好后重新导入角色包，并再点一次「下载韵律模型」。这一版之后的包都用仓库里的 `debug.keystore` 签名。已经装上 1.14 的话，直接覆盖安装 1.15，已导入的角色和韵律模型都还在。
 
-角色包用 `tools/pack_android_character.py` 生成。zip 里是 `manifest.json`、四个自包含 FP32 ONNX 和参考张量。`id` 用小写，菲比是 `feibi`，三月七是 `sanyueqi`。
+角色包用 `tools/pack_android_character.py` 生成。zip 里是 `manifest.json`、四个自包含 FP32 ONNX，以及 `ref_seq`、`ref_bert`、`ssl_content`、`ge`、`ge_advanced`。不写 `text`。`id` 用小写，菲比是 `feibi`，三月七是 `sanyueqi`。
 
 没有电脑时，用手机浏览器打开安装包并安装，安装时允许未知来源：
 
