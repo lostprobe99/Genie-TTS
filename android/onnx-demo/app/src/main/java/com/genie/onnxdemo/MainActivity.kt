@@ -63,6 +63,7 @@ class MainActivity : AppCompatActivity() {
         characters = findViewById(R.id.characters)
         params = ParamPanel(this, filesDir).also { it.bind() }
         CharacterPack.migrateLegacy(filesDir)
+        File(filesDir, "patched").deleteRecursively()
         selectedId = File(filesDir, "selected-character.txt").takeIf { it.isFile }?.readText()?.trim()
         refreshCharacters(announce = true)
         showInterruptedStep()
