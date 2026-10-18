@@ -8,8 +8,11 @@ import android.media.AudioTrack
 import android.net.Uri
 import android.os.Bundle
 import android.os.SystemClock
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -17,7 +20,6 @@ import androidx.appcompat.app.AppCompatActivity
 import ai.onnxruntime.OrtEnvironment
 import com.genie.onnxdemo.g2p.ChineseFrontend
 import com.genie.onnxdemo.g2p.G2pFiles
-import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
@@ -37,13 +39,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var logView: TextView
     private lateinit var sentence: EditText
     private lateinit var button: Button
-    private lateinit var downloadButton: Button
     private lateinit var prosodyButton: Button
-    private lateinit var pickButton: Button
     private lateinit var pickZipButton: Button
-    private val pickFolder = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
-        if (uri != null) importFolder(uri)
-    }
+    private lateinit var characters: Spinner
+    private var shown: List<CharacterInfo> = emptyList()
+    private var selectedId: String? = null
+    private var bindingSpinner = false
     private val pickZip = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importZip(uri)
     }
@@ -54,19 +55,33 @@ class MainActivity : AppCompatActivity() {
         logView = findViewById(R.id.log)
         sentence = findViewById(R.id.sentence)
         button = findViewById(R.id.synthesize)
-        downloadButton = findViewById(R.id.download)
         prosodyButton = findViewById(R.id.downloadProsody)
-        pickButton = findViewById(R.id.pickFolder)
         pickZipButton = findViewById(R.id.pickZip)
-        showCase()
+        characters = findViewById(R.id.characters)
+        CharacterPack.migrateLegacy(filesDir)
+        selectedId = File(filesDir, "selected-character.txt").takeIf { it.isFile }?.readText()?.trim()
+        refreshCharacters(announce = true)
         showInterruptedStep()
-        downloadButton.setOnClickListener { downloadCase() }
+        characters.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: android.view.View?, position: Int, id: Long) {
+                if (bindingSpinner) return
+                val info = shown.getOrNull(position) ?: return
+                if (info.id == selectedId) return
+                engine?.close()
+                engine = null
+                cachedRefBert = null
+                selectedId = info.id
+                persistSelection()
+                showSelection()
+            }
+
+            override fun onNothingSelected(parent: AdapterView<*>?) = Unit
+        }
         prosodyButton.setOnClickListener { downloadProsody() }
-        pickButton.setOnClickListener { pickFolder.launch(null) }
         pickZipButton.setOnClickListener {
             pickZip.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
         }
-        button.setOnClickListener { synthesize(locateCase(), sentence.text?.toString()?.trim().orEmpty()) }
+        button.setOnClickListener { synthesize(selectedDir(), sentence.text?.toString()?.trim().orEmpty()) }
         findViewById<Button>(R.id.copyLog).setOnClickListener { copyLog() }
         logView.setOnLongClickListener {
             copyLog()
@@ -81,37 +96,17 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
-    private fun downloadCase() {
-        setBusy(true)
-        worker.execute {
-            try {
-                engine?.close()
-                engine = null
-                CaseFetcher.download(this) { line -> ui { log(line) } }
-                ui {
-                    showCase()
-                    log("测试数据已放进应用目录。连点两次「合成」，第二次的时间才算数。")
-                }
-            } catch (error: Exception) {
-                ui { logFailure(error) }
-            } finally {
-                ui { setBusy(false) }
-            }
-        }
-    }
-
     private fun downloadProsody() {
         setBusy(true)
         worker.execute {
             try {
-                val caseDir = locateCase() ?: File(filesDir, "android_case")
-                if (!Prosody.isReady(caseDir)) {
+                if (!Prosody.isReady(filesDir)) {
                     prosody?.close()
                     prosody = null
                     cachedRefBert = null
                 }
-                CaseFetcher.downloadRoberta(caseDir) { line -> ui { log(line) } }
-                ui { log("韵律模型已放进应用目录。点「合成」即可。声学模型不用重新下载。") }
+                CaseFetcher.downloadRoberta(filesDir) { line -> ui { log(line) } }
+                ui { log("韵律模型已放进应用目录。点「合成」即可。") }
             } catch (error: Exception) {
                 ui { logFailure(error) }
             } finally {
@@ -124,52 +119,20 @@ class MainActivity : AppCompatActivity() {
         setBusy(true)
         worker.execute {
             try {
-                engine?.close()
-                engine = null
-                CaseFetcher.importArchive(this, uri) { line -> ui { log(line) } }
-                ui {
-                    showCase()
-                    log("测试数据已解压到应用目录。连点两次「合成」，第二次的时间才算数。")
-                }
-            } catch (error: Exception) {
-                ui { logFailure(error) }
-            } finally {
-                ui { setBusy(false) }
-            }
-        }
-    }
-
-    private fun importFolder(uri: Uri) {
-        try {
-            contentResolver.takePersistableUriPermission(
-                uri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION,
-            )
-        } catch (_: SecurityException) {
-            // 本次选择已经带有读取授权，复制完成前不需要长期保存。
-        }
-        setBusy(true)
-        worker.execute {
-            try {
-                val caseDir = locateCase() ?: File(filesDir, "android_case")
-                val importedRoberta = CaseFetcher.importRobertaTree(this, uri, caseDir) { line -> ui { log(line) } }
-                var importedCase = false
-                try {
+                val result = contentResolver.openInputStream(uri)?.use { input ->
+                    CharacterPack.importZip(filesDir, input)
+                } ?: throw IllegalStateException("读不到选择的压缩包")
+                if (selectedId == result.info.id) {
                     engine?.close()
                     engine = null
-                    CaseFetcher.importTree(this, uri) { line -> ui { log(line) } }
-                    importedCase = true
-                } catch (error: IllegalStateException) {
-                    val missingCase = error.message.orEmpty().contains("manifest.json")
-                    if (!importedRoberta || !missingCase) throw error
+                    cachedRefBert = null
                 }
-                if (!importedCase && !importedRoberta) {
-                    throw IllegalStateException("这个目录里没有测试数据，也没有韵律分片。")
-                }
+                selectedId = result.info.id
+                persistSelection()
                 ui {
-                    if (importedCase) showCase()
-                    if (importedRoberta) log("韵律模型已导入。点「合成」即可。声学模型不用重新下载。")
-                    else log("目录已复制到应用里。连点两次「合成」，第二次的时间才算数。")
+                    refreshCharacters(announce = false)
+                    val verb = if (result.replaced) "已替换" else "已导入"
+                    log("$verb ${result.info.name}。现在可以选它来合成。")
                 }
             } catch (error: Exception) {
                 ui { logFailure(error) }
@@ -181,7 +144,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun synthesize(caseDir: File?, typed: String) {
         if (caseDir == null) {
-            log("还没有模型。请先单独下载 feibi-case.zip，再点「导入」。")
+            log(getString(R.string.empty_characters))
             return
         }
         if (typed.isBlank()) {
@@ -285,32 +248,55 @@ class MainActivity : AppCompatActivity() {
         if (step.isNotEmpty()) log("上次没有正常结束：$step")
     }
 
-    private fun showCase() {
-        val caseDir = locateCase()
-        findViewById<TextView>(R.id.casePath).text = caseDir?.absolutePath ?: expectedPath().absolutePath
-        sentence.setText(readSentence(caseDir)?.removePrefix("。") ?: getString(R.string.sentence))
-        logView.text = ""
-        if (caseDir == null) {
-            log("还没有模型。请先单独下载 feibi-case.zip，再点「导入」。应用会把它解压到应用目录。")
+    private fun refreshCharacters(announce: Boolean) {
+        shown = CharacterPack.list(filesDir)
+        if (selectedId !in shown.map { it.id }) selectedId = shown.firstOrNull()?.id
+        bindingSpinner = true
+        characters.adapter = ArrayAdapter(this, R.layout.spinner_item, shown.map { it.name })
+        val index = shown.indexOfFirst { it.id == selectedId }
+        if (index >= 0) characters.setSelection(index)
+        bindingSpinner = false
+        persistSelection()
+        showSelection()
+        if (!announce) return
+        if (shown.isEmpty()) log(getString(R.string.empty_characters))
+        else log("已有角色：" + shown.joinToString("、") { it.name })
+        if (Prosody.isReady(filesDir)) log("韵律模型已在")
+        else log("还没有韵律模型。点「下载韵律模型」，下完再点「合成」。")
+    }
+
+    private fun showSelection() {
+        val dir = selectedDir()
+        findViewById<TextView>(R.id.casePath).text = dir?.absolutePath ?: CharacterPack.directory(filesDir).absolutePath
+    }
+
+    private fun selectedDir(): File? {
+        val id = selectedId ?: return null
+        val dir = File(CharacterPack.directory(filesDir), id)
+        return dir.takeIf { File(it, "manifest.json").isFile }
+    }
+
+    private fun persistSelection() {
+        val file = File(filesDir, "selected-character.txt")
+        val id = selectedId
+        if (id.isNullOrBlank()) {
+            file.delete()
         } else {
-            log("已找到 ${caseDir.absolutePath}")
-            if (Prosody.isReady(caseDir)) log("韵律模型已在")
-            else log("还没有韵律模型。点「下载韵律模型」，下完再点「合成」。声学模型不用重下。")
+            file.writeText(id)
         }
     }
 
     private fun setBusy(busy: Boolean) {
-        downloadButton.isEnabled = !busy
         prosodyButton.isEnabled = !busy
-        pickButton.isEnabled = !busy
         pickZipButton.isEnabled = !busy
-        button.isEnabled = !busy
+        characters.isEnabled = !busy
+        button.isEnabled = !busy && selectedDir() != null
     }
 
     private fun textBert(caseDir: File, phones: com.genie.onnxdemo.g2p.PhoneResult, threads: Int): OwnedTensor {
         val length = phones.ids.size
         fun zeros() = OwnedTensor.fromFloats(longArrayOf(length.toLong(), 1024), FloatArray(length * 1024))
-        if (!Prosody.isReady(caseDir)) {
+        if (!Prosody.isReady(filesDir)) {
             ui { log("韵律模型还没放进来，text_bert 仍为零") }
             return zeros()
         }
@@ -319,7 +305,7 @@ class MainActivity : AppCompatActivity() {
             val started = SystemClock.elapsedRealtime()
             val loaded = Prosody(
                 OrtEnvironment.getEnvironment(),
-                Prosody.modelFile(caseDir),
+                Prosody.modelFile(filesDir),
                 threads,
                 assets.open("roberta/vocab.txt"),
             )
@@ -394,26 +380,6 @@ class MainActivity : AppCompatActivity() {
             log(result.phones.joinToString(" "))
         }
         return result
-    }
-
-    private fun readSentence(caseDir: File?): String? {
-        if (caseDir == null) return null
-        return try {
-            JSONObject(File(caseDir, "manifest.json").readText()).optString("text").ifBlank { null }
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun locateCase(): File? {
-        val external = getExternalFilesDir(null)
-        val candidates = listOfNotNull(external, filesDir).map { File(it, "android_case") }
-        return candidates.firstOrNull { File(it, "manifest.json").isFile }
-    }
-
-    private fun expectedPath(): File {
-        val base = getExternalFilesDir(null) ?: filesDir
-        return File(base, "android_case")
     }
 
     private fun logFailure(error: Exception) {

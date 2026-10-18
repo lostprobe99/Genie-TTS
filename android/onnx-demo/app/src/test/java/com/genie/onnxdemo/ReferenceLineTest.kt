@@ -40,4 +40,20 @@ class ReferenceLineTest {
         )
         assertEquals(result.word2ph.size + 2, tokens.size)
     }
+
+    @Test
+    fun sanyueqiReferencePhones() {
+        val g2p = listOf(
+            File("src/main/assets/g2p"),
+            File("app/src/main/assets/g2p"),
+            File("android/onnx-demo/app/src/main/assets/g2p"),
+        ).first { it.isDirectory }
+        val result = ChineseFrontend(G2pFiles.fromDirectory(g2p)).phones("倒是不忙，可他不喜欢聊天")
+        val ids = listOf(
+            File("../../../tools/sanyueqi_ref_ids.txt"),
+            File("../../../../tools/sanyueqi_ref_ids.txt"),
+        ).first { it.isFile }.readText().trim()
+        assertEquals("倒是不忙,可他不喜欢聊天", result.normalized)
+        assertEquals(ids, result.ids.joinToString(" "))
+    }
 }

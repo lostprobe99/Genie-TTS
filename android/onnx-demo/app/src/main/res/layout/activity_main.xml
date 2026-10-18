@@ -10,7 +10,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:fontFamily="serif"
-        android:text="菲比 · ONNX"
+        android:text="Genie"
         android:textColor="@color/paper"
         android:textSize="32sp" />
 
@@ -31,11 +31,19 @@
         android:textColorHint="@color/muted"
         android:textSize="16sp" />
 
+    <Spinner
+        android:id="@+id/characters"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="16dp"
+        android:background="@color/ink_soft"
+        android:popupBackground="@color/ink_soft" />
+
     <TextView
         android:id="@+id/casePath"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="8dp"
         android:fontFamily="monospace"
         android:textColor="@color/muted"
         android:textSize="12sp" />
@@ -49,22 +57,6 @@
         android:text="@string/pick_zip"
         android:textColor="@color/ink"
         android:textSize="18sp" />
-
-    <Button
-        android:id="@+id/pickFolder"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="8dp"
-        android:text="@string/pick_folder"
-        android:textSize="15sp" />
-
-    <Button
-        android:id="@+id/download"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:layout_marginTop="8dp"
-        android:text="@string/download"
-        android:textSize="15sp" />
 
     <Button
         android:id="@+id/downloadProsody"

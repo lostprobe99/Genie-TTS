@@ -38,12 +38,12 @@
 | 分支 | `cursor/android-onnx-demo-doc-3875` |
 | 基线 | `master` |
 | PR | https://github.com/lostprobe99/Genie-TTS/pull/1 |
-| 最新提交 | `d372da9` `feat: 长文按原仓库规则分句播放` |
-| 安装包 | versionName **1.13**，versionCode **14** |
+| 最新提交 | 以这条分支的 HEAD 为准 |
+| 安装包 | versionName **1.14**，versionCode **15** |
 | APK | https://github.com/lostprobe99/Genie-TTS/raw/cursor/android-onnx-demo-doc-3875/android/onnx-demo/genie-onnx-demo.apk |
 | 测试数据 raw 根 | `https://raw.githubusercontent.com/lostprobe99/Genie-TTS/cursor/android-onnx-demo-doc-3875/android_case` |
 
-手机上的 1.13 用户已经听过长文，原话是「听起来还行」。不要为了换角色把这套行为改掉。
+手机上的 1.13 用户已经听过长文，原话是「听起来还行」。1.14 改成安装包不带角色：导入 `feibi.zip` 或 `sanyueqi.zip` 后，列表里多一个可选项。覆盖安装会把原来的 `android_case` 挪到 `characters/feibi`。分句和合成行为不要改。
 
 ## 已经做完、不要重做
 

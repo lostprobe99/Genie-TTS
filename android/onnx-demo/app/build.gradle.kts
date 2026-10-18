@@ -11,8 +11,8 @@ android {
         applicationId = "com.genie.onnxdemo"
         minSdk = 26
         targetSdk = 35
-        versionCode = 14
-        versionName = "1.13"
+        versionCode = 15
+        versionName = "1.14"
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -49,4 +49,13 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
+}
+
+tasks.withType<Test>().configureEach {
+    doFirst {
+        val androidJars = classpath.files.filter { it.name == "android.jar" }
+        val rest = classpath.files.filter { it.name != "android.jar" }
+        classpath = files(rest + androidJars)
+    }
 }

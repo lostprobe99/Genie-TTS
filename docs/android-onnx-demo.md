@@ -43,15 +43,17 @@
 
 ## 手机应用
 
-工程在 `android/onnx-demo`，包名 `com.genie.onnxdemo`，只保留 `arm64-v8a`。当前安装包版本是 1.13。依赖是 `com.microsoft.onnxruntime:onnxruntime-android:1.22.0`。
+工程在 `android/onnx-demo`，包名 `com.genie.onnxdemo`，只保留 `arm64-v8a`。当前安装包版本是 1.14。依赖是 `com.microsoft.onnxruntime:onnxruntime-android:1.22.0`。
+
+安装包里没有角色。点「导入角色包」选一个 zip，列表里就多一个角色。同一个 `id` 再导一次只替换这一份。覆盖安装时，原来放在 `android_case` 的菲比会挪到 `characters/feibi`，不用重下。
+
+角色包用 `tools/pack_android_character.py` 生成。zip 里是 `manifest.json`、四个自包含 FP32 ONNX 和参考张量。`id` 用小写，菲比是 `feibi`，三月七是 `sanyueqi`。
 
 没有电脑时，用手机浏览器打开安装包并安装，安装时允许未知来源：
 
 https://github.com/lostprobe99/Genie-TTS/raw/cursor/android-onnx-demo-doc-3875/android/onnx-demo/genie-onnx-demo.apk
 
-测试数据是单独的一个压缩包 `feibi-case.zip`，不打进安装包。下载完成后，在应用里点「导入」并选中这个文件。应用把它解压到自己的目录。解压完成后连点两次「合成」，第二次的时间才算数。如果点「合成」后应用退出，重新打开，日志里会写上次停在哪一步。
-
-已经装过以前的版本、声学模型还在的话，不用重新导入测试数据。点「下载韵律模型」，应用自己把韵律模型拉下来并拼好，大约 572 MB。中途断了再点一次，已经拼好的不会再下。点「下载测试数据」也会把韵律模型一起拉下来，声学模型大小对上的会跳过。拼好以后大小是 599,034,176 字节。
+点「下载韵律模型」，应用自己把中文 RoBERTa 拉下来，大约 572 MB，所有角色共用。中途断了再点一次，已经拼好的不会再下。拼好以后大小是 599,034,176 字节。如果点「合成」后应用退出，重新打开，日志里会写上次停在哪一步。
 
 换句子直接改输入框。一段话先按桌面端 `Utils/TextSplitter.py` 切开，再逐句合成。规则和桌面端默认的 `tts()` 一样：句号、问号、叹号、省略号收成一句；这一句有效长度不到 5，就并进下一句；逗号、顿号平时不断，有效长度攒到 40（大约二十个字）再遇到逗号才切开。换行先删掉。只有一句时，行为和以前一样，仍保存成 `phone.wav`。多句时日志先写「分成 N 句」，每一句写「第 i/N 句」，这一句播完才合下一句，音频分别存成 `phone-1.wav`、`phone-2.wav`。参考韵律仍只算一次。每一句送进模型前仍在句首加一个句号，和 `Core/Inference.py` 一样，然后在手机上做分词、多音字、变调和儿化。日志里会写出归一化文本、音素个数和音素。下面三句已经和桌面前端对过。「一日还」是 `h ai2`，「朝霞」是 `zh ao1 x ia2`。天气那句和七言、论持久战各是一句，音素个数应是 29、31、41。洛神赋原文中间有句号，会分成两句先后播放，每一句自己再在句首加句号，所以不再是原先整段的 49 个音素。
 
@@ -63,18 +65,15 @@ https://github.com/lostprobe99/Genie-TTS/raw/cursor/android-onnx-demo-doc-3875/a
 
 韵律模型在的时候，日志里会有「韵律 N ms」和「参考韵律 42，N ms」。参考句只算一次，第二次变成「参考韵律 42」。连点两次「合成」，第二次才把加载时间摘出去。第一次会把韵律模型读进内存，并一直留着，下次点「合成」不用再读。如果日志写「韵律模型还没放进来」，就是还没下完，这时两块 BERT 仍为零。如果写「韵律对齐不上」或「参考韵律仍为零」，对应那一块退回全零，不会闪退。
 
-如果手机里已经有解压好的 `android_case`，点「选择已解压的目录」，选中包含 `manifest.json` 的那一层。Android 11 以后，文件管理器写不进 `Android/data`，所以应用会把选中的文件复制进自己的目录。应用内的「下载测试数据」仍可使用。
-
 在装好 Android SDK 的电脑上也可以自己编译：
 
 ```bash
 cd android/onnx-demo
 gradle :app:assembleDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
-adb push android_case /sdcard/Android/data/com.genie.onnxdemo/files/
 ```
 
-声学模型和韵律模型都不要打进 APK。中文前端的词典、拼音表和 RoBERTa 分词表打进安装包。界面上有输入框、「下载韵律模型」和「合成」。按下「合成」后：
+声学模型和韵律模型都不要打进 APK。中文前端的词典、拼音表和 RoBERTa 分词表打进安装包。界面上有输入框、角色列表、「导入角色包」、「下载韵律模型」和「合成」。先选中一个已导入的角色，再按下「合成」：
 
 1. 用 `TextSplitter` 把输入切开。参考音色按 `manifest.json` 读入：`ref_seq`、`ssl_content`、`ge`、`ge_advanced`。韵律模型在的话，用参考句原文现算一次 `ref_bert`，并确认音素编号和包里的 `ref_seq` 一致。对不上就继续用包里的全零。
 2. 每一句用输入框里的这一截现算 `text_seq`。韵律模型在的话，用归一化后的这一句跑 RoBERTa，按每个字对应的音素个数把 1024 维特征铺开，得到 `text_bert`。模型不在，或对不齐，就造一块全零的。
@@ -109,4 +108,3 @@ adb push android_case /sdcard/Android/data/com.genie.onnxdemo/files/
 ## 先不做
 
 - 把 stage decoder 放到 NPU
-- 角色模型下载和多角色缓存
