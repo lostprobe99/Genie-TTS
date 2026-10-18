@@ -9,4 +9,14 @@
     <string name="sentence">今天天气不错，我们出去走走吧。</string>
     <string name="sentence_hint">在这里输入中文，多句会逐句播放</string>
     <string name="speed_label">语速 %1$.2f</string>
+    <string name="temperature_label">温度 %1$.2f</string>
+    <string name="topk_label">TopK %1$d</string>
+    <string name="penalty_label">重复惩罚 %1$.2f</string>
+    <string name="min_sentence_label">分句最短 %1$d</string>
+    <string name="max_sentence_label">分句最长 %1$d</string>
+    <string name="max_steps_label">解码步数 %1$d</string>
+    <string name="threads_auto">线程 自动</string>
+    <string name="threads_fixed">线程 %1$d</string>
+    <string name="leading_period">句首加句号</string>
+    <string name="params_toggle">参数 · 语速 %1$.2f %2$s</string>
 </resources>

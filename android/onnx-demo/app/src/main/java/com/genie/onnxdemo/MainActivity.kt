@@ -13,7 +13,6 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.EditText
-import android.widget.SeekBar
 import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
@@ -44,8 +43,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prosodyButton: Button
     private lateinit var pickZipButton: Button
     private lateinit var characters: Spinner
-    private lateinit var speedBar: SeekBar
-    private lateinit var speedLabel: TextView
+    private lateinit var params: ParamPanel
+    private var engineStamp: String? = null
     private var shown: List<CharacterInfo> = emptyList()
     private var selectedId: String? = null
     private var bindingSpinner = false
@@ -62,20 +61,7 @@ class MainActivity : AppCompatActivity() {
         prosodyButton = findViewById(R.id.downloadProsody)
         pickZipButton = findViewById(R.id.pickZip)
         characters = findViewById(R.id.characters)
-        speedBar = findViewById(R.id.speed)
-        speedLabel = findViewById(R.id.speedLabel)
-        speedBar.progress = savedSpeedProgress()
-        showSpeed()
-        speedBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                showSpeed()
-                if (fromUser) persistSpeed(progress)
-            }
-
-            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-
-            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
-        })
+        params = ParamPanel(this, filesDir).also { it.bind() }
         CharacterPack.migrateLegacy(filesDir)
         selectedId = File(filesDir, "selected-character.txt").takeIf { it.isFile }?.readText()?.trim()
         refreshCharacters(announce = true)
@@ -87,6 +73,7 @@ class MainActivity : AppCompatActivity() {
                 if (info.id == selectedId) return
                 engine?.close()
                 engine = null
+                engineStamp = null
                 cachedRefBert = null
                 selectedId = info.id
                 persistSelection()
@@ -143,6 +130,7 @@ class MainActivity : AppCompatActivity() {
                 if (selectedId == result.info.id) {
                     engine?.close()
                     engine = null
+                    engineStamp = null
                     cachedRefBert = null
                 }
                 selectedId = result.info.id
@@ -169,18 +157,25 @@ class MainActivity : AppCompatActivity() {
             log("请先输入一句中文。")
             return
         }
-        val pieces = TextSplitter().split(typed)
+        val chosen = params.read()
+        val pieces = TextSplitter(maxLen = chosen.splitMax(), minLen = chosen.minSentence).split(typed)
         if (pieces.isEmpty()) {
             log("这句话切完没有可合成的内容")
             return
         }
-        val speed = speechSpeed()
+        val threads = if (chosen.threads == 0) {
+            min(6, max(1, Runtime.getRuntime().availableProcessors()))
+        } else {
+            chosen.threads
+        }
         setBusy(true)
         worker.execute {
             try {
                 val total = pieces.size
-                ui { log("分成 $total 句") }
-                val threads = min(6, max(1, Runtime.getRuntime().availableProcessors()))
+                ui {
+                    log(chosen.describe(threads))
+                    log("分成 $total 句")
+                }
                 var refBert: OwnedTensor? = null
                 var refReady = false
                 var played = 0
@@ -188,15 +183,31 @@ class MainActivity : AppCompatActivity() {
                     val nth = index + 1
                     ui { log("第 $nth/$total 句") }
                     mark("加载中文前端")
-                    val phones = phonesOf(piece) ?: return@forEachIndexed
+                    val phones = phonesOf(piece, chosen.leadingPeriod) ?: return@forEachIndexed
                     val textBert = textBert(caseDir, phones, threads)
                     if (!refReady) {
                         refBert = referenceBert(caseDir)
                         refReady = true
                     }
                     mark("加载声学模型")
-                    val current = engine ?: TtsEngine(OrtEnvironment.getEnvironment(), caseDir, threads).also {
+                    val stamp = "${caseDir.name}|$threads|${if (chosen.samplingIsBaked) "baked" else chosen.samplingStamp()}"
+                    if (engine != null && engineStamp != stamp) {
+                        engine?.close()
+                        engine = null
+                    }
+                    val current = engine ?: TtsEngine(
+                        OrtEnvironment.getEnvironment(),
+                        caseDir,
+                        threads,
+                        sampling = if (chosen.samplingIsBaked) {
+                            null
+                        } else {
+                            Sampling(chosen.temperature, chosen.topK, chosen.repetitionPenalty)
+                        },
+                        workDir = filesDir,
+                    ).also {
                         engine = it
+                        engineStamp = stamp
                         val loadMs = it.load { line -> ui { log(line) } }
                         ui { log("模型加载 ${loadMs} ms，线程 $threads") }
                     }
@@ -212,7 +223,8 @@ class MainActivity : AppCompatActivity() {
                         textBert,
                         { line -> ui { log(line) } },
                         refBert,
-                        speed,
+                        chosen.speed,
+                        chosen.maxSteps,
                     )
                     val wav = File(caseDir, if (total == 1) "phone.wav" else "phone-$nth.wav")
                     writeWav(wav, report.samples, report.sampleRate)
@@ -222,7 +234,7 @@ class MainActivity : AppCompatActivity() {
                     played += 1
                     ui {
                         log(
-                            "语速 ${"%.2f".format(speed)}，语义 ${report.semanticTokens} 帧\n" +
+                            "语义 ${report.semanticTokens} 帧\n" +
                                 "encoder ${report.encoderMs} ms\n" +
                                 "decoder ${report.decoderSteps} 步，${report.decoderMs} ms\n" +
                                 "声码器 ${report.vocoderMs} ms\n" +
@@ -313,23 +325,8 @@ class MainActivity : AppCompatActivity() {
         prosodyButton.isEnabled = !busy
         pickZipButton.isEnabled = !busy
         characters.isEnabled = !busy
-        speedBar.isEnabled = !busy
+        params.setEnabled(!busy)
         button.isEnabled = !busy && selectedDir() != null
-    }
-
-    private fun speechSpeed(): Double = 0.6 + speedBar.progress * 0.05
-
-    private fun showSpeed() {
-        speedLabel.text = getString(R.string.speed_label, speechSpeed())
-    }
-
-    private fun savedSpeedProgress(): Int {
-        val saved = File(filesDir, "speech-speed.txt").takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull()
-        return saved?.coerceIn(0, 16) ?: 8
-    }
-
-    private fun persistSpeed(progress: Int) {
-        File(filesDir, "speech-speed.txt").writeText(progress.toString())
     }
 
     private fun textBert(caseDir: File, phones: com.genie.onnxdemo.g2p.PhoneResult, threads: Int): OwnedTensor {
@@ -400,7 +397,7 @@ class MainActivity : AppCompatActivity() {
         return tensor
     }
 
-    private fun phonesOf(typed: String): com.genie.onnxdemo.g2p.PhoneResult? {
+    private fun phonesOf(typed: String, leadingPeriod: Boolean): com.genie.onnxdemo.g2p.PhoneResult? {
         val current = frontend ?: run {
             val started = SystemClock.elapsedRealtime()
             val loaded = ChineseFrontend(G2pFiles { name -> assets.open("g2p/$name") })
@@ -408,7 +405,7 @@ class MainActivity : AppCompatActivity() {
             ui { log("前端加载 ${SystemClock.elapsedRealtime() - started} ms") }
             loaded
         }
-        val result = current.infer(typed)
+        val result = current.infer(typed, leadingPeriod)
         if (result.ids.isEmpty()) {
             ui { log("这句话没有得到音素") }
             return null

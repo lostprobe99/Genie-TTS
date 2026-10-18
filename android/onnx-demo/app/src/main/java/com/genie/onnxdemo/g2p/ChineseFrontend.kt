@@ -33,7 +33,9 @@ class ChineseFrontend(files: G2pFiles) {
         files.lines("symbols.txt").forEachIndexed { index, symbol -> symbols[symbol] = index }
     }
 
-    fun infer(userText: String): PhoneResult = phones("。" + userText)
+    fun infer(userText: String, leadingPeriod: Boolean = true): PhoneResult {
+        return phones(if (leadingPeriod) "。$userText" else userText)
+    }
 
     fun phones(text: String): PhoneResult {
         val normalized = normalize(text)

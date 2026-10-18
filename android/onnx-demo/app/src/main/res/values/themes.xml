@@ -7,4 +7,19 @@
         <item name="colorPrimary">@color/amber</item>
         <item name="colorAccent">@color/amber</item>
     </style>
+    <style name="ParamLabel">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">10dp</item>
+        <item name="android:textColor">@color/paper</item>
+        <item name="android:textSize">15sp</item>
+    </style>
+
+    <style name="ParamSeek">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:progressTint">@color/amber</item>
+        <item name="android:thumbTint">@color/amber</item>
+    </style>
 </resources>

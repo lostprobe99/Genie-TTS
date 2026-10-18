@@ -139,6 +139,8 @@ class TtsEngine(
     private val env: OrtEnvironment,
     private val caseDir: File,
     private val threads: Int,
+    private val sampling: Sampling? = null,
+    private val workDir: File = caseDir,
 ) : AutoCloseable {
     private val sessions = HashMap<String, OrtSession>()
 
@@ -153,9 +155,10 @@ class TtsEngine(
     }
 
     private fun openSession(name: String, optionsDir: File, useXnnpack: Boolean, log: (String) -> Unit): OrtSession {
-        val model = File(caseDir, "models/$name").absolutePath
+        val model = modelFile(name, log).absolutePath
+        val tag = sampling?.stamp ?: "baked"
         if (useXnnpack) {
-            val options = sessionOptions(File(optionsDir, "$name.xnnpack.opt").absolutePath)
+            val options = sessionOptions(optFile(optionsDir, "$name.$tag.t$threads.xnnpack.opt"))
             try {
                 options.addXnnpack(mapOf("intra_op_num_threads" to threads.toString()))
                 val session = env.createSession(model, options)
@@ -167,7 +170,7 @@ class TtsEngine(
                 options.close()
             }
         }
-        val options = sessionOptions(File(optionsDir, "$name.opt").absolutePath)
+        val options = sessionOptions(optFile(optionsDir, "$name.$tag.t$threads.opt"))
         try {
             val session = env.createSession(model, options)
             log("已加载 $name（CPU）")
@@ -175,6 +178,38 @@ class TtsEngine(
         } finally {
             options.close()
         }
+    }
+
+    private fun modelFile(name: String, log: (String) -> Unit): File {
+        val source = File(caseDir, "models/$name")
+        val current = sampling
+        val kind = when (name) {
+            "t2s_stage_decoder_fp32.onnx" -> DecoderKind.STAGE
+            "t2s_first_stage_decoder_fp32.onnx" -> DecoderKind.FIRST
+            else -> null
+        }
+        if (current == null || kind == null) return source
+        val dest = File(workDir, "patched/${current.stamp}-$name")
+        if (dest.isFile && dest.length() == source.length()) return dest
+        val temp = File(workDir, "patched/${current.stamp}-$name.part")
+        val wrote = patchModel(source, temp, samplingEdits(kind, current.temperature, current.topK, current.repetitionPenalty))
+        if (!wrote || !temp.renameTo(dest)) {
+            temp.delete()
+            dest.delete()
+            log("采样参数没有写进 $name，仍用模型原值")
+            return source
+        }
+        dest.parentFile?.listFiles()?.filter { it.name.endsWith(name) && it != dest }?.forEach { it.delete() }
+        log("已写入 $name 的温度 ${current.temperature}、TopK ${current.topK}、重复惩罚 ${current.repetitionPenalty}")
+        return dest
+    }
+
+    private fun optFile(dir: File, name: String): String {
+        val model = name.substringBefore(".onnx") + ".onnx"
+        dir.listFiles()?.filter { file ->
+            file.name != name && file.name.startsWith(model) && file.name.endsWith(".opt")
+        }?.forEach { it.delete() }
+        return File(dir, name).absolutePath
     }
 
     private fun sessionOptions(optimizedPath: String): OrtSession.SessionOptions {
@@ -192,6 +227,7 @@ class TtsEngine(
         log: (String) -> Unit,
         refBert: OwnedTensor? = null,
         speed: Double = 1.0,
+        maxSteps: Int = 500,
     ): SynthesisReport {
         val totalStart = SystemClock.elapsedRealtime()
         val encoderStart = SystemClock.elapsedRealtime()
@@ -223,7 +259,7 @@ class TtsEngine(
         var closeInputs = true
         var stoppedY: OwnedTensor? = null
         try {
-            for (idx in 0 until 500) {
+            for (idx in 0 until maxSteps) {
                 steps = idx
                 val feed = HashMap<String, OnnxTensor>(STAGE_INPUTS.size)
                 feed[STAGE_INPUTS[0]] = yTensor
