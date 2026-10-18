@@ -71,7 +71,7 @@ adb push android_case /sdcard/Android/data/com.genie.onnxdemo/files/
 3. VITS 输入是 `text_seq`、预测出的语义 token、`ge`、`ge_advanced`。
 4. 用 `AudioTrack` 播放 32 kHz、单声道、float PCM。
 
-执行放在后台线程。ONNX Runtime 的 Java 张量用完即关。先只使用 `CPUExecutionProvider`。线程数设成大核数量，一般是 4 到 6。
+执行放在后台线程。解码循环把上一步的输出张量直接送给下一步，不再每步拷贝 48 块缓存。声码器优先使用 XNNPACK，打不开时退回 CPU。文本编码和两段解码仍用 CPU。线程数设成大核数量，一般是 4 到 6。
 
 日志分开记：
 

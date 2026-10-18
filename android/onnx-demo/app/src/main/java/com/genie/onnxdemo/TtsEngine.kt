@@ -133,16 +133,42 @@ class TtsEngine(
         val optionsDir = File(caseDir, "optimized").apply { mkdirs() }
         for (name in GenieCase.MODEL_NAMES) {
             if (sessions.containsKey(name)) continue
-            val options = OrtSession.SessionOptions().apply {
-                setIntraOpNumThreads(threads)
-                setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-                setOptimizedModelFilePath(File(optionsDir, "$name.opt").absolutePath)
-            }
-            sessions[name] = env.createSession(File(caseDir, "models/$name").absolutePath, options)
-            options.close()
-            log("已加载 $name")
+            sessions[name] = openSession(name, optionsDir, name == "vits_fp32.onnx", log)
         }
         return SystemClock.elapsedRealtime() - started
+    }
+
+    private fun openSession(name: String, optionsDir: File, useXnnpack: Boolean, log: (String) -> Unit): OrtSession {
+        val model = File(caseDir, "models/$name").absolutePath
+        if (useXnnpack) {
+            val options = sessionOptions(File(optionsDir, "$name.xnnpack.opt").absolutePath)
+            try {
+                options.addXnnpack(mapOf("intra_op_num_threads" to threads.toString()))
+                val session = env.createSession(model, options)
+                log("已加载 $name（XNNPACK）")
+                return session
+            } catch (error: Exception) {
+                log("声码器 XNNPACK 不可用，改用 CPU：${error.message}")
+            } finally {
+                options.close()
+            }
+        }
+        val options = sessionOptions(File(optionsDir, "$name.opt").absolutePath)
+        try {
+            val session = env.createSession(model, options)
+            log("已加载 $name（CPU）")
+            return session
+        } finally {
+            options.close()
+        }
+    }
+
+    private fun sessionOptions(optimizedPath: String): OrtSession.SessionOptions {
+        return OrtSession.SessionOptions().apply {
+            setIntraOpNumThreads(threads)
+            setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+            setOptimizedModelFilePath(optimizedPath)
+        }
     }
 
     fun synthesize(case: GenieCase, log: (String) -> Unit): SynthesisReport {
@@ -166,29 +192,45 @@ class TtsEngine(
             sessions.getValue("t2s_first_stage_decoder_fp32.onnx"),
             mapOf("x" to x, "prompts" to prompts),
         )
-        var y = first[0]
-        var yEmb = first[1]
-        var cache = first.drop(2)
-
         val stage = sessions.getValue("t2s_stage_decoder_fp32.onnx")
         val decoderStart = SystemClock.elapsedRealtime()
         var steps = 0
-        for (idx in 0 until 500) {
-            steps = idx
-            val feed = HashMap<String, OwnedTensor>()
-            val values = listOf(y, yEmb) + cache
-            STAGE_INPUTS.forEachIndexed { index, name -> feed[name] = values[index] }
-            val outputs = run(stage, feed)
-            y = outputs[0]
-            yEmb = outputs[1]
-            val stop = readBool(outputs[2])
-            cache = outputs.drop(3)
-            if (idx % 20 == 0) log("decoder $idx")
-            if (stop) break
+        var previous: OrtSession.Result? = null
+        var yTensor = first[0].toTensor(env)
+        var yEmbTensor = first[1].toTensor(env)
+        var cacheTensors = first.drop(2).map { it.toTensor(env) }
+        var closeInputs = true
+        var stoppedY: OwnedTensor? = null
+        try {
+            for (idx in 0 until 500) {
+                steps = idx
+                val feed = HashMap<String, OnnxTensor>(STAGE_INPUTS.size)
+                feed[STAGE_INPUTS[0]] = yTensor
+                feed[STAGE_INPUTS[1]] = yEmbTensor
+                cacheTensors.forEachIndexed { index, tensor -> feed[STAGE_INPUTS[index + 2]] = tensor }
+                val result = stage.run(feed)
+                if (closeInputs) {
+                    yTensor.close()
+                    yEmbTensor.close()
+                    cacheTensors.forEach { it.close() }
+                }
+                previous?.close()
+                previous = result
+                closeInputs = false
+                yTensor = result.get(0) as OnnxTensor
+                yEmbTensor = result.get(1) as OnnxTensor
+                val stop = readBool(result.get(2) as OnnxTensor)
+                cacheTensors = List(result.size() - 3) { result.get(it + 3) as OnnxTensor }
+                if (idx % 20 == 0) log("decoder $idx")
+                if (stop) break
+            }
+            stoppedY = OwnedTensor.fromOutput(yTensor)
+        } finally {
+            previous?.close()
         }
         val decoderMs = SystemClock.elapsedRealtime() - decoderStart
 
-        val semantic = finishSemantic(y, steps)
+        val semantic = finishSemantic(stoppedY ?: error("解码没有输出"), steps)
         val vocoderStart = SystemClock.elapsedRealtime()
         val audioTensor = run(
             sessions.getValue("vits_fp32.onnx"),
@@ -248,10 +290,8 @@ data class SynthesisReport(
     val realTimeFactor: Double = (totalMs / 1000.0) / durationSec
 }
 
-private fun readBool(tensor: OwnedTensor): Boolean {
-    val buf = tensor.bytes.duplicate().order(ByteOrder.nativeOrder())
-    buf.position(0)
-    return buf.get() != 0.toByte()
+private fun readBool(tensor: OnnxTensor): Boolean {
+    return tensor.value == true
 }
 
 private fun finishSemantic(y: OwnedTensor, idx: Int): OwnedTensor {
