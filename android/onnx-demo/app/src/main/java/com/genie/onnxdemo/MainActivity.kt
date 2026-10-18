@@ -188,47 +188,69 @@ class MainActivity : AppCompatActivity() {
             log("请先输入一句中文。")
             return
         }
+        val pieces = TextSplitter().split(typed)
+        if (pieces.isEmpty()) {
+            log("这句话切完没有可合成的内容")
+            return
+        }
         setBusy(true)
         worker.execute {
             try {
-                mark("加载中文前端")
-                val phones = phonesOf(typed)
-                if (phones == null) {
-                    clearMark()
-                    return@execute
-                }
+                val total = pieces.size
+                ui { log("分成 $total 句") }
                 val threads = min(6, max(1, Runtime.getRuntime().availableProcessors()))
-                val textBert = textBert(caseDir, phones, threads)
-                val refBert = referenceBert(caseDir)
-                mark("加载声学模型")
-                val current = engine ?: TtsEngine(OrtEnvironment.getEnvironment(), caseDir, threads).also {
-                    engine = it
-                    val loadMs = it.load { line -> ui { log(line) } }
-                    ui { log("模型加载 ${loadMs} ms，线程 $threads") }
-                }
-                mark("合成")
-                val length = phones.ids.size
-                val textSeq = OwnedTensor.fromLongs(
-                    longArrayOf(1, length.toLong()),
-                    LongArray(length) { phones.ids[it].toLong() },
-                )
-                val report = current.synthesize(GenieCase(caseDir), textSeq, textBert, { line -> ui { log(line) } }, refBert)
-                val wav = File(caseDir, "phone.wav")
-                writeWav(wav, report.samples, report.sampleRate)
-                mark("播放")
-                play(report.samples, report.sampleRate)
-                clearMark()
-                ui {
-                    log(
-                        "encoder ${report.encoderMs} ms\n" +
-                            "decoder ${report.decoderSteps} 步，${report.decoderMs} ms\n" +
-                            "声码器 ${report.vocoderMs} ms\n" +
-                            "总计 ${report.totalMs} ms\n" +
-                            "音频 ${"%.2f".format(report.durationSec)} s\n" +
-                            "实时率 ${"%.2f".format(report.realTimeFactor)}\n" +
-                            "已保存 ${wav.absolutePath}"
+                var refBert: OwnedTensor? = null
+                var refReady = false
+                var played = 0
+                pieces.forEachIndexed { index, piece ->
+                    val nth = index + 1
+                    ui { log("第 $nth/$total 句") }
+                    mark("加载中文前端")
+                    val phones = phonesOf(piece) ?: return@forEachIndexed
+                    val textBert = textBert(caseDir, phones, threads)
+                    if (!refReady) {
+                        refBert = referenceBert(caseDir)
+                        refReady = true
+                    }
+                    mark("加载声学模型")
+                    val current = engine ?: TtsEngine(OrtEnvironment.getEnvironment(), caseDir, threads).also {
+                        engine = it
+                        val loadMs = it.load { line -> ui { log(line) } }
+                        ui { log("模型加载 ${loadMs} ms，线程 $threads") }
+                    }
+                    mark("合成")
+                    val length = phones.ids.size
+                    val textSeq = OwnedTensor.fromLongs(
+                        longArrayOf(1, length.toLong()),
+                        LongArray(length) { phones.ids[it].toLong() },
                     )
+                    val report = current.synthesize(
+                        GenieCase(caseDir),
+                        textSeq,
+                        textBert,
+                        { line -> ui { log(line) } },
+                        refBert,
+                    )
+                    val wav = File(caseDir, if (total == 1) "phone.wav" else "phone-$nth.wav")
+                    writeWav(wav, report.samples, report.sampleRate)
+                    mark("播放")
+                    play(report.samples, report.sampleRate)
+                    clearMark()
+                    played += 1
+                    ui {
+                        log(
+                            "encoder ${report.encoderMs} ms\n" +
+                                "decoder ${report.decoderSteps} 步，${report.decoderMs} ms\n" +
+                                "声码器 ${report.vocoderMs} ms\n" +
+                                "总计 ${report.totalMs} ms\n" +
+                                "音频 ${"%.2f".format(report.durationSec)} s\n" +
+                                "实时率 ${"%.2f".format(report.realTimeFactor)}\n" +
+                                "已保存 ${wav.absolutePath}"
+                        )
+                    }
                 }
+                if (played == total && total > 1) ui { log("这 $total 句都已播放") }
+                clearMark()
             } catch (error: Throwable) {
                 val summary = error.javaClass.simpleName + ": " + error.message.orEmpty()
                 mark("失败 $summary")
