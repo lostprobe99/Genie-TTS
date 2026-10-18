@@ -190,6 +190,7 @@ class TtsEngine(
         textSeq: OwnedTensor,
         textBert: OwnedTensor,
         log: (String) -> Unit,
+        refBert: OwnedTensor? = null,
     ): SynthesisReport {
         val totalStart = SystemClock.elapsedRealtime()
         val encoderStart = SystemClock.elapsedRealtime()
@@ -198,7 +199,7 @@ class TtsEngine(
             mapOf(
                 "ref_seq" to case.tensors.getValue("ref_seq"),
                 "text_seq" to textSeq,
-                "ref_bert" to case.tensors.getValue("ref_bert"),
+                "ref_bert" to (refBert ?: case.tensors.getValue("ref_bert")),
                 "text_bert" to textBert,
                 "ssl_content" to case.tensors.getValue("ssl_content"),
             ),

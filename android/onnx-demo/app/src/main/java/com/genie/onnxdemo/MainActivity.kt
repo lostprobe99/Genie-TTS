@@ -32,6 +32,7 @@ class MainActivity : AppCompatActivity() {
     }
     private var engine: TtsEngine? = null
     private var prosody: Prosody? = null
+    private var cachedRefBert: OwnedTensor? = null
     private var frontend: ChineseFrontend? = null
     private lateinit var logView: TextView
     private lateinit var sentence: EditText
@@ -107,6 +108,7 @@ class MainActivity : AppCompatActivity() {
                 if (!Prosody.isReady(caseDir)) {
                     prosody?.close()
                     prosody = null
+                    cachedRefBert = null
                 }
                 CaseFetcher.downloadRoberta(caseDir) { line -> ui { log(line) } }
                 ui { log("韵律模型已放进应用目录。点「合成」即可。声学模型不用重新下载。") }
@@ -197,6 +199,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 val threads = min(6, max(1, Runtime.getRuntime().availableProcessors()))
                 val textBert = textBert(caseDir, phones, threads)
+                val refBert = referenceBert(caseDir)
                 mark("加载声学模型")
                 val current = engine ?: TtsEngine(OrtEnvironment.getEnvironment(), caseDir, threads).also {
                     engine = it
@@ -209,7 +212,7 @@ class MainActivity : AppCompatActivity() {
                     longArrayOf(1, length.toLong()),
                     LongArray(length) { phones.ids[it].toLong() },
                 )
-                val report = current.synthesize(GenieCase(caseDir), textSeq, textBert) { line -> ui { log(line) } }
+                val report = current.synthesize(GenieCase(caseDir), textSeq, textBert, { line -> ui { log(line) } }, refBert)
                 val wav = File(caseDir, "phone.wav")
                 writeWav(wav, report.samples, report.sampleRate)
                 mark("播放")
@@ -314,6 +317,40 @@ class MainActivity : AppCompatActivity() {
         }
         ui { log("韵律 $elapsed ms") }
         return OwnedTensor.fromFloats(longArrayOf(length.toLong(), 1024), values)
+    }
+
+    private fun referenceBert(caseDir: File): OwnedTensor? {
+        cachedRefBert?.let {
+            ui { log("参考韵律 ${it.shape[0]}") }
+            return it
+        }
+        val current = prosody
+        if (current == null) {
+            ui { log("参考韵律仍为零") }
+            return null
+        }
+        mark("计算参考韵律")
+        val spoken = frontend?.phones(ReferenceLine.text(caseDir))
+        if (spoken == null) {
+            ui { log("参考韵律仍为零") }
+            return null
+        }
+        val stored = ReferenceLine.storedIds(caseDir)
+        if (!spoken.ids.contentEquals(stored)) {
+            ui { log("参考音素和测试包对不上，参考韵律仍为零") }
+            return null
+        }
+        val started = SystemClock.elapsedRealtime()
+        val values = current.features(spoken)
+        val elapsed = SystemClock.elapsedRealtime() - started
+        if (values == null) {
+            ui { log("参考韵律对齐不上，仍为零") }
+            return null
+        }
+        val tensor = OwnedTensor.fromFloats(longArrayOf(spoken.ids.size.toLong(), 1024), values)
+        cachedRefBert = tensor
+        ui { log("参考韵律 ${spoken.ids.size}，$elapsed ms") }
+        return tensor
     }
 
     private fun phonesOf(typed: String): com.genie.onnxdemo.g2p.PhoneResult? {

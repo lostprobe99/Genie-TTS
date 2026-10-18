@@ -5,6 +5,7 @@
   "model_type": "v2proplus",
   "text": "今天天气不错，我们出去走走吧。",
   "infer_text": "。今天天气不错，我们出去走走吧。",
+  "ref_text": "在此之前，请您务必继续享受旅居拉古那的时光。",
   "roberta": false,
   "tensors": {
     "ref_seq": {

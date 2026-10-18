@@ -1,6 +1,6 @@
 # Android ONNX 实测 Demo
 
-在真机上跑通菲比。输入框里打一句中文，点「合成」，手机自己把字变成音素，再用中文 RoBERTa 填 `text_bert`，然后交给 T2S 和声码器。参考音色仍用已经放在手机里的特征。`ref_bert` 仍是全零。NPU 不在这次范围内。
+在真机上跑通菲比。输入框里打一句中文，点「合成」，手机自己把字变成音素，再用中文 RoBERTa 填目标句的 `text_bert` 和参考句的 `ref_bert`，然后交给 T2S 和声码器。参考音色仍用已经放在手机里的录音特征。NPU 不在这次范围内。
 
 ## 已完成的导出
 
@@ -8,7 +8,7 @@
 
 > 今天天气不错，我们出去走走吧。
 
-推理时按 `Core/Inference.py` 在句首加一个句号，实际送进模型的文本是 `。今天天气不错，我们出去走走吧。`。采样率 32 kHz。参考句 `ref_bert` 仍是全零。目标句 `text_bert` 由手机上的 RoBERTa 现算；模型还没下载时，这块保持全零，合成仍能出声。
+推理时按 `Core/Inference.py` 在句首加一个句号，实际送进模型的文本是 `。今天天气不错，我们出去走走吧。`。采样率 32 kHz。菲比参考句的原文是「在此之前，请您务必继续享受旅居拉古那的时光。」这句不加句首句号，对应测试包里的 42 个音素。韵律模型在的时候，目标句和参考句的 BERT 都由手机现算。模型还没下载时，两块都保持全零，合成仍能出声。
 
 `desktop.wav` 是桌面端原始合成。`replay.wav` 是只加载导出文件重跑的结果，两者逐样本一致，最大误差为 0。
 
@@ -32,7 +32,7 @@
 | 名字 | dtype | shape | 作用 |
 |---|---|---|---|
 | `ref_seq` | int64 | `[1, 42]` | 参考句音素 |
-| `ref_bert` | float32 | `[42, 1024]` | 参考句 BERT，当前全零 |
+| `ref_bert` | float32 | `[42, 1024]` | 参考句 BERT。包里的文件仍是全零；韵律模型在时，应用按参考句原文现算后送进编码器 |
 | `text_seq` | int64 | `[1, 29]` | 天气这句的音素。应用里改由输入框现算，长度随句子变化 |
 | `text_bert` | float32 | `[29, 1024]` | 目标句 BERT。应用里按音素个数现算；有韵律模型时来自 RoBERTa，否则全零 |
 | `ssl_content` | float32 | `[1, 768, 231]` | 参考音频的 HuBERT 特征 |
@@ -41,7 +41,7 @@
 
 ## 手机应用
 
-工程在 `android/onnx-demo`，包名 `com.genie.onnxdemo`，只保留 `arm64-v8a`。当前安装包版本是 1.11。依赖是 `com.microsoft.onnxruntime:onnxruntime-android:1.22.0`。
+工程在 `android/onnx-demo`，包名 `com.genie.onnxdemo`，只保留 `arm64-v8a`。当前安装包版本是 1.12。依赖是 `com.microsoft.onnxruntime:onnxruntime-android:1.22.0`。
 
 没有电脑时，用手机浏览器打开安装包并安装，安装时允许未知来源：
 
@@ -59,7 +59,7 @@ https://github.com/lostprobe99/Genie-TTS/raw/cursor/android-onnx-demo-doc-3875/a
 
 天气那句是 29 个音素：今天天气不错，我们出去走走吧。
 
-韵律模型在的时候，日志里会多一行「韵律 N ms」。连点两次「合成」，第二次才把加载时间摘出去。第一次会把韵律模型读进内存，并一直留着，下次点「合成」不用再读。如果日志写「韵律模型还没放进来」，就是还没下完，这时 `text_bert` 仍为零。如果写「韵律对齐不上」，这句话没有填上韵律，也退回全零，不会闪退。
+韵律模型在的时候，日志里会有「韵律 N ms」和「参考韵律 42，N ms」。参考句只算一次，第二次变成「参考韵律 42」。连点两次「合成」，第二次才把加载时间摘出去。第一次会把韵律模型读进内存，并一直留着，下次点「合成」不用再读。如果日志写「韵律模型还没放进来」，就是还没下完，这时两块 BERT 仍为零。如果写「韵律对齐不上」或「参考韵律仍为零」，对应那一块退回全零，不会闪退。
 
 如果手机里已经有解压好的 `android_case`，点「选择已解压的目录」，选中包含 `manifest.json` 的那一层。Android 11 以后，文件管理器写不进 `Android/data`，所以应用会把选中的文件复制进自己的目录。应用内的「下载测试数据」仍可使用。
 
@@ -74,7 +74,7 @@ adb push android_case /sdcard/Android/data/com.genie.onnxdemo/files/
 
 声学模型和韵律模型都不要打进 APK。中文前端的词典、拼音表和 RoBERTa 分词表打进安装包。界面上有输入框、「下载韵律模型」和「合成」。按下「合成」后：
 
-1. 按 `manifest.json` 读入参考音色：`ref_seq`、`ref_bert`、`ssl_content`、`ge`、`ge_advanced`。
+1. 按 `manifest.json` 读入参考音色：`ref_seq`、`ssl_content`、`ge`、`ge_advanced`。韵律模型在的话，用参考句原文现算 `ref_bert`，并确认音素编号和包里的 `ref_seq` 一致。对不上就继续用包里的全零。
 2. 用输入框里的字现算 `text_seq`。韵律模型在的话，用归一化后的句子跑 RoBERTa，按每个字对应的音素个数把 1024 维特征铺开，得到 `text_bert`。模型不在，或对不齐，就造一块全零的。
 3. 依次运行 encoder、first-stage decoder、stage decoder、VITS。stage decoder 一步一个语义 token，直到停止标志为真，最多 500 步。停止条件和张量顺序与 `Core/Inference.py` 的 `t2s_cpu` 一致。
 4. VITS 输入是 `text_seq`、预测出的语义 token、`ge`、`ge_advanced`。
@@ -87,7 +87,8 @@ adb push android_case /sdcard/Android/data/com.genie.onnxdemo/files/
 - 前端加载时间（只记第一次）
 - 归一化文本、音素个数和音素
 - 韵律模型加载时间（只记第一次）
-- 韵律计算时间
+- 目标句韵律计算时间
+- 参考句韵律计算时间（只记第一次）
 - 声学模型加载时间
 - encoder 时间
 - decoder 步数和总时间
@@ -106,4 +107,3 @@ adb push android_case /sdcard/Android/data/com.genie.onnxdemo/files/
 
 - 把 stage decoder 放到 NPU
 - 角色模型下载和多角色缓存
-- 用 RoBERTa 重算参考句的 `ref_bert`
