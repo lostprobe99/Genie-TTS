@@ -18,9 +18,23 @@ android {
         }
     }
 
+    signingConfigs {
+        create("demo") {
+            // 固定调试签名。换机器再打包仍能覆盖安装 1.14 及以后的包。
+            storeFile = rootProject.file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("demo")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("demo")
         }
     }
 
