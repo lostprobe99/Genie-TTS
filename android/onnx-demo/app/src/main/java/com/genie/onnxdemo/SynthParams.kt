@@ -8,14 +8,12 @@ internal data class SynthParams(
     val maxSentence: Int,
     val maxSteps: Int,
     val threads: Int,
-    val leadingPeriod: Boolean,
 ) {
     fun splitMax(): Int = max(maxSentence, minSentence)
 
     fun describe(actualThreads: Int): String {
-        val period = if (leadingPeriod) "开" else "关"
         return "参数 语速 ${"%.2f".format(speed)}，分句 $minSentence–${splitMax()}，" +
-            "句首句号 $period，步数 $maxSteps，线程 $actualThreads"
+            "步数 $maxSteps，线程 $actualThreads"
     }
 
     companion object {
@@ -30,14 +28,12 @@ internal data class SynthParams(
             maxSentence: Int,
             maxSteps: Int,
             threads: Int,
-            leadingPeriod: Boolean,
         ): SynthParams = SynthParams(
             speed = speed(speed),
             minSentence = minSentence(minSentence),
             maxSentence = maxSentence(maxSentence),
             maxSteps = maxSteps(maxSteps),
             threads = threads,
-            leadingPeriod = leadingPeriod,
         )
     }
 }

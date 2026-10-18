@@ -184,7 +184,7 @@ class MainActivity : AppCompatActivity() {
                     val nth = index + 1
                     ui { log("第 $nth/$total 句") }
                     mark("加载中文前端")
-                    val phones = phonesOf(piece, chosen.leadingPeriod) ?: return@forEachIndexed
+                    val phones = phonesOf(piece) ?: return@forEachIndexed
                     val textBert = textBert(caseDir, phones, threads)
                     if (!refReady) {
                         refBert = referenceBert(caseDir)
@@ -392,7 +392,7 @@ class MainActivity : AppCompatActivity() {
         return tensor
     }
 
-    private fun phonesOf(typed: String, leadingPeriod: Boolean): com.genie.onnxdemo.g2p.PhoneResult? {
+    private fun phonesOf(typed: String): com.genie.onnxdemo.g2p.PhoneResult? {
         val current = frontend ?: run {
             val started = SystemClock.elapsedRealtime()
             val loaded = ChineseFrontend(G2pFiles { name -> assets.open("g2p/$name") })
@@ -400,7 +400,7 @@ class MainActivity : AppCompatActivity() {
             ui { log("前端加载 ${SystemClock.elapsedRealtime() - started} ms") }
             loaded
         }
-        val result = current.infer(typed, leadingPeriod)
+        val result = current.infer(typed)
         if (result.ids.isEmpty()) {
             ui { log("这句话没有得到音素") }
             return null

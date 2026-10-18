@@ -1,6 +1,5 @@
 package com.genie.onnxdemo
 
-import android.widget.CheckBox
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -14,7 +13,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
     private val maxSentence = activity.findViewById<SeekBar>(R.id.maxSentence)
     private val maxSteps = activity.findViewById<SeekBar>(R.id.maxSteps)
     private val threads = activity.findViewById<SeekBar>(R.id.threads)
-    private val leading = activity.findViewById<CheckBox>(R.id.leadingPeriod)
     private var open = false
 
     fun bind() {
@@ -24,7 +22,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
         maxSentence.progress = saved.maxSentence
         maxSteps.progress = saved.maxSteps
         threads.progress = saved.threads
-        leading.isChecked = saved.leading
         open = saved.open
         panel.visibility = if (open) android.view.View.VISIBLE else android.view.View.GONE
         refreshLabels()
@@ -39,10 +36,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
         }
         listOf(speed, minSentence, maxSentence, maxSteps, threads)
             .forEach { it.setOnSeekBarChangeListener(listener) }
-        leading.setOnCheckedChangeListener { _, _ ->
-            refreshLabels()
-            save()
-        }
         toggle.setOnClickListener {
             open = !open
             panel.visibility = if (open) android.view.View.VISIBLE else android.view.View.GONE
@@ -57,13 +50,11 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
         maxSentence = maxSentence.progress,
         maxSteps = maxSteps.progress,
         threads = threads.progress,
-        leadingPeriod = leading.isChecked,
     )
 
     fun setEnabled(enabled: Boolean) {
         listOf(speed, minSentence, maxSentence, maxSteps, threads)
             .forEach { it.isEnabled = enabled }
-        leading.isEnabled = enabled
     }
 
     private fun refreshLabels() {
@@ -92,7 +83,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
                 "maxSentence=${maxSentence.progress}",
                 "maxSteps=${maxSteps.progress}",
                 "threads=${threads.progress}",
-                "leading=${if (leading.isChecked) 1 else 0}",
                 "open=${if (open) 1 else 0}",
             ).joinToString("\n")
         )
@@ -115,7 +105,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
             maxSentence = values["maxSentence"] ?: 30,
             maxSteps = values["maxSteps"] ?: 20,
             threads = values["threads"] ?: 0,
-            leading = (values["leading"] ?: 1) != 0,
             open = (values["open"] ?: 0) != 0,
         )
     }
@@ -126,7 +115,6 @@ internal class ParamPanel(private val activity: AppCompatActivity, private val f
         val maxSentence: Int = 30,
         val maxSteps: Int = 20,
         val threads: Int = 0,
-        val leading: Boolean = true,
         val open: Boolean = false,
     )
 

@@ -117,17 +117,6 @@
                 style="@style/ParamSeek"
                 android:max="8"
                 android:progress="0" />
-
-            <CheckBox
-                android:id="@+id/leadingPeriod"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:buttonTint="@color/amber"
-                android:checked="true"
-                android:text="@string/leading_period"
-                android:textColor="@color/paper"
-                android:textSize="15sp" />
         </LinearLayout>
     </ScrollView>
 
