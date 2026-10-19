@@ -25,6 +25,10 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.drawerlayout.widget.DrawerLayout
 import java.io.File
 import java.util.Locale
@@ -138,6 +142,42 @@ class MainActivity : AppCompatActivity() {
         deleteProsody = findViewById(R.id.deleteProsody)
         aboutText = findViewById(R.id.aboutText)
         characters.setPopupBackgroundResource(R.color.ink)
+        padForScreen()
+    }
+
+    private fun padForScreen() {
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightNavigationBars = false
+        val content = findViewById<View>(R.id.contentRoot)
+        val contentLeft = content.paddingLeft
+        val contentTop = content.paddingTop
+        val contentRight = content.paddingRight
+        val contentBottom = content.paddingBottom
+        val drawerLeft = drawerPanel.paddingLeft
+        val drawerTop = drawerPanel.paddingTop
+        val drawerRight = drawerPanel.paddingRight
+        val drawerBottom = drawerPanel.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(drawer) { _, insets ->
+            val bars = insets.getInsets(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout(),
+            )
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            content.updatePadding(
+                left = contentLeft + bars.left,
+                top = contentTop + bars.top,
+                right = contentRight + bars.right,
+                bottom = contentBottom + max(bars.bottom, ime),
+            )
+            drawerPanel.updatePadding(
+                left = drawerLeft + bars.left,
+                top = drawerTop + bars.top,
+                right = drawerRight + bars.right,
+                bottom = drawerBottom + bars.bottom,
+            )
+            WindowInsetsCompat.CONSUMED
+        }
     }
 
     private fun bindActions() {
@@ -829,7 +869,7 @@ class MainActivity : AppCompatActivity() {
     private fun versionLabel(): String = "${versionName()}（${versionCode()}）"
 
     private fun versionName(): String {
-        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.1"
+        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.2"
     }
 
     private fun versionCode(): Long {
