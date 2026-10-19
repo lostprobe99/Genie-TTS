@@ -54,6 +54,7 @@ class TtsService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val port = TtsPorts.read(filesDir)
         TtsRuntime.port = port
+        TtsLog.attach(filesDir)
         val same = synchronized(gate) {
             TtsRuntime.running && server != null && listeningPort == port && !stopping
         }
@@ -80,6 +81,7 @@ class TtsService : Service() {
         }
         TtsRuntime.running = false
         TtsRuntime.switching = false
+        TtsLog.add("接口已关闭")
         TtsRuntime.publish()
         thread(name = "genie-http-stop", isDaemon = true) {
             current?.stop()
@@ -100,7 +102,7 @@ class TtsService : Service() {
             previous?.stop()
             if (stale(ticket)) return@thread
             try {
-                val created = TtsServer(port, ::roster, ::speak)
+                val created = TtsServer(port, ::roster, ::speak) { TtsLog.add(it) }
                 created.start()
                 val keep = synchronized(gate) {
                     if (ticket != generation || stopping) {
@@ -119,6 +121,7 @@ class TtsService : Service() {
                 TtsRuntime.running = true
                 TtsRuntime.switching = false
                 TtsRuntime.error = null
+                TtsLog.add("接口已打开 端口 $port")
                 getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
             } catch (error: Exception) {
                 if (stale(ticket)) return@thread
@@ -129,6 +132,7 @@ class TtsService : Service() {
                 } else {
                     "接口没有打开"
                 }
+                TtsLog.add(TtsRuntime.error ?: "接口没有打开")
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
@@ -164,12 +168,15 @@ class TtsService : Service() {
         val lock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "genie:tts")
         lock.setReferenceCounted(false)
         lock.acquire(15 * 60 * 1000L)
+        val prepareStarted = System.nanoTime()
         try {
             try {
                 speech.prepare(character, threads)
             } catch (error: Exception) {
                 throw TtsException(503, "failed to load character '${request.characterName}': ${error.message}")
             }
+            val prepareMs = (System.nanoTime() - prepareStarted) / 1_000_000.0
+            TtsLog.add("模型就绪 ${secondsText(prepareMs)} 秒 ${request.characterName} ${pieces.size}句 ${threads}线程")
             speech.synthesize(
                 character,
                 pieces,

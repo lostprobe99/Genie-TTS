@@ -4,6 +4,7 @@ import org.json.JSONObject
 import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.Locale
 
 internal class TtsException(val status: Int, message: String) : Exception(message)
 
@@ -12,6 +13,18 @@ internal data class TtsRequest(
     val text: String,
     val splitSentence: Boolean,
 )
+
+internal fun secondsText(ms: Double): String = "%.1f".format(Locale.US, ms / 1000.0)
+
+internal fun segmentLine(index: Int, synthMs: Double, audioMs: Double, previousAudioMs: Double?): String {
+    val head = if (index == 1) "首段等待 ${secondsText(synthMs)} 秒" else "合成 ${secondsText(synthMs)} 秒"
+    val stall = if (previousAudioMs != null && synthMs - previousAudioMs > 50.0) {
+        "，播放会空等 ${secondsText(synthMs - previousAudioMs)} 秒"
+    } else {
+        ""
+    }
+    return "第 $index 段 $head，音频 ${secondsText(audioMs)} 秒$stall"
+}
 
 internal object TtsPorts {
     const val DEFAULT = 8001

@@ -72,8 +72,25 @@ class TtsProtocolTest {
     }
 
     @Test
+    fun segmentLineShowsPlaybackGap() {
+        assertEquals(
+            "第 1 段 首段等待 3.6 秒，音频 1.1 秒",
+            segmentLine(1, 3600.0, 1100.0, null),
+        )
+        assertEquals(
+            "第 2 段 合成 2.4 秒，音频 1.1 秒，播放会空等 1.3 秒",
+            segmentLine(2, 2400.0, 1100.0, 1100.0),
+        )
+        assertEquals(
+            "第 2 段 合成 0.8 秒，音频 1.1 秒",
+            segmentLine(2, 800.0, 1100.0, 2000.0),
+        )
+    }
+
+    @Test
     fun postStreamsOneWav() {
         val seen = mutableListOf<TtsRequest>()
+        val logs = mutableListOf<String>()
         val server = TtsServer(
             port = 0,
             characters = { mapOf("feibi" to 32000) },
@@ -81,6 +98,7 @@ class TtsProtocolTest {
                 seen.add(request)
                 emit(floatArrayOf(0.25f, 0.25f))
             },
+            log = { logs.add(it) },
         )
         server.start()
         try {
@@ -92,6 +110,8 @@ class TtsProtocolTest {
             assertEquals(48, audio.size)
             assertEquals("feibi", seen.single().characterName)
             assertFalse(seen.single().splitSentence)
+            assertTrue(logs.any { it.contains("第 1 段") && it.contains("音频") })
+            assertTrue(logs.any { it.contains("完成") && it.contains("1段") })
         } finally {
             server.stop()
         }

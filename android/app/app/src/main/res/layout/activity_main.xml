@@ -232,6 +232,34 @@
                         android:backgroundTint="@color/line"
                         android:text="@string/copy_address"
                         android:textColor="@color/paper" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="20dp"
+                        android:text="@string/service_log"
+                        android:textColor="@color/paper"
+                        android:textSize="15sp" />
+
+                    <TextView
+                        android:id="@+id/serviceLog"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:lineSpacingExtra="3dp"
+                        android:textColor="@color/muted"
+                        android:textIsSelectable="true"
+                        android:textSize="13sp"
+                        android:typeface="monospace" />
+
+                    <Button
+                        android:id="@+id/copyLog"
+                        android:layout_width="match_parent"
+                        android:layout_height="52dp"
+                        android:layout_marginTop="8dp"
+                        android:backgroundTint="@color/line"
+                        android:text="@string/copy_log"
+                        android:textColor="@color/paper" />
                 </LinearLayout>
             </ScrollView>
 

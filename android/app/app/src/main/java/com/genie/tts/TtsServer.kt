@@ -19,6 +19,7 @@ internal class TtsServer(
     private val port: Int,
     private val characters: () -> Map<String, Int>,
     private val speaker: TtsSpeaker,
+    private val log: (String) -> Unit = {},
 ) {
     private var socket: ServerSocket? = null
     private var loop: Thread? = null
@@ -71,6 +72,7 @@ internal class TtsServer(
     }
 
     private fun handle(client: Socket) {
+        val host = client.inetAddress?.hostAddress ?: "?"
         client.soTimeout = 15_000
         val input = client.getInputStream()
         val output = client.getOutputStream()
@@ -80,15 +82,18 @@ internal class TtsServer(
         val method = requestLine.getOrNull(0).orEmpty()
         val path = requestLine.getOrNull(1).orEmpty().substringBefore("?")
         if (method != "POST") {
+            log("$host ${method.ifBlank { "请求" }} $path 405")
             writeText(output, 405, "Method Not Allowed")
             return
         }
         if (path != "/tts") {
+            log("$host $method $path 404")
             writeText(output, 404, "Not Found")
             return
         }
         val length = contentLength(lines)
         if (length < 0 || length > MAX_BODY) {
+            log("$host 正文长度不对")
             writeText(output, 400, "Text is required")
             return
         }
@@ -102,14 +107,21 @@ internal class TtsServer(
         val request = try {
             TtsProtocol.parseBody(String(body, 0, read, Charsets.UTF_8))
         } catch (error: TtsException) {
+            log("$host ${error.status} ${error.message}")
             writeText(output, error.status, error.message ?: "Text is required")
             return
         }
         val sampleRate = characters()[request.characterName]
         if (sampleRate == null) {
+            log("$host 404 character '${request.characterName}' not found")
             writeText(output, 404, "character '${request.characterName}' not found")
             return
         }
+        val begun = System.nanoTime()
+        log(
+            "$host 请求 ${request.characterName} split=${request.splitSentence} " +
+                "${request.text.length}字 ${preview(request.text)}",
+        )
         client.soTimeout = 0
         val cancelled = AtomicBoolean(false)
         val watch = thread(name = "genie-http-watch", isDaemon = true) {
@@ -120,31 +132,57 @@ internal class TtsServer(
             }
         }
         var started = false
+        var count = 0
+        var previousAudioMs: Double? = null
+        var totalAudioMs = 0.0
+        var mark = begun
+        var failed: String? = null
         try {
             speaker.speak(request, { cancelled.get() || stopRequested }) { samples ->
+                val now = System.nanoTime()
+                val synthMs = (now - mark) / 1_000_000.0
+                mark = now
                 if (cancelled.get() || stopRequested) throw SynthesisCancelled()
                 if (!started) {
                     writeWavStart(output, sampleRate)
                     started = true
                 }
+                val audioMs = if (sampleRate <= 0) 0.0 else samples.size * 1000.0 / sampleRate
+                count += 1
+                totalAudioMs += audioMs
+                log(segmentLine(count, synthMs, audioMs, previousAudioMs))
+                previousAudioMs = audioMs
                 output.write(TtsProtocol.pcm16(samples))
                 output.flush()
             }
             if (!started) writeWavStart(output, sampleRate)
         } catch (error: TtsException) {
+            failed = "${error.status} ${error.message}"
             if (!started) writeText(output, error.status, error.message ?: "failed")
         } catch (_: SynthesisCancelled) {
+            failed = "客户端断开"
         } catch (error: Exception) {
+            failed = error.message ?: "失败"
             if (!started) {
                 writeText(output, 503, "failed to load character '${request.characterName}': ${error.message}")
             }
         } finally {
+            val wallMs = (System.nanoTime() - begun) / 1_000_000.0
+            val ending = failed ?: "完成"
+            log(
+                "$host $ending ${count}段 音频 ${secondsText(totalAudioMs)} 秒 用时 ${secondsText(wallMs)} 秒",
+            )
             try {
                 client.close()
             } catch (_: Exception) {
             }
             watch.join(1000)
         }
+    }
+
+    private fun preview(text: String): String {
+        val flat = text.replace("\n", "")
+        return if (flat.length <= 24) flat else flat.take(24) + "…"
     }
 
     private fun readHeaders(input: InputStream): String {

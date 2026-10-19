@@ -80,6 +80,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var serviceToggle: Button
     private lateinit var copyService: Button
     private lateinit var servicePort: EditText
+    private lateinit var serviceLog: TextView
     private lateinit var prosodyStatus: TextView
     private lateinit var prosodyDetail: TextView
     private lateinit var downloadProsody: Button
@@ -114,6 +115,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         TtsRuntime.port = TtsPorts.read(filesDir)
+        TtsLog.attach(filesDir)
         setContentView(R.layout.activity_main)
         Engines.activityOpen = true
         speech = Engines.get(filesDir) { assets.open(it) }
@@ -138,11 +140,14 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         TtsRuntime.listener = { if (!isDestroyed) renderService() }
+        TtsLog.listener = { if (!isDestroyed) serviceLog.text = TtsLog.recent() }
         renderService()
+        serviceLog.text = TtsLog.recent()
     }
 
     override fun onStop() {
-        if (TtsRuntime.listener != null) TtsRuntime.listener = null
+        TtsRuntime.listener = null
+        TtsLog.listener = null
         super.onStop()
     }
 
@@ -183,6 +188,7 @@ class MainActivity : AppCompatActivity() {
         serviceToggle = findViewById(R.id.serviceToggle)
         copyService = findViewById(R.id.copyService)
         servicePort = findViewById(R.id.servicePort)
+        serviceLog = findViewById(R.id.serviceLog)
         prosodyStatus = findViewById(R.id.prosodyStatus)
         prosodyDetail = findViewById(R.id.prosodyDetail)
         downloadProsody = findViewById(R.id.downloadProsody)
@@ -317,6 +323,11 @@ class MainActivity : AppCompatActivity() {
         copyService.setOnClickListener {
             val clipboard = getSystemService(ClipboardManager::class.java)
             clipboard.setPrimaryClip(ClipData.newPlainText("tts", serviceAddresses()))
+            toast("已复制")
+        }
+        findViewById<View>(R.id.copyLog).setOnClickListener {
+            val clipboard = getSystemService(ClipboardManager::class.java)
+            clipboard.setPrimaryClip(ClipData.newPlainText("tts-log", TtsLog.recent()))
             toast("已复制")
         }
         servicePort.setOnEditorActionListener { view, actionId, _ ->
@@ -1194,7 +1205,7 @@ class MainActivity : AppCompatActivity() {
     private fun versionLabel(): String = "${versionName()}（${versionCode()}）"
 
     private fun versionName(): String {
-        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.4"
+        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.5"
     }
 
     private fun versionCode(): Long {
