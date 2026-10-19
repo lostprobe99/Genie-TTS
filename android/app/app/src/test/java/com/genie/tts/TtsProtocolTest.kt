@@ -2,6 +2,7 @@ package com.genie.tts
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.Socket
@@ -49,6 +50,17 @@ class TtsProtocolTest {
         assertEquals(16.toShort(), view.getShort(34))
         assertEquals("data", String(header, 36, 4, Charsets.US_ASCII))
         assertEquals(-1, view.getInt(40))
+    }
+
+    @Test
+    fun listenPortAcceptsSavedValue() {
+        val dir = kotlin.io.path.createTempDirectory("tts-port").toFile()
+        assertEquals(8001, TtsPorts.read(dir))
+        TtsPorts.write(dir, 9000)
+        assertEquals(9000, TtsPorts.read(dir))
+        assertNull(TtsPorts.parse("0"))
+        assertNull(TtsPorts.parse("65536"))
+        assertEquals(80, TtsPorts.parse(" 80 "))
     }
 
     @Test

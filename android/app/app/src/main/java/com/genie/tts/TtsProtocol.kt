@@ -1,6 +1,7 @@
 package com.genie.tts
 
 import org.json.JSONObject
+import java.io.File
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -11,6 +12,24 @@ internal data class TtsRequest(
     val text: String,
     val splitSentence: Boolean,
 )
+
+internal object TtsPorts {
+    const val DEFAULT = 8001
+
+    fun parse(raw: String?): Int? {
+        val value = raw?.trim()?.toIntOrNull() ?: return null
+        return value.takeIf { it in 1..65535 }
+    }
+
+    fun read(filesDir: File): Int {
+        val file = File(filesDir, "tts-port.txt")
+        return parse(file.takeIf { it.isFile }?.readText()) ?: DEFAULT
+    }
+
+    fun write(filesDir: File, port: Int) {
+        File(filesDir, "tts-port.txt").writeText(port.toString())
+    }
+}
 
 internal object TtsProtocol {
     fun parseBody(raw: String): TtsRequest {

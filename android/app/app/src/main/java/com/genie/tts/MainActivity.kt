@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.provider.OpenableColumns
 import android.text.Editable
 import android.text.TextWatcher
+import android.view.inputmethod.EditorInfo
 import android.view.Gravity
 import android.view.View
 import android.widget.ArrayAdapter
@@ -78,6 +79,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var serviceDetail: TextView
     private lateinit var serviceToggle: Button
     private lateinit var copyService: Button
+    private lateinit var servicePort: EditText
     private lateinit var prosodyStatus: TextView
     private lateinit var prosodyDetail: TextView
     private lateinit var downloadProsody: Button
@@ -111,6 +113,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        TtsRuntime.port = TtsPorts.read(filesDir)
         setContentView(R.layout.activity_main)
         Engines.activityOpen = true
         speech = Engines.get(filesDir) { assets.open(it) }
@@ -179,6 +182,7 @@ class MainActivity : AppCompatActivity() {
         serviceDetail = findViewById(R.id.serviceDetail)
         serviceToggle = findViewById(R.id.serviceToggle)
         copyService = findViewById(R.id.copyService)
+        servicePort = findViewById(R.id.servicePort)
         prosodyStatus = findViewById(R.id.prosodyStatus)
         prosodyDetail = findViewById(R.id.prosodyDetail)
         downloadProsody = findViewById(R.id.downloadProsody)
@@ -314,6 +318,17 @@ class MainActivity : AppCompatActivity() {
             val clipboard = getSystemService(ClipboardManager::class.java)
             clipboard.setPrimaryClip(ClipData.newPlainText("tts", serviceAddresses()))
             toast("已复制")
+        }
+        servicePort.setOnEditorActionListener { view, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                view.clearFocus()
+                true
+            } else {
+                false
+            }
+        }
+        servicePort.setOnFocusChangeListener { _, hasFocus ->
+            if (!hasFocus) commitPort()
         }
         findViewById<View>(R.id.copyAbout).setOnClickListener {
             val text = aboutLines()
@@ -796,6 +811,12 @@ class MainActivity : AppCompatActivity() {
                 textSize = 18f
                 setTextColor(color(R.color.paper))
             })
+            card.addView(TextView(this).apply {
+                text = info.id
+                textSize = 15f
+                setTextColor(color(R.color.muted))
+                setPadding(0, dp(2), 0, 0)
+            })
             val size = TextView(this).apply {
                 text = "…"
                 textSize = 15f
@@ -890,6 +911,7 @@ class MainActivity : AppCompatActivity() {
         val running = TtsRuntime.running
         val problem = TtsRuntime.error
         serviceStatus.text = when {
+            TtsRuntime.switching -> "正在切换端口"
             running -> "已开启"
             !problem.isNullOrBlank() -> problem
             else -> "未开启"
@@ -903,12 +925,33 @@ class MainActivity : AppCompatActivity() {
         serviceToggle.setText(if (running) R.string.service_stop else R.string.service_start)
         serviceToggle.backgroundTintList = colorState(if (running) R.color.line else R.color.amber)
         serviceToggle.setTextColor(color(if (running) R.color.paper else R.color.ink))
+        val shown = TtsRuntime.port.toString()
+        if (!servicePort.hasFocus() && servicePort.text.toString() != shown) {
+            servicePort.setText(shown)
+        }
+    }
+
+    private fun commitPort() {
+        val value = TtsPorts.parse(servicePort.text.toString())
+        if (value == null) {
+            toast("端口要在 1 到 65535 之间")
+            servicePort.setText(TtsRuntime.port.toString())
+            return
+        }
+        if (value == TtsRuntime.port) return
+        TtsPorts.write(filesDir, value)
+        TtsRuntime.port = value
+        if (TtsRuntime.running) {
+            TtsRuntime.switching = true
+            ContextCompat.startForegroundService(this, Intent(this, TtsService::class.java))
+        }
+        renderService()
     }
 
     private fun serviceAddresses(): String {
         val lines = interfaceAddresses().map { address ->
             val label = if (address == "127.0.0.1") "本机" else "局域网"
-            "$label\nhttp://$address:${TtsRuntime.PORT}/tts"
+            "$label\nhttp://$address:${TtsRuntime.port}/tts"
         }
         return lines.joinToString("\n")
     }

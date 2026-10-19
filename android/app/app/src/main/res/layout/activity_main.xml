@@ -189,6 +189,32 @@
                         android:textColor="@color/muted"
                         android:textSize="15sp" />
 
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/port"
+                        android:textColor="@color/paper"
+                        android:textSize="15sp" />
+
+                    <EditText
+                        android:id="@+id/servicePort"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="8dp"
+                        android:background="@drawable/field_bg"
+                        android:digits="0123456789"
+                        android:gravity="center_vertical"
+                        android:imeOptions="actionDone"
+                        android:importantForAutofill="no"
+                        android:inputType="number"
+                        android:maxLength="5"
+                        android:paddingStart="12dp"
+                        android:paddingEnd="12dp"
+                        android:singleLine="true"
+                        android:textColor="@color/paper"
+                        android:textSize="18sp" />
+
                     <Button
                         android:id="@+id/serviceToggle"
                         android:layout_width="match_parent"

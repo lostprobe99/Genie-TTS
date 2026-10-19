@@ -19,12 +19,17 @@ import kotlin.math.max
 import kotlin.math.min
 
 internal object TtsRuntime {
-    const val PORT = 8001
     const val EXTRA_PAGE = "page"
     const val PAGE_SERVICE = "service"
 
     @Volatile
+    var port = TtsPorts.DEFAULT
+
+    @Volatile
     var running = false
+
+    @Volatile
+    var switching = false
 
     @Volatile
     var error: String? = null
@@ -38,47 +43,101 @@ internal object TtsRuntime {
 }
 
 class TtsService : Service() {
+    private val gate = Any()
     private var server: TtsServer? = null
     private var stopping = false
+    private var generation = 0
+    private var listeningPort = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (TtsRuntime.running && server != null) return START_STICKY
+        val port = TtsPorts.read(filesDir)
+        TtsRuntime.port = port
+        val same = synchronized(gate) {
+            TtsRuntime.running && server != null && listeningPort == port && !stopping
+        }
+        if (same) {
+            TtsRuntime.switching = false
+            TtsRuntime.publish()
+            return START_STICKY
+        }
         stopping = false
         enterForeground(notification())
-        try {
-            val created = TtsServer(TtsRuntime.PORT, ::roster, ::speak)
-            created.start()
-            server = created
-            TtsRuntime.running = true
-            TtsRuntime.error = null
-        } catch (error: Exception) {
-            TtsRuntime.running = false
-            TtsRuntime.error = if (error.message?.contains("EADDRINUSE") == true || error is java.net.BindException) {
-                "端口 ${TtsRuntime.PORT} 已被占用"
-            } else {
-                "接口没有打开"
-            }
-            stopForeground(STOP_FOREGROUND_REMOVE)
-            stopSelf()
-        }
-        TtsRuntime.publish()
+        rebind(port)
         return START_STICKY
     }
 
     override fun onDestroy() {
-        if (stopping) return
-        stopping = true
+        val current = synchronized(gate) {
+            if (stopping) return
+            stopping = true
+            generation += 1
+            val open = server
+            server = null
+            listeningPort = 0
+            open
+        }
         TtsRuntime.running = false
+        TtsRuntime.switching = false
         TtsRuntime.publish()
-        val current = server
-        server = null
         thread(name = "genie-http-stop", isDaemon = true) {
             current?.stop()
             Engines.closeIfIdle()
         }
         super.onDestroy()
+    }
+
+    private fun rebind(port: Int) {
+        val (ticket, previous) = synchronized(gate) {
+            generation += 1
+            val open = server
+            server = null
+            listeningPort = 0
+            generation to open
+        }
+        thread(name = "genie-http-bind", isDaemon = true) {
+            previous?.stop()
+            if (stale(ticket)) return@thread
+            try {
+                val created = TtsServer(port, ::roster, ::speak)
+                created.start()
+                val keep = synchronized(gate) {
+                    if (ticket != generation || stopping) {
+                        false
+                    } else {
+                        server = created
+                        listeningPort = port
+                        true
+                    }
+                }
+                if (!keep) {
+                    created.stop()
+                    return@thread
+                }
+                TtsRuntime.port = port
+                TtsRuntime.running = true
+                TtsRuntime.switching = false
+                TtsRuntime.error = null
+                getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
+            } catch (error: Exception) {
+                if (stale(ticket)) return@thread
+                TtsRuntime.running = false
+                TtsRuntime.switching = false
+                TtsRuntime.error = if (error is java.net.BindException) {
+                    "端口 $port 已被占用"
+                } else {
+                    "接口没有打开"
+                }
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
+            TtsRuntime.publish()
+        }
+    }
+
+    private fun stale(ticket: Int): Boolean {
+        return synchronized(gate) { ticket != generation || stopping }
     }
 
     private fun roster(): Map<String, Int> {
@@ -148,7 +207,7 @@ class TtsService : Service() {
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat)
             .setContentTitle("朗读接口开着")
-            .setContentText("http://127.0.0.1:${TtsRuntime.PORT}/tts")
+            .setContentText("http://127.0.0.1:${TtsRuntime.port}/tts")
             .setOngoing(true)
             .setContentIntent(pending)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
