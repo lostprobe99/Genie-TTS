@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var speed: SeekBar
     private lateinit var synthesizeButton: Button
     private lateinit var playButton: Button
+    private lateinit var workStatus: TextView
     private lateinit var characterCards: LinearLayout
     private lateinit var importCharacter: Button
     private lateinit var prosodyStatus: TextView
@@ -82,6 +83,9 @@ class MainActivity : AppCompatActivity() {
     private var active = -1
     private var busy = false
     private var playing = false
+    private var synthesizing = false
+    private var loadingModel = false
+    private var playFocusGranted = true
     private var suppress = false
     private var spinnerGen = 0
     private var downloading = false
@@ -133,6 +137,7 @@ class MainActivity : AppCompatActivity() {
         speed = findViewById(R.id.speed)
         synthesizeButton = findViewById(R.id.synthesize)
         playButton = findViewById(R.id.play)
+        workStatus = findViewById(R.id.workStatus)
         characterCards = findViewById(R.id.characterCards)
         importCharacter = findViewById(R.id.importCharacter)
         prosodyStatus = findViewById(R.id.prosodyStatus)
@@ -244,7 +249,9 @@ class MainActivity : AppCompatActivity() {
 
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
         }
-        synthesizeButton.setOnClickListener { onSynthesize() }
+        synthesizeButton.setOnClickListener {
+            if (!synthesizing && !busy) onSynthesize()
+        }
         playButton.setOnClickListener {
             if (playing) stopPlaying()
             else play(clips.indices.filter { clips[it]?.samples != null })
@@ -314,6 +321,9 @@ class MainActivity : AppCompatActivity() {
         clips = pieces.map { Clip(it, null, 32000, null) }.toMutableList()
         active = 0
         sentenceScroll.visibility = View.VISIBLE
+        synthesizing = true
+        loadingModel = true
+        showWork("正在加载模型，共 ${pieces.size} 句")
         renderSentences()
         banner.visibility = View.GONE
         setBusy(true)
@@ -323,19 +333,38 @@ class MainActivity : AppCompatActivity() {
         val threads = threads()
         worker.execute {
             try {
-                speech.synthesize(character, pieces, rate, threads) { index, clip ->
+                speech.synthesize(character, pieces, rate, threads, onMark = { loading, index ->
+                    runOnUiThread {
+                        if (isDestroyed) return@runOnUiThread
+                        loadingModel = loading
+                        if (!loading && index in clips.indices) active = index
+                        showWork(
+                            if (loading) {
+                                "正在加载模型，共 ${pieces.size} 句"
+                            } else {
+                                "正在合成第 ${index + 1} 句，共 ${pieces.size} 句"
+                            },
+                        )
+                        renderSentences()
+                        updateControls()
+                        scrollToActive()
+                    }
+                }) { index, clip ->
                     runOnUiThread {
                         if (isDestroyed) return@runOnUiThread
                         if (index in clips.indices) clips[index] = clip
-                        active = if (index + 1 < clips.size) index + 1 else -1
                         renderSentences()
                         updateControls()
                     }
                 }
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
+                    synthesizing = false
+                    loadingModel = false
                     active = -1
                     renderSentences()
+                    showWork(synthSummary())
+                    updateControls()
                 }
             } catch (error: Exception) {
                 runOnUiThread {
@@ -347,6 +376,8 @@ class MainActivity : AppCompatActivity() {
                 marker.delete()
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
+                    synthesizing = false
+                    loadingModel = false
                     setBusy(false)
                 }
             }
@@ -358,23 +389,52 @@ class MainActivity : AppCompatActivity() {
         confirmProsody(preview = true) {
             stopPlaying()
             setBusy(true)
+            banner.text = "正在加载模型"
+            banner.visibility = View.VISIBLE
             val marker = markerFile()
             marker.writeText(versionLabel())
             val gen = playGen.incrementAndGet()
             worker.execute {
                 try {
-                    val clip = speech.preview(character, threads())
+                    val clip = speech.preview(character, threads()) { loading, _ ->
+                        runOnUiThread {
+                            if (isDestroyed) return@runOnUiThread
+                            banner.text = if (loading) "正在加载模型" else "正在生成试听"
+                            banner.visibility = View.VISIBLE
+                        }
+                    }
                     val samples = clip.samples
                     if (samples == null) {
                         runOnUiThread { if (!isDestroyed) alert(clip.error ?: "这句没有读出来") }
                         return@execute
                     }
+                    val quiet = isQuiet(samples)
                     runOnUiThread {
                         if (isDestroyed || gen != playGen.get()) return@runOnUiThread
                         playing = true
+                        banner.text = if (quiet) "这句几乎没有声音" else "正在打开试听"
+                        banner.visibility = View.VISIBLE
                         updateControls()
                     }
-                    playSamples(samples, clip.sampleRate) { gen != playGen.get() }
+                    playSamples(
+                        this,
+                        samples,
+                        clip.sampleRate,
+                        { gen != playGen.get() },
+                        onStarted = { granted ->
+                            runOnUiThread {
+                                if (isDestroyed || gen != playGen.get()) return@runOnUiThread
+                                playFocusGranted = granted
+                                banner.text = previewLine(0, samples.size, clip.sampleRate, quiet, granted)
+                            }
+                        },
+                        onProgress = { played, total ->
+                            runOnUiThread {
+                                if (isDestroyed || gen != playGen.get()) return@runOnUiThread
+                                banner.text = previewLine(played, total, clip.sampleRate, quiet, playFocusGranted)
+                            }
+                        },
+                    )
                 } catch (error: Exception) {
                     runOnUiThread { if (!isDestroyed) alert(human(error)) }
                 } finally {
@@ -382,6 +442,7 @@ class MainActivity : AppCompatActivity() {
                     runOnUiThread {
                         if (isDestroyed) return@runOnUiThread
                         if (gen == playGen.get()) playing = false
+                        banner.visibility = View.GONE
                         setBusy(false)
                     }
                 }
@@ -393,6 +454,8 @@ class MainActivity : AppCompatActivity() {
         if (busy || indexes.isEmpty()) return
         val gen = playGen.incrementAndGet()
         playing = true
+        playFocusGranted = true
+        showWork("正在打开播放")
         updateControls()
         worker.execute {
             try {
@@ -400,12 +463,39 @@ class MainActivity : AppCompatActivity() {
                     if (gen != playGen.get()) return@execute
                     val clip = clips.getOrNull(index) ?: continue
                     val samples = clip.samples ?: continue
+                    val quiet = isQuiet(samples)
                     runOnUiThread {
                         if (isDestroyed || gen != playGen.get()) return@runOnUiThread
                         active = index
                         renderSentences()
+                        scrollToActive()
                     }
-                    playSamples(samples, clip.sampleRate) { gen != playGen.get() }
+                    playSamples(
+                        this,
+                        samples,
+                        clip.sampleRate,
+                        { gen != playGen.get() },
+                        onStarted = { granted ->
+                            runOnUiThread {
+                                if (isDestroyed || gen != playGen.get()) return@runOnUiThread
+                                playFocusGranted = granted
+                                showWork(playLine(index, 0, samples.size, clip.sampleRate, quiet))
+                            }
+                        },
+                        onProgress = { played, total ->
+                            runOnUiThread {
+                                if (isDestroyed || gen != playGen.get()) return@runOnUiThread
+                                showWork(playLine(index, played, total, clip.sampleRate, quiet))
+                            }
+                        },
+                    )
+                }
+                runOnUiThread {
+                    if (!isDestroyed && gen == playGen.get()) showWork("播放结束")
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    if (!isDestroyed && gen == playGen.get()) showWork(human(error))
                 }
             } finally {
                 runOnUiThread {
@@ -422,12 +512,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun stopPlaying() {
+        val wasPlaying = playing
         playGen.incrementAndGet()
-        if (!playing && active < 0) return
+        if (!wasPlaying && active < 0) return
         playing = false
         active = -1
         renderSentences()
         updateControls()
+        if (wasPlaying) showWork("已停止")
     }
 
     private fun confirmProsody(preview: Boolean, then: () -> Unit) {
@@ -697,12 +789,20 @@ class MainActivity : AppCompatActivity() {
                 setTextColor(color(if (index == active) R.color.amber else R.color.paper))
             }
             column.addView(title)
-            val error = clip?.error
-            if (clip != null && clip.samples == null && !error.isNullOrBlank()) {
+            val samples = clip?.samples
+            val detail = when {
+                samples != null && isQuiet(samples) -> "几乎没有声音"
+                samples != null -> "${formatSec(secondsOf(samples, clip?.sampleRate ?: 32000))} 秒"
+                clip != null && !clip.error.isNullOrBlank() -> clip.error
+                synthesizing && index == active && loadingModel -> "等待模型"
+                synthesizing && index == active -> "正在合成"
+                else -> null
+            }
+            if (!detail.isNullOrBlank()) {
                 column.addView(TextView(this).apply {
-                    text = error
+                    text = detail
                     textSize = 14f
-                    setTextColor(color(R.color.muted))
+                    setTextColor(color(if (samples != null && isQuiet(samples)) R.color.amber else R.color.muted))
                     setPadding(0, dp(2), 0, 0)
                 })
             }
@@ -732,8 +832,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateControls() {
-        val canSpeak = !busy && !playing && currentCharacter() != null && sentence.text.toString().isNotBlank()
-        synthesizeButton.isEnabled = canSpeak
+        val canSpeak = !busy && !playing && !synthesizing && currentCharacter() != null && sentence.text.toString().isNotBlank()
         sentence.isEnabled = !busy
         speed.isEnabled = !busy
         characters.isEnabled = !busy
@@ -741,6 +840,23 @@ class MainActivity : AppCompatActivity() {
         downloadProsody.isEnabled = !busy
         importProsody.isEnabled = !busy
         deleteProsody.isEnabled = !busy
+        when {
+            synthesizing && loadingModel -> {
+                synthesizeButton.isEnabled = true
+                synthesizeButton.text = "加载中"
+            }
+            synthesizing -> {
+                synthesizeButton.isEnabled = true
+                val shown = (active + 1).coerceAtLeast(1)
+                synthesizeButton.text = "$shown/${clips.size.coerceAtLeast(1)}"
+            }
+            else -> {
+                synthesizeButton.isEnabled = canSpeak
+                synthesizeButton.setText(R.string.synthesize)
+            }
+        }
+        synthesizeButton.backgroundTintList = colorState(R.color.amber)
+        synthesizeButton.setTextColor(color(R.color.ink))
         val ready = clips.any { it?.samples != null }
         when {
             playing -> {
@@ -749,7 +865,7 @@ class MainActivity : AppCompatActivity() {
                 playButton.backgroundTintList = colorState(R.color.amber)
                 playButton.setTextColor(color(R.color.ink))
             }
-            ready && !busy -> {
+            ready && !busy && !synthesizing -> {
                 playButton.isEnabled = true
                 playButton.setText(R.string.play)
                 playButton.backgroundTintList = colorState(R.color.amber)
@@ -776,7 +892,57 @@ class MainActivity : AppCompatActivity() {
         active = -1
         sentenceScroll.visibility = View.GONE
         sentenceList.removeAllViews()
+        showWork("")
     }
+
+    private fun showWork(text: String) {
+        workStatus.text = text
+        workStatus.visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun scrollToActive() {
+        if (active < 0) return
+        val child = sentenceList.getChildAt(active) ?: return
+        sentenceScroll.post {
+            (sentenceScroll as android.widget.ScrollView).smoothScrollTo(0, child.top)
+        }
+    }
+
+    private fun synthSummary(): String {
+        val playable = clips.count { it?.samples != null }
+        val quiet = clips.count { clip -> clip?.samples?.let(::isQuiet) == true }
+        return when {
+            playable == 0 -> "没有可以播放的句子"
+            quiet == playable -> "合成完成，但是几乎没有声音"
+            else -> "合成完成，$playable 句可播放"
+        }
+    }
+
+    private fun playLine(index: Int, played: Int, total: Int, sampleRate: Int, quiet: Boolean): String {
+        val clock = "${formatCount(played, sampleRate)}/${formatCount(total, sampleRate)} 秒"
+        val head = "正在播放第 ${index + 1} 句 · $clock"
+        return when {
+            quiet -> "$head，这句几乎没有声音"
+            !playFocusGranted -> "声音可能被其他应用占用。$head"
+            else -> head
+        }
+    }
+
+    private fun previewLine(played: Int, total: Int, sampleRate: Int, quiet: Boolean, granted: Boolean): String {
+        val clock = "${formatCount(played, sampleRate)}/${formatCount(total, sampleRate)} 秒"
+        return when {
+            quiet -> "正在试听 $clock，这句几乎没有声音"
+            !granted -> "声音可能被其他应用占用。正在试听 $clock"
+            else -> "正在试听 $clock"
+        }
+    }
+
+    private fun formatCount(samples: Int, sampleRate: Int): String {
+        val seconds = if (sampleRate <= 0) 0.0 else samples.toDouble() / sampleRate
+        return formatSec(seconds)
+    }
+
+    private fun formatSec(seconds: Double): String = "%.1f".format(Locale.US, seconds)
 
     private fun restoreDraft() {
         suppress = true
@@ -869,7 +1035,7 @@ class MainActivity : AppCompatActivity() {
     private fun versionLabel(): String = "${versionName()}（${versionCode()}）"
 
     private fun versionName(): String {
-        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.2"
+        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.3"
     }
 
     private fun versionCode(): Long {

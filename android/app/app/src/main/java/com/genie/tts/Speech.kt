@@ -1,9 +1,13 @@
 package com.genie.tts
 
 import ai.onnxruntime.OrtEnvironment
+import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioFormat
+import android.media.AudioManager
 import android.media.AudioTrack
+import android.os.SystemClock
 import com.genie.tts.g2p.ChineseFrontend
 import com.genie.tts.g2p.G2pFiles
 import java.io.File
@@ -36,12 +40,15 @@ internal class Speech(
         pieces: List<String>,
         speed: Double,
         threads: Int,
+        onMark: (loading: Boolean, index: Int) -> Unit = { _, _ -> },
         onPiece: (Int, Clip) -> Unit = { _, _ -> },
     ): List<Clip> {
+        onMark(true, -1)
         val ready = Prosody.isReady(filesDir)
         val ref = if (ready) referenceBert(character, threads) else null
         val loaded = engineFor(character, threads)
         return pieces.mapIndexed { index, piece ->
+            onMark(false, index)
             val clip = try {
                 speakPiece(loaded, character, piece, speed, threads, ready, ref)
             } catch (error: Exception) {
@@ -75,9 +82,13 @@ internal class Speech(
         return Clip(piece, report.samples, report.sampleRate, null)
     }
 
-    fun preview(character: CharacterInfo, threads: Int): Clip {
+    fun preview(
+        character: CharacterInfo,
+        threads: Int,
+        onMark: (loading: Boolean, index: Int) -> Unit = { _, _ -> },
+    ): Clip {
         val text = ReferenceLine.text(character.root)
-        return synthesize(character, listOf(text), 1.0, threads).single()
+        return synthesize(character, listOf(text), 1.0, threads, onMark).single()
     }
 
     override fun close() {
@@ -168,19 +179,31 @@ internal class Speech(
     }
 }
 
-internal fun playSamples(samples: FloatArray, sampleRate: Int, stop: () -> Boolean) {
+internal fun playSamples(
+    context: Context,
+    samples: FloatArray,
+    sampleRate: Int,
+    stop: () -> Boolean,
+    onStarted: (focusGranted: Boolean) -> Unit = {},
+    onProgress: (played: Int, total: Int) -> Unit = { _, _ -> },
+) {
+    if (samples.isEmpty()) error("这句没有声音")
+    val audioManager = context.getSystemService(AudioManager::class.java)
+    val attributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_MEDIA)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+        .build()
+    val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+        .setAudioAttributes(attributes)
+        .build()
+    val granted = audioManager.requestAudioFocus(focus) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
     val minBuffer = AudioTrack.getMinBufferSize(
         sampleRate,
         AudioFormat.CHANNEL_OUT_MONO,
         AudioFormat.ENCODING_PCM_FLOAT,
     )
     val track = AudioTrack.Builder()
-        .setAudioAttributes(
-            AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                .build(),
-        )
+        .setAudioAttributes(attributes)
         .setAudioFormat(
             AudioFormat.Builder()
                 .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
@@ -191,19 +214,33 @@ internal fun playSamples(samples: FloatArray, sampleRate: Int, stop: () -> Boole
         .setBufferSizeInBytes(max(minBuffer, sampleRate * 4))
         .setTransferMode(AudioTrack.MODE_STREAM)
         .build()
+    var lastReport = 0L
+    fun report(played: Int, force: Boolean = false) {
+        val now = SystemClock.elapsedRealtime()
+        if (!force && now - lastReport < 200) return
+        lastReport = now
+        onProgress(played.coerceIn(0, samples.size), samples.size)
+    }
     try {
         track.play()
+        if (track.playState != AudioTrack.PLAYSTATE_PLAYING) error("播放没有开始")
+        onStarted(granted)
+        report(0, force = true)
         var offset = 0
         while (offset < samples.size && !stop()) {
             val count = min(4096, samples.size - offset)
             val wrote = track.write(samples, offset, count, AudioTrack.WRITE_BLOCKING)
-            if (wrote <= 0) break
+            if (wrote <= 0) error("播放没有开始")
             offset += wrote
+            report(track.playbackHeadPosition)
         }
         while (!stop() && track.playbackHeadPosition < offset) {
+            report(track.playbackHeadPosition)
             Thread.sleep(40)
         }
+        if (!stop()) report(offset, force = true)
     } finally {
+        audioManager.abandonAudioFocusRequest(focus)
         track.pause()
         track.flush()
         track.release()
@@ -211,3 +248,18 @@ internal fun playSamples(samples: FloatArray, sampleRate: Int, stop: () -> Boole
 }
 
 internal fun speedOf(progress: Int): Double = 0.60 + progress * 0.05
+
+internal fun isQuiet(samples: FloatArray): Boolean {
+    if (samples.isEmpty()) return true
+    var peak = 0f
+    for (sample in samples) {
+        val magnitude = kotlin.math.abs(sample)
+        if (magnitude > peak) peak = magnitude
+    }
+    return peak < 0.001f
+}
+
+internal fun secondsOf(samples: FloatArray, sampleRate: Int): Double {
+    if (sampleRate <= 0) return 0.0
+    return samples.size.toDouble() / sampleRate
+}
