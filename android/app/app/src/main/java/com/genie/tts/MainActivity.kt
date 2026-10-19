@@ -1,7 +1,10 @@
 package com.genie.tts
 
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -23,6 +26,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
@@ -39,7 +43,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity() {
-    private enum class Page { Speak, Characters, Prosody, About }
+    private enum class Page { Speak, Characters, Service, Prosody, About }
 
     private val worker = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "genie").apply { isDaemon = true }
@@ -55,6 +59,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var banner: TextView
     private lateinit var speakPage: View
     private lateinit var characterPage: View
+    private lateinit var servicePage: View
     private lateinit var prosodyPage: View
     private lateinit var aboutPage: View
     private lateinit var placeholder: TextView
@@ -69,6 +74,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var workStatus: TextView
     private lateinit var characterCards: LinearLayout
     private lateinit var importCharacter: Button
+    private lateinit var serviceStatus: TextView
+    private lateinit var serviceDetail: TextView
+    private lateinit var serviceToggle: Button
+    private lateinit var copyService: Button
     private lateinit var prosodyStatus: TextView
     private lateinit var prosodyDetail: TextView
     private lateinit var downloadProsody: Button
@@ -96,11 +105,15 @@ class MainActivity : AppCompatActivity() {
     private val pickProsody = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onProsodyPicked(uri)
     }
+    private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+        startTtsService()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        speech = Speech(filesDir) { assets.open(it) }
+        Engines.activityOpen = true
+        speech = Engines.get(filesDir) { assets.open(it) }
         CharacterPack.migrateLegacy(filesDir)
         bindViews()
         restoreDraft()
@@ -109,12 +122,33 @@ class MainActivity : AppCompatActivity() {
         refreshCharacters()
         renderSpeed()
         showPage(Page.Speak)
+        openRequestedPage(intent)
         findViewById<TextView>(R.id.drawerVersion).text = versionName()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openRequestedPage(intent)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        TtsRuntime.listener = { if (!isDestroyed) renderService() }
+        renderService()
+    }
+
+    override fun onStop() {
+        if (TtsRuntime.listener != null) TtsRuntime.listener = null
+        super.onStop()
     }
 
     override fun onDestroy() {
         playGen.incrementAndGet()
-        if (isFinishing) worker.execute { speech.close() }
+        if (isFinishing) {
+            Engines.activityOpen = false
+            worker.execute { Engines.closeIfIdle() }
+        }
         super.onDestroy()
     }
 
@@ -126,6 +160,7 @@ class MainActivity : AppCompatActivity() {
         banner = findViewById(R.id.banner)
         speakPage = findViewById(R.id.speakPage)
         characterPage = findViewById(R.id.characterPage)
+        servicePage = findViewById(R.id.servicePage)
         prosodyPage = findViewById(R.id.prosodyPage)
         aboutPage = findViewById(R.id.aboutPage)
         placeholder = findViewById(R.id.characterPlaceholder)
@@ -140,6 +175,10 @@ class MainActivity : AppCompatActivity() {
         workStatus = findViewById(R.id.workStatus)
         characterCards = findViewById(R.id.characterCards)
         importCharacter = findViewById(R.id.importCharacter)
+        serviceStatus = findViewById(R.id.serviceStatus)
+        serviceDetail = findViewById(R.id.serviceDetail)
+        serviceToggle = findViewById(R.id.serviceToggle)
+        copyService = findViewById(R.id.copyService)
         prosodyStatus = findViewById(R.id.prosodyStatus)
         prosodyDetail = findViewById(R.id.prosodyDetail)
         downloadProsody = findViewById(R.id.downloadProsody)
@@ -193,6 +232,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.openCharacters).setOnClickListener {
             drawer.closeDrawer(drawerPanel)
             showPage(Page.Characters)
+        }
+        findViewById<View>(R.id.openService).setOnClickListener {
+            drawer.closeDrawer(drawerPanel)
+            showPage(Page.Service)
         }
         findViewById<View>(R.id.openProsody).setOnClickListener {
             drawer.closeDrawer(drawerPanel)
@@ -266,6 +309,12 @@ class MainActivity : AppCompatActivity() {
             pickProsody.launch(arrayOf("*/*", "application/zip", "application/octet-stream"))
         }
         deleteProsody.setOnClickListener { deleteProsody() }
+        serviceToggle.setOnClickListener { toggleService() }
+        copyService.setOnClickListener {
+            val clipboard = getSystemService(ClipboardManager::class.java)
+            clipboard.setPrimaryClip(ClipData.newPlainText("tts", serviceAddresses()))
+            toast("已复制")
+        }
         findViewById<View>(R.id.copyAbout).setOnClickListener {
             val text = aboutLines()
             val clipboard = getSystemService(ClipboardManager::class.java)
@@ -278,6 +327,7 @@ class MainActivity : AppCompatActivity() {
         page = next
         speakPage.visibility = if (next == Page.Speak) View.VISIBLE else View.GONE
         characterPage.visibility = if (next == Page.Characters) View.VISIBLE else View.GONE
+        servicePage.visibility = if (next == Page.Service) View.VISIBLE else View.GONE
         prosodyPage.visibility = if (next == Page.Prosody) View.VISIBLE else View.GONE
         aboutPage.visibility = if (next == Page.About) View.VISIBLE else View.GONE
         val onSpeak = next == Page.Speak
@@ -285,6 +335,7 @@ class MainActivity : AppCompatActivity() {
             when (next) {
                 Page.Speak -> R.string.app_name
                 Page.Characters -> R.string.characters
+                Page.Service -> R.string.service
                 Page.Prosody -> R.string.prosody
                 Page.About -> R.string.about
             },
@@ -297,6 +348,7 @@ class MainActivity : AppCompatActivity() {
         )
         when (next) {
             Page.Characters -> renderCards()
+            Page.Service -> renderService()
             Page.Prosody -> renderProsody()
             Page.About -> aboutText.text = aboutLines()
             Page.Speak -> Unit
@@ -333,30 +385,37 @@ class MainActivity : AppCompatActivity() {
         val threads = threads()
         worker.execute {
             try {
-                speech.synthesize(character, pieces, rate, threads, onMark = { loading, index ->
-                    runOnUiThread {
-                        if (isDestroyed) return@runOnUiThread
-                        loadingModel = loading
-                        if (!loading && index in clips.indices) active = index
-                        showWork(
-                            if (loading) {
-                                "正在加载模型，共 ${pieces.size} 句"
-                            } else {
-                                "正在合成第 ${index + 1} 句，共 ${pieces.size} 句"
-                            },
-                        )
-                        renderSentences()
-                        updateControls()
-                        scrollToActive()
-                    }
-                }) { index, clip ->
-                    runOnUiThread {
-                        if (isDestroyed) return@runOnUiThread
-                        if (index in clips.indices) clips[index] = clip
-                        renderSentences()
-                        updateControls()
-                    }
-                }
+                speech.synthesize(
+                    character,
+                    pieces,
+                    rate,
+                    threads,
+                    onMark = { loading, index ->
+                        runOnUiThread {
+                            if (isDestroyed) return@runOnUiThread
+                            loadingModel = loading
+                            if (!loading && index in clips.indices) active = index
+                            showWork(
+                                if (loading) {
+                                    "正在加载模型，共 ${pieces.size} 句"
+                                } else {
+                                    "正在合成第 ${index + 1} 句，共 ${pieces.size} 句"
+                                },
+                            )
+                            renderSentences()
+                            updateControls()
+                            scrollToActive()
+                        }
+                    },
+                    onPiece = { index, clip ->
+                        runOnUiThread {
+                            if (isDestroyed) return@runOnUiThread
+                            if (index in clips.indices) clips[index] = clip
+                            renderSentences()
+                            updateControls()
+                        }
+                    },
+                )
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
                     synthesizing = false
@@ -827,6 +886,63 @@ class MainActivity : AppCompatActivity() {
         deleteProsody.visibility = if (ready) View.VISIBLE else View.GONE
     }
 
+    private fun renderService() {
+        val running = TtsRuntime.running
+        val problem = TtsRuntime.error
+        serviceStatus.text = when {
+            running -> "已开启"
+            !problem.isNullOrBlank() -> problem
+            else -> "未开启"
+        }
+        serviceStatus.setTextColor(color(if (!running && !problem.isNullOrBlank()) R.color.amber else R.color.paper))
+        val ids = roster.joinToString("、") { it.id }.ifBlank { "还没有。先在角色管理里导入" }
+        val notice = if (running && !notificationsAllowed()) "通知没打开，系统可能会把接口收掉。\n" else ""
+        serviceDetail.text = serviceAddresses() + "\n\n角色 id\n$ids\n\n" +
+            notice +
+            "POST /tts，JSON 里是 character_name、text、split_sentence。语速固定 1.00。切走或锁屏后，通知会留着。"
+        serviceToggle.setText(if (running) R.string.service_stop else R.string.service_start)
+        serviceToggle.backgroundTintList = colorState(if (running) R.color.line else R.color.amber)
+        serviceToggle.setTextColor(color(if (running) R.color.paper else R.color.ink))
+    }
+
+    private fun serviceAddresses(): String {
+        val lines = interfaceAddresses().map { address ->
+            val label = if (address == "127.0.0.1") "本机" else "局域网"
+            "$label\nhttp://$address:${TtsRuntime.PORT}/tts"
+        }
+        return lines.joinToString("\n")
+    }
+
+    private fun toggleService() {
+        if (TtsRuntime.running) {
+            stopService(Intent(this, TtsService::class.java))
+            return
+        }
+        if (
+            Build.VERSION.SDK_INT >= 33 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) {
+            askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+            return
+        }
+        startTtsService()
+    }
+
+    private fun startTtsService() {
+        TtsRuntime.error = null
+        ContextCompat.startForegroundService(this, Intent(this, TtsService::class.java))
+    }
+
+    private fun notificationsAllowed(): Boolean {
+        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return false
+        if (Build.VERSION.SDK_INT < 33) return true
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun openRequestedPage(source: Intent?) {
+        if (source?.getStringExtra(TtsRuntime.EXTRA_PAGE) == TtsRuntime.PAGE_SERVICE) showPage(Page.Service)
+    }
+
     private fun renderSpeed() {
         speedLabel.text = "语速 ${"%.2f".format(Locale.US, speedOf(speed.progress))}"
     }
@@ -1035,7 +1151,7 @@ class MainActivity : AppCompatActivity() {
     private fun versionLabel(): String = "${versionName()}（${versionCode()}）"
 
     private fun versionName(): String {
-        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.3"
+        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.4"
     }
 
     private fun versionCode(): Long {

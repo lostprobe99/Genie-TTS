@@ -35,6 +35,13 @@ internal class Speech(
     private var refBert: OwnedTensor? = null
     private var refKey: String? = null
 
+    @Synchronized
+    fun prepare(character: CharacterInfo, threads: Int) {
+        if (Prosody.isReady(filesDir)) referenceBert(character, threads)
+        engineFor(character, threads)
+    }
+
+    @Synchronized
     fun synthesize(
         character: CharacterInfo,
         pieces: List<String>,
@@ -42,16 +49,22 @@ internal class Speech(
         threads: Int,
         onMark: (loading: Boolean, index: Int) -> Unit = { _, _ -> },
         onPiece: (Int, Clip) -> Unit = { _, _ -> },
+        stop: () -> Boolean = { false },
+        failFast: Boolean = false,
     ): List<Clip> {
         onMark(true, -1)
         val ready = Prosody.isReady(filesDir)
         val ref = if (ready) referenceBert(character, threads) else null
         val loaded = engineFor(character, threads)
         return pieces.mapIndexed { index, piece ->
+            if (stop()) throw SynthesisCancelled()
             onMark(false, index)
             val clip = try {
-                speakPiece(loaded, character, piece, speed, threads, ready, ref)
+                speakPiece(loaded, character, piece, speed, threads, ready, ref, stop)
+            } catch (error: SynthesisCancelled) {
+                throw error
             } catch (error: Exception) {
+                if (failFast) throw error
                 Clip(piece, null, characterSampleRate(character), sentenceError(error))
             }
             onPiece(index, clip)
@@ -67,6 +80,7 @@ internal class Speech(
         threads: Int,
         ready: Boolean,
         ref: OwnedTensor?,
+        stop: () -> Boolean = { false },
     ): Clip {
         val phones = frontend().infer(piece)
         if (phones.ids.isEmpty()) {
@@ -78,10 +92,11 @@ internal class Speech(
             LongArray(length) { phones.ids[it].toLong() },
         )
         val bert = textBert(phones, threads, ready)
-        val report = loaded.synthesize(GenieCase(character.root), textSeq, bert, {}, ref, speed)
+        val report = loaded.synthesize(GenieCase(character.root), textSeq, bert, {}, ref, speed, stop)
         return Clip(piece, report.samples, report.sampleRate, null)
     }
 
+    @Synchronized
     fun preview(
         character: CharacterInfo,
         threads: Int,
@@ -91,6 +106,7 @@ internal class Speech(
         return synthesize(character, listOf(text), 1.0, threads, onMark).single()
     }
 
+    @Synchronized
     override fun close() {
         engine?.close()
         engine = null
@@ -99,6 +115,7 @@ internal class Speech(
         refBert = null
     }
 
+    @Synchronized
     fun dropEngine() {
         engine?.close()
         engine = null
@@ -107,6 +124,7 @@ internal class Speech(
         refKey = null
     }
 
+    @Synchronized
     fun dropProsody() {
         prosody?.close()
         prosody = null

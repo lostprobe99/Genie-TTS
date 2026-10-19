@@ -1,6 +1,6 @@
 package com.genie.tts
 
-/** 和这次安装包放在同一个 GitHub release 里的韵律包。 */
+/** 韵律包没有改，仍从已经发出的 app-0.0.3 下载。 */
 object Release {
     const val TAG = "app-0.0.3"
     const val PROSODY_URL =
