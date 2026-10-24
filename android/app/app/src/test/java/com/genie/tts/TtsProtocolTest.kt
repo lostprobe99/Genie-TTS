@@ -88,6 +88,30 @@ class TtsProtocolTest {
     }
 
     @Test
+    fun machineStatsCoverCpuMemoryAndTemperature() {
+        val stat = "cpu  100 0 50 800 50 0 0 0\ncpu0 100 0 50 800 50 0 0 0\n"
+        assertEquals(1000L to 850L, parseCpuTotal(stat))
+        val self = "42 (genie tts) R 1 1 1 0 -1 0 0 0 0 0 10 20 0 0\n"
+        assertEquals(30L, parseProcessJiffies(self))
+        val previous = CpuSample(1000, 850, 30)
+        val current = CpuSample(1400, 950, 230)
+        assertEquals(75 to 200, cpuPercents(previous, current, 4))
+        assertEquals(41.7f, parseZoneTemp("41700")!!, 0.05f)
+        assertEquals(36.5f, parseZoneTemp("36.5")!!, 0.05f)
+        val temps = temperatureClause(
+            36.2f,
+            listOf(ZoneTemp("cpu-0-0", 48.0f), ZoneTemp("skin-therm", 38.4f), ZoneTemp("battery", 36.0f)),
+        )
+        assertEquals("电池 36.2°C 机身 38.4°C CPU温 48.0°C", temps)
+        assertEquals("严重", thermalStatusText(3))
+        val line = machineLine("请求后", 75, 200, 980, 1400, 5600, temps, "中等", "本段")
+        assertEquals(
+            "请求后 本段整机CPU 75% 本进程 200% 内存 本进程 980MB 可用 1400/5600MB 电池 36.2°C 机身 38.4°C CPU温 48.0°C 热状态 中等",
+            line,
+        )
+    }
+
+    @Test
     fun postStreamsOneWav() {
         val seen = mutableListOf<TtsRequest>()
         val logs = mutableListOf<String>()

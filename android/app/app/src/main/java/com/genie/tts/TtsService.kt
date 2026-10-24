@@ -43,6 +43,7 @@ internal object TtsRuntime {
 }
 
 class TtsService : Service() {
+    private val machine by lazy { MachineProbe(this) }
     private val gate = Any()
     private var server: TtsServer? = null
     private var stopping = false
@@ -122,6 +123,7 @@ class TtsService : Service() {
                 TtsRuntime.switching = false
                 TtsRuntime.error = null
                 TtsLog.add("接口已打开 端口 $port")
+                logMachine("开机", "此前")
                 getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
             } catch (error: Exception) {
                 if (stale(ticket)) return@thread
@@ -138,6 +140,11 @@ class TtsService : Service() {
             }
             TtsRuntime.publish()
         }
+    }
+
+    private fun logMachine(label: String, cpuPrefix: String) {
+        val line = runCatching { machine.snapshot(label, cpuPrefix) }.getOrElse { "$label 机器读不到" }
+        TtsLog.add(line)
     }
 
     private fun stale(ticket: Int): Boolean {
@@ -169,6 +176,7 @@ class TtsService : Service() {
         lock.setReferenceCounted(false)
         lock.acquire(15 * 60 * 1000L)
         val prepareStarted = System.nanoTime()
+        logMachine("请求前", "此前")
         try {
             try {
                 speech.prepare(character, threads)
@@ -190,6 +198,7 @@ class TtsService : Service() {
                 failFast = true,
             )
         } finally {
+            logMachine("请求后", "本段")
             if (lock.isHeld) lock.release()
         }
     }
