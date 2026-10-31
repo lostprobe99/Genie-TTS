@@ -314,6 +314,22 @@
                 android:textColor="@color/primary"
                 android:textSize="12sp"
                 android:visibility="gone" />
+
+            <ProgressBar
+                android:id="@+id/prosodyProgress"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="6dp"
+                android:layout_marginTop="8dp"
+                android:indeterminate="false"
+                android:indeterminateTint="@color/primary"
+                android:max="1000"
+                android:maxHeight="6dp"
+                android:minHeight="6dp"
+                android:progress="0"
+                android:progressBackgroundTint="#E2E8F0"
+                android:progressTint="@color/primary"
+                android:visibility="gone" />
         </LinearLayout>
 
         <LinearLayout
@@ -526,28 +542,6 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:orientation="horizontal">
-
-                <View
-                    android:layout_width="6dp"
-                    android:layout_height="6dp"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_prosody_dot" />
-
-                <TextView
-                    android:id="@+id/prosodyTipSize"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_weight="1"
-                    android:lineSpacingExtra="2dp"
-                    android:textColor="@color/text_sub"
-                    android:textSize="12sp" />
-            </LinearLayout>
         </LinearLayout>
 
         <LinearLayout

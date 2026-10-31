@@ -42,6 +42,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
+import android.widget.ProgressBar
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -132,6 +133,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var serviceLog: TextView
     private lateinit var prosodyStatus: TextView
     private lateinit var prosodyDetail: TextView
+    private lateinit var prosodyProgress: ProgressBar
     private lateinit var prosodyBadge: TextView
     private lateinit var prosodyModel: TextView
     private lateinit var prosodyFile: TextView
@@ -314,6 +316,7 @@ class MainActivity : AppCompatActivity() {
         serviceLog = findViewById(R.id.serviceLog)
         prosodyStatus = findViewById(R.id.prosodyStatus)
         prosodyDetail = findViewById(R.id.prosodyDetail)
+        prosodyProgress = findViewById(R.id.prosodyProgress)
         prosodyBadge = findViewById(R.id.prosodyBadge)
         prosodyModel = findViewById(R.id.prosodyModel)
         prosodyFile = findViewById(R.id.prosodyFile)
@@ -494,7 +497,7 @@ class MainActivity : AppCompatActivity() {
             if (busy) return@setOnClickListener
             pickCharacter.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
         }
-        downloadProsody.setOnClickListener { downloadProsody() }
+        downloadProsody.setOnClickListener { confirmDownloadProsody() }
         importProsody.setOnClickListener {
             if (busy) return@setOnClickListener
             pickProsody.launch(arrayOf("*/*", "application/zip", "application/octet-stream"))
@@ -1108,12 +1111,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun confirmDownloadProsody() {
+        if (busy) return
+        if (!Prosody.isReady(filesDir)) {
+            downloadProsody()
+            return
+        }
+        showLightConfirm(
+            getString(R.string.prosody_redownload_title),
+            getString(R.string.prosody_redownload_message),
+            getString(R.string.prosody_redownload),
+        ) { downloadProsody() }
+    }
+
     private fun downloadProsody() {
         if (busy) return
         setBusy(true)
         downloading = true
-        prosodyDetail.visibility = View.VISIBLE
+        downloadProsody.setText(R.string.prosody_download_busy)
         prosodyDetail.setText(R.string.prosody_downloading)
+        showProsodyProgress(0, 0)
         worker.execute {
             try {
                 speech.dropProsody()
@@ -1125,8 +1142,8 @@ class MainActivity : AppCompatActivity() {
                     }
                     runOnUiThread {
                         if (isDestroyed) return@runOnUiThread
-                        prosodyDetail.visibility = View.VISIBLE
                         prosodyDetail.text = line
+                        showProsodyProgress(done, total)
                     }
                 }
             } catch (error: Exception) {
@@ -1139,6 +1156,18 @@ class MainActivity : AppCompatActivity() {
                     renderProsody()
                 }
             }
+        }
+    }
+
+    private fun showProsodyProgress(done: Long, total: Long) {
+        prosodyDetail.visibility = View.VISIBLE
+        prosodyProgress.visibility = View.VISIBLE
+        if (total > 0) {
+            prosodyProgress.isIndeterminate = false
+            prosodyProgress.max = 1000
+            prosodyProgress.progress = ((done.coerceIn(0, total) * 1000) / total).toInt()
+        } else {
+            prosodyProgress.isIndeterminate = true
         }
     }
 
@@ -1604,15 +1633,25 @@ class MainActivity : AppCompatActivity() {
             else -> getString(R.string.prosody_absent)
         }
         prosodyDeleteCard.visibility = if (file.isFile) View.VISIBLE else View.GONE
-        if (!downloading) prosodyDetail.visibility = View.GONE
+        downloadProsody.setText(
+            when {
+                downloading -> R.string.prosody_download_busy
+                ready -> R.string.prosody_installed
+                else -> R.string.download
+            },
+        )
+        if (!downloading) {
+            prosodyDetail.visibility = View.GONE
+            prosodyProgress.visibility = View.GONE
+            prosodyProgress.isIndeterminate = false
+            prosodyProgress.progress = 0
+        }
         drawerProsodyState.text = if (ready) "已就绪" else "未安装"
     }
 
     private fun prosodyTipWhat() {
-        val size = getString(R.string.prosody_tip_size, Prosody.MODEL_BYTES)
         findViewById<TextView>(R.id.prosodyTipWhat).text = html(getString(R.string.prosody_tip_what))
         findViewById<TextView>(R.id.prosodyTipNet).text = html(getString(R.string.prosody_tip_net))
-        findViewById<TextView>(R.id.prosodyTipSize).text = html(size)
     }
 
     private fun html(source: String): CharSequence = HtmlCompat.fromHtml(source, HtmlCompat.FROM_HTML_MODE_COMPACT)
@@ -1949,7 +1988,7 @@ class MainActivity : AppCompatActivity() {
     private fun versionLabel(): String = "${versionName()}（${versionCode()}）"
 
     private fun versionName(): String {
-        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.9"
+        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.10"
     }
 
     private fun versionCode(): Long {

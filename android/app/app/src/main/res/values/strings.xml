@@ -77,7 +77,10 @@
     <string name="prosody_about_title">关于韵律模型</string>
     <string name="prosody_tip_what"><![CDATA[<b>它做什么。</b> 合成前用中文 RoBERTa 给每句算停顿和重音。参考句按角色包里的原文算一次。]]></string>
     <string name="prosody_tip_net"><![CDATA[<b>连不上 GitHub。</b> 在电脑上下好 prosody.zip，再用「选择文件」导入。也可以直接选这份 onnx。]]></string>
-    <string name="prosody_tip_size"><![CDATA[<b>大小。</b> 必须是 %1$,d 字节。对不上就当成没装好。]]></string>
+    <string name="prosody_redownload_title">重新下载韵律模型</string>
+    <string name="prosody_redownload_message">该操作将会删除本地已安装的韵律模型。</string>
+    <string name="prosody_redownload">重新下载</string>
+    <string name="prosody_download_busy">下载中</string>
     <string name="prosody_footer">当前引擎环境：ONNX Runtime 1.22.0 · arm64-v8a</string>
     <string name="prosody_ready">已就绪</string>
     <string name="prosody_installed">已安装</string>
