@@ -1,0 +1,250 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<title>韵律模型管理 - GenieTTS</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#084c58',
+              deeper: '#053943',
+              primary: '#0d7384',
+              accent: '#14b8a6',
+              soft: '#e6f4f6',
+              bg: '#f0f7f8',
+              card: '#ffffff',
+              subtle: '#64748b'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"PingFang SC"', '"Hiragino Sans GB"', '"Microsoft YaHei"', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="base-enhancements">
+    /* 优化轻微滚动和点击体验 */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background-color: #f0f7f8;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+    /* 平滑阴影 */
+    .card-shadow {
+      box-shadow: 0 4px 20px -2px rgba(8, 76, 88, 0.06), 0 2px 6px -1px rgba(8, 76, 88, 0.03);
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800 flex justify-center selection:bg-teal-500 selection:text-white">
+<!-- 主移动端视口容器 (Max-width 440px 还原手机效果) -->
+<div class="w-full max-w-[440px] min-h-screen bg-brand-bg flex flex-col relative pb-10">
+<!-- BEGIN: TopBar -->
+<!-- 延续参考图中的深青色顶栏背景 #084c58 -->
+<header class="sticky top-0 z-50 bg-[#084c58] text-white pt-3 pb-4 px-4 shadow-md transition-colors" data-purpose="app-header">
+<div class="flex items-center justify-between">
+<!-- 左侧：返回箭头与主标题 -->
+<div class="flex items-center space-x-3">
+<button aria-label="返回上一页" class="p-1 -ml-1 text-teal-100 hover:text-white active:opacity-75 transition-opacity" type="button">
+<svg class="w-6 h-6 stroke-[2.2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<div class="flex items-center space-x-2">
+<h1 class="text-lg font-bold tracking-wide">韵律模型</h1>
+<!-- 状态胶囊标签 -->
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-[#11626f] text-teal-200 border border-teal-500/30">
+              已就绪
+            </span>
+</div>
+</div>
+<!-- 右侧：快捷操作按钮 -->
+<div class="flex items-center space-x-2">
+<!-- 刷新检测 -->
+<button aria-label="检测更新" class="p-1.5 text-teal-100 hover:text-white hover:bg-white/10 rounded-full transition" type="button">
+<svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- 帮助问号/文档 -->
+<button aria-label="帮助文档" class="p-1.5 text-teal-100 hover:text-white hover:bg-white/10 rounded-full transition" type="button">
+<svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</header>
+<!-- END: TopBar -->
+<!-- 主要内容流区域 -->
+<main class="flex-1 px-3.5 pt-3.5 space-y-3.5" data-purpose="content-area">
+<!-- BEGIN: HeroStatusCard -->
+<!-- 当前已激活模型的详细信息展示 -->
+<section class="bg-white rounded-2xl p-4 card-shadow border border-teal-50" data-purpose="current-model-status">
+<!-- 头部标题状态栏 -->
+<div class="flex items-start justify-between">
+<div class="flex items-center space-x-3">
+<!-- 韵律波形图标容器 -->
+<div class="w-11 h-11 rounded-xl bg-teal-50 border border-teal-100/80 flex items-center justify-center text-teal-600 shadow-sm">
+<svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+<path d="M4 9h2v6H4zm4-4h2v14H8zm4 3h2v8h-2zm4-6h2v20h-2zm4 8h2v4h-2z"></path>
+</svg>
+</div>
+<div>
+<div class="flex items-center space-x-2">
+<h2 class="text-base font-bold text-slate-900 leading-tight">Genie Prosody-ZH</h2>
+</div>
+<p class="text-xs text-slate-500 font-mono mt-0.5">chinese-prosody-v2-full</p>
+</div>
+</div>
+<!-- 激活状态指示胶囊 -->
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-xs">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse mr-1.5"></span>
+            已安装 (Active)
+          </span>
+</div>
+<!-- 韵律能力简介 -->
+<div class="mt-3.5 bg-gradient-to-r from-teal-50/70 to-slate-50 p-2.5 rounded-xl border border-teal-100/60">
+<p class="text-xs text-teal-900/90 leading-relaxed flex items-start space-x-1.5">
+<span class="text-teal-600 font-bold shrink-0">✦</span>
+<span class="">强化智能断句停顿、中英混读音调起伏及多音字上下文消歧，还原地道拟人语流。</span>
+</p>
+</div>
+<!-- 元数据网格展示 (2x2) -->
+<div class="grid grid-cols-2 gap-2 mt-3.5 pt-3 border-t border-slate-100 text-xs font-sans">
+<div class="bg-slate-50/80 p-2 rounded-lg">
+<span class="text-slate-400 block text-[11px] mb-0.5">模型版本</span>
+<span class="font-semibold text-slate-700 font-mono">v1.3.0 (Build 2411)</span>
+</div>
+<div class="bg-slate-50/80 p-2 rounded-lg">
+<span class="text-slate-400 block text-[11px] mb-0.5">占用存储空间</span>
+<span class="font-semibold text-slate-700 font-mono">142.8 MB</span>
+</div>
+<div class="col-span-2 bg-slate-50/80 p-2 rounded-lg flex items-center justify-between">
+<div class="truncate mr-2">
+<span class="text-slate-400 block text-[11px] mb-0.5">内部挂载路径</span>
+<span class="font-mono text-slate-600 truncate block text-[11px]">/sdcard/GenieTTS/models/prosody/</span>
+</div>
+<button class="shrink-0 p-1 text-slate-400 hover:text-teal-600 active:scale-95" title="复制路径" type="button">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+</div>
+</div>
+<div class="mt-2.5 flex items-center justify-between text-[11px] text-slate-400 px-0.5">
+<span class="">上次更新时间：2024-11-20 14:32</span>
+<span class="text-teal-700 font-medium cursor-pointer">校验指纹: SHA-256</span>
+</div>
+</section>
+<!-- END: HeroStatusCard -->
+<!-- BEGIN: ActionButtonsGroup -->
+<!-- 模型管理与更新操作区域 -->
+<section class="space-y-2.5" data-purpose="model-actions">
+<h3 class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">模型操作与安装</h3>
+<!-- 选项 1: 从 GitHub 在线更新/下载 (主推荐操作) -->
+<div class="bg-white rounded-2xl p-3.5 card-shadow border border-teal-100 flex flex-col space-y-2.5 active:bg-slate-50/50 transition">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shrink-0">
+<!-- GitHub 图标 -->
+<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24">
+<path clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" fill-rule="evenodd"></path>
+</svg>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-sm font-semibold text-slate-800">从 GitHub 下载最新版本</h4>
+<p class="text-xs text-slate-400 truncate">从官方 Releases 拉取最新通用韵律权重包</p>
+</div>
+<button class="px-3.5 py-1.5 rounded-lg bg-[#084c58] text-white text-xs font-medium hover:bg-[#0d7384] active:scale-95 transition shadow-sm" type="button">
+              检查下载
+            </button>
+</div>
+<!-- 镜像源选择 -->
+<div class="flex items-center justify-between pt-2 border-t border-slate-100 text-[11px] text-slate-500">
+<span class="flex items-center">
+<span class="w-1.5 h-1.5 rounded-full bg-teal-500 mr-1.5"></span>
+              下载节点：
+              <span class="text-slate-700 font-medium ml-1">FastGit CDN 加速</span>
+</span>
+<button class="text-teal-700 hover:underline" type="button">切换镜像源</button>
+</div>
+</div>
+<!-- 选项 2: 本地离线导入 -->
+<div class="bg-white rounded-2xl p-3.5 card-shadow border border-slate-100 flex items-center space-x-3 active:bg-slate-50 transition">
+<div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-700 border border-teal-100 flex items-center justify-center shrink-0">
+<!-- 文件夹/解压图标 -->
+<svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div class="flex-1 min-w-0">
+<h4 class="text-sm font-semibold text-slate-800">从本地文件导入</h4>
+<p class="text-xs text-slate-400">支持选取的 .zip 或 .tar.gz 压缩模型文件</p>
+</div>
+<button class="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 text-xs font-medium hover:bg-slate-50 active:bg-slate-100 transition" type="button">
+            选择文件
+          </button>
+</div>
+<!-- 选项 3: 危险操作 - 删除模型 -->
+<div class="bg-white rounded-2xl p-3.5 card-shadow border border-red-100/70 flex items-center justify-between">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+<svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<div>
+<h4 class="text-sm font-semibold text-rose-700">删除当前韵律模型</h4>
+<p class="text-xs text-rose-400">语音合成将回退至无韵律基线预测</p>
+</div>
+</div>
+<button class="px-3 py-1.5 rounded-lg bg-rose-50 text-rose-600 border border-rose-200/80 text-xs font-medium hover:bg-rose-100/70 active:scale-95 transition" type="button">
+            卸载移除
+          </button>
+</div>
+</section>
+<!-- END: ActionButtonsGroup -->
+<!-- BEGIN: KnowledgeTips -->
+<!-- 辅助科普与常见使用指引卡片 -->
+<section class="bg-white rounded-2xl p-4 card-shadow border border-slate-100 space-y-3" data-purpose="knowledge-card">
+<div class="flex items-center space-x-2 text-teal-900">
+<svg class="w-4 h-4 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<h3 class="text-xs font-bold text-slate-800 tracking-tight">关于韵律模型 (Prosody Engine)</h3>
+</div>
+<ul class="text-xs text-slate-500 space-y-2 leading-relaxed pl-1">
+<li class="flex items-start space-x-2">
+<span class="w-1.5 h-1.5 rounded-full bg-teal-500 mt-1.5 shrink-0"></span>
+<span class=""><strong class="text-slate-700">什么是韵律模型？</strong> 它负责在声学特征生成前，精确标注中英文短句中的呼吸停顿 (Pause)、重音弱读以及语句末尾的疑问/感叹语调上扬。</span>
+</li>
+<li class="flex items-start space-x-2">
+<span class="w-1.5 h-1.5 rounded-full bg-teal-500 mt-1.5 shrink-0"></span>
+<span class=""><strong class="text-slate-700">无法连接 GitHub？</strong> 若因网络环境原因导致在线拉取失败，可通过 PC 浏览器下载官方发布包后，通过“本地导入”载入。</span>
+</li>
+<li class="flex items-start space-x-2">
+<span class="w-1.5 h-1.5 rounded-full bg-teal-500 mt-1.5 shrink-0"></span>
+<span class=""><strong class="text-slate-700">兼容性说明：</strong> Prosody V2 模型与当前核心引擎（G-Core v2.4+）全兼容，不增加推理延迟（&lt; 5ms）。</span>
+</li>
+</ul>
+</section>
+<!-- END: KnowledgeTips -->
+</main>
+<!-- BEGIN: QuickBottomStatus -->
+<!-- 延续图2底部的简洁信息条提示 -->
+<div class="mt-4 px-6 flex items-center justify-center space-x-2 text-xs text-slate-400" data-purpose="footer-meta">
+<span class="inline-block w-2 h-2 rounded-full bg-teal-600"></span>
+<span class="">当前引擎环境：ONNX Runtime 1.16 · ARM64-v8a</span>
+</div>
+<!-- END: QuickBottomStatus -->
+</div>
+
+
+</body></html>
