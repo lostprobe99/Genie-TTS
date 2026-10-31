@@ -83,6 +83,7 @@
     <string name="role_missing">未找到匹配的角色</string>
     <string name="role_missing_hint">请尝试更换角色名或模型ID关键词</string>
     <string name="back">返回</string>
+    <string name="menu">菜单</string>
     <string name="prosody_name">中文韵律</string>
     <string name="prosody_blurb">所有中文角色共用这一份。它给句子标停顿和重音。没装也能合成，只是这两处会弱一些。</string>
     <string name="prosody_file">文件名</string>

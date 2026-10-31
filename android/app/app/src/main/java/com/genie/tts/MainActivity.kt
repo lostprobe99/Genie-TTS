@@ -433,11 +433,11 @@ class MainActivity : AppCompatActivity() {
             toast(getString(R.string.not_ready))
         }
         rolesBack.setOnClickListener {
-            if (batching) exitBatch() else showPage(Page.Speak)
+            if (batching) exitBatch() else drawer.openDrawer(drawerPanel)
         }
-        findViewById<View>(R.id.prosodyBack).setOnClickListener { showPage(Page.Speak) }
+        findViewById<View>(R.id.prosodyBack).setOnClickListener { drawer.openDrawer(drawerPanel) }
         findViewById<View>(R.id.aboutBack).setOnClickListener { showPage(Page.Speak) }
-        findViewById<View>(R.id.serviceBack).setOnClickListener { showPage(Page.Speak) }
+        findViewById<View>(R.id.serviceBack).setOnClickListener { drawer.openDrawer(drawerPanel) }
         findViewById<View>(R.id.serviceLogJump).setOnClickListener { revealLog() }
         findViewById<View>(R.id.serviceLogHead).setOnClickListener { setLogOpen(!logOpen) }
         findViewById<View>(R.id.roleSearchButton).setOnClickListener { toggleRoleSearch() }
@@ -628,8 +628,9 @@ class MainActivity : AppCompatActivity() {
         )
         menuButton.setImageResource(if (onSpeak) R.drawable.ic_menu else R.drawable.ic_back)
         menuButton.contentDescription = if (onSpeak) "菜单" else "返回"
+        val menuPages = onSpeak || onRoles || onService || onProsody
         drawer.setDrawerLockMode(
-            if (onSpeak) DrawerLayout.LOCK_MODE_UNLOCKED else DrawerLayout.LOCK_MODE_LOCKED_CLOSED,
+            if (menuPages) DrawerLayout.LOCK_MODE_UNLOCKED else DrawerLayout.LOCK_MODE_LOCKED_CLOSED,
             GravityCompat.START,
         )
         when (next) {
@@ -1477,8 +1478,8 @@ class MainActivity : AppCompatActivity() {
     private fun applyBatchChrome() {
         val batch = batching && page == Page.Characters
         rolesTitle.setText(if (batch) R.string.batch_manage else R.string.characters)
-        rolesBack.setImageResource(if (batch) R.drawable.ic_close else R.drawable.ic_back)
-        rolesBack.contentDescription = if (batch) "取消" else "返回"
+        rolesBack.setImageResource(if (batch) R.drawable.ic_close else R.drawable.ic_menu)
+        rolesBack.contentDescription = if (batch) "取消" else getString(R.string.menu)
         roleCount.text = if (batch) "已选 ${picked.size}" else "${roster.size}个角色"
         roleMore.visibility = if (batch) View.GONE else View.VISIBLE
         roleFoot.visibility = if (batch) View.GONE else View.VISIBLE

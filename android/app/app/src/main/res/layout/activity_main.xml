@@ -155,7 +155,7 @@
                     android:layout_height="48dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
-                    android:paddingStart="4dp"
+                    android:paddingStart="8dp"
                     android:paddingEnd="4dp">
 
                     <ImageButton
@@ -163,8 +163,8 @@
                         android:layout_width="40dp"
                         android:layout_height="40dp"
                         android:background="@android:color/transparent"
-                        android:contentDescription="@string/app_name"
-                        android:src="@drawable/ic_back"
+                        android:contentDescription="@string/menu"
+                        android:src="@drawable/ic_menu"
                         app:tint="@android:color/white" />
 
                     <TextView
@@ -239,7 +239,7 @@
                 android:layout_height="48dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="4dp"
+                android:paddingStart="8dp"
                 android:paddingEnd="16dp"
                 android:visibility="gone">
 
@@ -248,8 +248,8 @@
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:background="@android:color/transparent"
-                    android:contentDescription="@string/back"
-                    android:src="@drawable/ic_back"
+                    android:contentDescription="@string/menu"
+                    android:src="@drawable/ic_menu"
                     app:tint="@android:color/white" />
 
                 <TextView
@@ -282,7 +282,7 @@
                 android:layout_height="48dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="4dp"
+                android:paddingStart="8dp"
                 android:paddingEnd="8dp"
                 android:visibility="gone">
 
@@ -291,8 +291,8 @@
                     android:layout_width="40dp"
                     android:layout_height="40dp"
                     android:background="@android:color/transparent"
-                    android:contentDescription="@string/back"
-                    android:src="@drawable/ic_back"
+                    android:contentDescription="@string/menu"
+                    android:src="@drawable/ic_menu"
                     app:tint="@android:color/white" />
 
                 <TextView
