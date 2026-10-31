@@ -559,10 +559,13 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="8dp"
                     android:background="@drawable/bg_card"
                     android:orientation="vertical"
-                    android:padding="12dp">
+                    android:paddingStart="12dp"
+                    android:paddingTop="4dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="0dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -591,9 +594,12 @@
                     <SeekBar
                         android:id="@+id/speed"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
+                        android:layout_height="24dp"
+                        android:layout_marginTop="0dp"
                         android:max="16"
+                        android:minHeight="24dp"
+                        android:paddingTop="0dp"
+                        android:paddingBottom="0dp"
                         android:progress="8"
                         android:progressTint="@color/primary"
                         android:thumbTint="@color/primary" />
