@@ -64,7 +64,7 @@
     <string name="current_role">当前角色：</string>
     <string name="speed_adjust">语速调整</string>
     <string name="speed_range">0.60x ~ 1.40x</string>
-    <string name="home_screen">主屏</string>
+    <string name="home_screen">首页</string>
     <string name="settings">软件设置</string>
     <string name="help_pending">使用帮助（待定）</string>
     <string name="view_log">查看日志</string>

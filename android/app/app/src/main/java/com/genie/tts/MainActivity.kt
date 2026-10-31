@@ -1765,7 +1765,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderSentences() {
-        sentenceCard.visibility = if (clips.isEmpty()) View.GONE else View.VISIBLE
+        sentenceCard.visibility = View.VISIBLE
         sentenceHeading.text = "分句列表（共 ${clips.size} 句）"
         sentenceBadge.text = when {
             synthesizing && loadingModel -> "正在加载模型"
@@ -1775,7 +1775,7 @@ class MainActivity : AppCompatActivity() {
             else -> ""
         }
         sentenceBadge.visibility = if (sentenceBadge.text.isNullOrBlank()) View.GONE else View.VISIBLE
-        val scrollHeight = if (clips.size > 3) dp(132) else ViewGroup.LayoutParams.WRAP_CONTENT
+        val scrollHeight = dp(132)
         if (sentenceScroll.layoutParams.height != scrollHeight) {
             sentenceScroll.layoutParams.height = scrollHeight
             sentenceScroll.requestLayout()
@@ -2124,9 +2124,8 @@ class MainActivity : AppCompatActivity() {
         active = -1
         synthStartedAt = 0
         synthElapsedMs = 0
-        sentenceCard.visibility = View.GONE
-        sentenceList.removeAllViews()
-        showWork("")
+        workNote = ""
+        renderSentences()
     }
 
     private fun showWork(text: String) {
@@ -2141,7 +2140,8 @@ class MainActivity : AppCompatActivity() {
             synthesizing -> "合成中"
             playing -> "播放中"
             clips.any { it?.samples != null } -> "完成"
-            else -> "状态"
+            clips.isNotEmpty() -> "完成"
+            else -> "未合成"
         }
         val metrics = metricsLine()
         val playingLine = workNote.startsWith("正在播放")
@@ -2175,7 +2175,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun metricsLine(): String {
-        if (clips.isEmpty()) return ""
+        if (clips.isEmpty()) return "分句: -/-  耗时: -  时长: -  实时率: -"
         val total = clips.size
         val finished = clips.count { it?.samples != null || !it?.error.isNullOrBlank() }
         val shown = if (synthesizing) (active + 1).coerceIn(0, total) else finished

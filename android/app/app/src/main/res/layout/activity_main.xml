@@ -435,8 +435,7 @@
                     android:paddingStart="12dp"
                     android:paddingTop="10dp"
                     android:paddingEnd="12dp"
-                    android:paddingBottom="6dp"
-                    android:visibility="gone">
+                    android:paddingBottom="6dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -455,6 +454,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="6dp"
+                            android:text="分句列表（共 0 句）"
                             android:textColor="@color/text_main"
                             android:textSize="12sp" />
 
@@ -474,13 +474,14 @@
                             android:paddingEnd="6dp"
                             android:paddingBottom="2dp"
                             android:textColor="@color/primary"
-                            android:textSize="11sp" />
+                            android:textSize="11sp"
+                            android:visibility="gone" />
                     </LinearLayout>
 
                     <ScrollView
                         android:id="@+id/sentenceScroll"
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="132dp"
                         android:overScrollMode="ifContentScrolls"
                         android:scrollbars="vertical">
 
@@ -520,7 +521,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="6dp"
-                            android:text="状态"
+                            android:text="未合成"
                             android:textColor="@color/text_sub"
                             android:textSize="11sp" />
 
@@ -534,6 +535,7 @@
                             android:fontFamily="monospace"
                             android:gravity="end"
                             android:maxLines="1"
+                            android:text="分句: -/-  耗时: -  时长: -  实时率: -"
                             android:textColor="@color/text_sub"
                             android:textSize="11sp" />
                     </LinearLayout>
