@@ -929,12 +929,13 @@
                         android:id="@+id/drawerServiceState"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:background="@drawable/bg_pill"
+                        android:background="@drawable/bg_prosody_idle"
                         android:paddingStart="8dp"
                         android:paddingTop="2dp"
                         android:paddingEnd="8dp"
                         android:paddingBottom="2dp"
-                        android:textColor="@color/primary"
+                        android:text="@string/service_stopped"
+                        android:textColor="@color/text_sub"
                         android:textSize="11sp" />
                 </LinearLayout>
 

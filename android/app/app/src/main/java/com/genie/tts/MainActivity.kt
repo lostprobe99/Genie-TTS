@@ -1726,7 +1726,9 @@ class MainActivity : AppCompatActivity() {
         serviceLanRow.visibility = if (lan.isEmpty()) View.GONE else View.VISIBLE
         serviceLanUrl.text = lan.joinToString("\n") { serviceUrl(it) }
         serviceIds.text = roster.joinToString("、") { it.id }.ifBlank { getString(R.string.service_ids_empty) }
-        drawerServiceState.text = if (running) "运行中" else "未开启"
+        drawerServiceState.text = if (running) "运行中" else getString(R.string.service_stopped)
+        drawerServiceState.setTextColor(color(if (running) R.color.primary else R.color.text_sub))
+        drawerServiceState.setBackgroundResource(if (running) R.drawable.bg_pill else R.drawable.bg_prosody_idle)
         serviceToggle.setText(if (running) R.string.service_stop else R.string.service_start)
         serviceToggle.setBackgroundResource(if (running) R.drawable.bg_service_stop else R.drawable.bg_service_start)
         serviceToggle.setTextColor(if (running) Color.parseColor("#BE123C") else Color.WHITE)
