@@ -1,0 +1,338 @@
+<!DOCTYPE html><html class="h-full" lang="zh-CN"><svg class="inline-defs-container" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"></svg><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>Genie - 语音合成工作台</title>
+<!-- Tailwind CSS CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            tealTheme: {
+              header: '#005461',
+              headerDark: '#04444f',
+              primary: '#0d828a',
+              primaryHover: '#0a6c73',
+              accent: '#14b8a6',
+              bgLight: '#f4f6f8',
+              cardBg: '#ffffff',
+              borderLight: '#e2e8f0',
+              textMain: '#1e293b',
+              textSub: '#64748b',
+              drawerBg: '#ffffff'
+            }
+          },
+          fontFamily: {
+            serifTraditional: ['"Noto Serif SC"', '"Source Han Serif SC"', 'SimSun', 'serif'],
+            sansSystem: ['-apple-system', 'BlinkMacSystemFont', '"PingFang SC"', '"Hiragino Sans GB"', '"Microsoft YaHei"', 'sans-serif'],
+            cursiveChinese: ['"Kaiti"', '"STKaiti"', '"KaiTi_GB2312"', 'serif']
+          }
+        }
+      }
+    }
+  </script>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect">
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<style data-purpose="custom-styling">
+    /* Custom Scrollbar & Range Slider styling */
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: #0d828a;
+      cursor: pointer;
+      box-shadow: 0 0 6px rgba(13, 130, 138, 0.4);
+    }
+    input[type=range]::-moz-range-thumb {
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: #0d828a;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 6px rgba(13, 130, 138, 0.4);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 3px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="bg-slate-200 text-tealTheme-textMain font-sansSystem h-full w-full flex justify-center items-center overflow-hidden select-none">
+<!-- BEGIN: PhoneFrameWrapper -->
+<!-- Container simulating modern Android mobile viewport -->
+<div class="relative w-full max-w-[420px] h-full sm:h-[880px] bg-tealTheme-bgLight overflow-hidden sm:rounded-[36px] sm:border sm:border-slate-300 shadow-2xl flex flex-col justify-between" data-purpose="mobile-viewport">
+<!-- BEGIN: AndroidStatusBar -->
+<!-- System status indicator bar matching reference image with Deep Teal tint -->
+
+<!-- END: AndroidStatusBar -->
+<!-- BEGIN: TopAppBar -->
+<!-- App header with menu button, Title 'Genie', and active voice role label in teal style -->
+<header class="w-full px-5 py-2.5 bg-[#005461] text-white shadow-sm shrink-0" data-purpose="app-bar">
+<div class="flex items-center justify-between relative h-10">
+<!-- Drawer Toggle Hamburger -->
+<button aria-label="打开菜单" class="p-2 -ml-2 text-white hover:text-teal-200 active:scale-95 transition-transform focus:outline-none" data-purpose="drawer-toggle" id="drawerToggleBtn">
+<svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+<path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- Centered Logo / App Title -->
+<h1 class="text-xl font-serifTraditional font-medium tracking-wider text-white">
+          Genie
+        </h1>
+<!-- Right Side Icons matching reference -->
+<div class="flex items-center space-x-3 text-teal-100">
+<button class="hover:text-white" title="搜索">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+<circle cx="11" cy="11" r="7"></circle>
+<path d="M20 20l-3.5-3.5" stroke-linecap="round"></path>
+</svg>
+</button>
+<button class="hover:text-white" title="更多">
+<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+<circle cx="12" cy="5" r="1.75"></circle>
+<circle cx="12" cy="12" r="1.75"></circle>
+<circle cx="12" cy="19" r="1.75"></circle>
+</svg>
+</button>
+</div>
+</div>
+<!-- Current Selected Voice/Role Indicator -->
+<div class="pt-3 pb-1 flex items-center justify-between border-t border-teal-600/50 mt-1">
+<div class="flex items-center space-x-1.5 cursor-pointer">
+<span class="text-sm text-teal-100 font-medium tracking-wide">当前角色：<b class="text-white font-medium">三月七</b></span>
+<svg class="w-3.5 h-3.5 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M19.5 8.25l-7.5 7.5-7.5-7.5" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"></path>
+</svg>
+</div>
+<span class="text-[11px] text-teal-200 font-mono px-2 py-0.5 rounded border border-teal-400/30 bg-teal-800/40">
+          v1.7.5 (76)
+        </span>
+</div>
+</header>
+<!-- END: TopAppBar -->
+<!-- BEGIN: MainWorkspace -->
+<!-- Home TTS reading interface with modern clean styling matching reference atmosphere -->
+<main class="flex-1 w-full px-4 py-3 flex flex-col justify-between overflow-hidden bg-[#f1f5f7]" data-purpose="tts-workspace">
+<!-- Parameter Quick Display Bar (語速/音量/音調 like reference right panel) -->
+<div class="flex items-center justify-around py-1.5 px-3 bg-white rounded border border-slate-200 text-xs text-slate-600 shadow-sm shrink-0 mb-3">
+<span class="">语速: <strong class="text-tealTheme-primary">1.00</strong></span>
+<span class="text-slate-300">|</span>
+<span class="">音量: <strong class="text-tealTheme-primary">50</strong></span>
+<span class="text-slate-300">|</span>
+<span class="">音调: <strong class="text-tealTheme-primary">25</strong></span>
+</div>
+<!-- Text Area Card matching reference visual style -->
+<section class="w-full flex-1 rounded-md border border-slate-200 bg-white p-5 overflow-y-auto custom-scrollbar shadow-sm" data-purpose="content-display">
+<p class="font-serifTraditional text-lg sm:text-[19px] leading-[2.1] tracking-wider text-slate-800 text-justify">
+          钦天监、十大历局看着那地球仪，眼睛一亮！过去猜测是过去猜测，大明水师一路向西，用船丈量天下，终于证实了地球真的是个球！
+        </p>
+</section>
+<!-- Bottom Audio Parameter Controls & Primary Action Buttons -->
+<footer class="w-full pt-4 pb-2 space-y-3 shrink-0" data-purpose="playback-controls">
+<!-- Speed (语速) Slider Section -->
+<div class="space-y-1.5 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+<div class="flex items-baseline justify-between text-xs">
+<span class="text-slate-600 font-normal">语速调整 <span class="text-tealTheme-primary font-mono ml-2 font-semibold" id="speedValue">1.00</span></span>
+<span class="text-[11px] text-slate-400 font-mono">0.5x ~ 2.0x</span>
+</div>
+<!-- Slider Track -->
+<div class="relative flex items-center pt-1">
+<input class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-tealTheme-primary focus:outline-none" id="speedRange" max="2.0" min="0.5" step="0.05" type="range" value="1.0">
+</div>
+</div>
+<!-- Action CTA Buttons (合成 / 播放) -->
+<div class="grid grid-cols-2 gap-3 pt-1">
+<!-- Primary Generate Button -->
+<button class="h-11 w-full rounded-md bg-tealTheme-primary hover:bg-tealTheme-primaryHover text-white font-medium text-base tracking-wider flex items-center justify-center transition-all active:scale-[0.98] shadow-md shadow-teal-900/10" data-purpose="action-synthesize">
+            合成
+          </button>
+<!-- Play / Listen Button -->
+<button class="h-11 w-full rounded-md bg-white hover:bg-slate-50 text-tealTheme-primary font-medium text-base tracking-wider flex items-center justify-center border border-tealTheme-primary/30 transition-all active:scale-[0.98] shadow-sm" data-purpose="action-play">
+            播放
+          </button>
+</div>
+<!-- Android Navigation Gesture Bar Indicator -->
+<div class="w-full flex justify-center pt-2 pb-0.5">
+<div class="w-32 h-1 bg-slate-400/60 rounded-full"></div>
+</div>
+</footer>
+</main>
+<!-- END: MainWorkspace -->
+<!-- BEGIN: SideNavigationDrawer -->
+<!-- Drawer backdrop overlay and slide-out navigation container matching Reference https://lh3.googleusercontent.com/aida-public/AB6AXuDbRFPjddcrgSRhQu2kDITyxUyeznZHYSfsMs50lSh2q4Zd9Eg8eITfoTUIRatgOUrvTlWqSUNSZTZa-ip7IQJbdr3WSleWB0TwgZhABCS2gNIdqQVeRXsP0OiqFAv9VC2EPmygTQ0m-lzr-_e5HNwTsECfWkHLBS04TM0UThV3D1nXeG1pG5ev193229J4WYjv2m2wq7DjdR-qaVsT6gl4fzY2fxwsgrMu6ylTuSZuP_aKfG5GNSyy -->
+<div class="absolute inset-0 z-30 transition-opacity duration-300 ease-out bg-black/50 backdrop-blur-[2px] flex" data-purpose="drawer-backdrop" id="drawerContainer">
+<!-- Drawer Content Surface -->
+<aside class="w-[82%] max-w-[325px] h-full bg-white flex flex-col justify-between shadow-2xl relative select-none" data-purpose="drawer-surface">
+<!-- Top Drawer Header in Deep Teal (#005461) matching Reference Image -->
+<div class="bg-[#005461] p-5 pb-4 text-white relative">
+<!-- Circle Soundwave / Rainbow Graphic + Poetic Tagline -->
+<div class="flex items-center space-x-3.5 mb-5 pt-1">
+<!-- Waveform Circle Icon -->
+<div class="w-14 h-14 flex items-center justify-center shrink-0"><img src="https://lh3.googleusercontent.com/aida/AEtjO1VJ8tI8ci4x85UsYmgnsx0ppwYURZVeTG--7XNhd9oxa4X9c8ZJow7RcwgqlSBVEKmmDfmW1mB8o90b0qA5oINjfmFh-tHyvZMNq0VPmzX1x9VG5fnPGHizGYjSBqwUI4HLTzwl2mnPXlM_RVbcXOQOVfBODb5EctS_HipdY4JAbLIbgm3tjKNjg1-oG5jwiwKZAA8M9gc-eaYmPOWDBn-ZKznkho9iQUGBZ0htWqEl" alt="GenieTTS Logo" class="w-full h-full object-cover"></div>
+<!-- Poetic Slogan -->
+<div class="flex-1 font-cursiveChinese">
+
+
+</div>
+<!-- Close button for convenience -->
+<button aria-label="关闭抽屉" class="text-teal-200/70 hover:text-white p-1 -mt-7 -mr-2" id="drawerCloseBtn">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+<!-- App Title & Version line -->
+<div class="flex items-baseline justify-between pt-1 border-t border-teal-600/40">
+<h2 class="text-xl font-normal tracking-wide text-white">GenieTTS</h2>
+<span class="text-xs text-teal-200 font-mono tracking-tight">v1.7.5 (76)</span>
+</div>
+</div>
+<!-- Drawer Menu Items: Clean white background with teal linear icons matching reference image -->
+<nav class="flex-1 py-1 px-0 overflow-y-auto custom-scrollbar bg-white divide-y divide-slate-100" data-purpose="drawer-menu-list">
+<!-- Group 1: 核心配置与角色管理 -->
+<div class="py-1">
+<!-- 软件设置 / 服务 -->
+<a class="flex items-center px-5 py-3.5 hover:bg-slate-50 transition-colors group" href="#services">
+<svg class="w-[22px] h-[22px] text-[#0d828a] shrink-0 mr-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="3"></circle>
+<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+</svg>
+<span class="text-[15px] text-slate-800 tracking-wide font-normal">软件设置</span>
+</a>
+<!-- 韵律模型 / 替换规则 -->
+
+<!-- 角色管理 (用户核心需求项) -->
+<a class="flex items-center px-5 py-3.5 bg-teal-50/60 hover:bg-teal-50 transition-colors group" data-purpose="menu-item-roles" href="#roles">
+<svg class="w-[22px] h-[22px] text-[#0d828a] shrink-0 mr-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+<circle cx="8.5" cy="7" r="4"></circle>
+<circle cx="18" cy="11" r="2.5"></circle>
+<path d="M21 17a2.5 2.5 0 0 0-2.5-2.5H18"></path>
+</svg>
+<span class="text-[15px] text-slate-900 font-medium tracking-wide">角色管理</span>
+<span class="ml-auto text-[11px] bg-teal-100/80 text-[#0d828a] px-2 py-0.5 rounded-full font-medium">12个角色</span>
+</a><a class="flex items-center px-5 py-3.5 hover:bg-slate-50 transition-colors group" data-purpose="menu-item-service-management" href="#service-management"><svg class="w-[22px] h-[22px] text-[#0d828a] shrink-0 mr-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg><span class="text-[15px] text-slate-800 tracking-wide font-normal">服务管理</span><span class="ml-auto text-[11px] bg-teal-100/80 text-[#0d828a] px-2 py-0.5 rounded-full font-medium">运行中</span></a>
+<!-- 声音の池 / 韵律模型库 -->
+
+<!-- 服务 / 引擎管理 -->
+<a class="flex items-center px-5 py-3.5 hover:bg-slate-50 transition-colors group" data-purpose="menu-item-services" href="#services">
+<svg class="w-[22px] h-[22px] text-[#0d828a] shrink-0 mr-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<rect height="12" rx="2" width="12" x="6" y="6"></rect>
+<path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"></path>
+</svg>
+<span class="text-[15px] text-slate-800 tracking-wide font-normal">韵律模型</span>
+<span class="ml-auto text-[11px] bg-teal-100/80 text-[#0d828a] px-2 py-0.5 rounded-full font-medium">已就绪</span>
+</a>
+</div>
+<!-- Group 2: 使用帮助 & 日志 -->
+<div class="py-1">
+<a class="flex items-center px-5 py-3.5 hover:bg-slate-50 transition-colors group" href="#help">
+<svg class="w-[22px] h-[22px] text-[#0d828a] shrink-0 mr-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<circle cx="12" cy="12" r="10"></circle>
+<path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+<line x1="12" x2="12.01" y1="17" y2="17"></line>
+</svg>
+<span class="text-[15px] text-slate-800 tracking-wide font-normal">使用帮助（待定）</span>
+</a>
+<a class="flex items-center px-5 py-3.5 hover:bg-slate-50 transition-colors group" href="#logs">
+<svg class="w-[22px] h-[22px] text-[#0d828a] shrink-0 mr-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+<polyline points="14 2 14 8 20 8"></polyline>
+<line x1="16" x2="8" y1="13" y2="13"></line>
+<line x1="16" x2="8" y1="17" y2="17"></line>
+</svg>
+<span class="text-[15px] text-slate-800 tracking-wide font-normal">查看日志</span>
+</a>
+</div>
+<!-- Group 3: 辅助服务与清空选项 (含带开关项目) -->
+<div class="py-1">
+
+<!-- 转发服务 + Switch 开关 -->
+
+</div>
+<!-- Group 4: 频道与关于 (用户核心需求项) -->
+<div class="py-1">
+
+<a class="flex items-center px-5 py-3.5 hover:bg-slate-50 transition-colors group" data-purpose="menu-item-about" href="#about">
+<svg class="w-[22px] h-[22px] text-[#0d828a] shrink-0 mr-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<circle cx="18" cy="5" r="3"></circle>
+<circle cx="6" cy="12" r="3"></circle>
+<circle cx="18" cy="19" r="3"></circle>
+<line x1="8.59" x2="15.42" y1="13.51" y2="17.49"></line>
+<line x1="15.41" x2="8.59" y1="6.51" y2="10.49"></line>
+</svg>
+<span class="text-[15px] text-slate-800 tracking-wide font-normal">关于</span>
+</a>
+</div>
+</nav>
+<!-- Bottom Drawer Indicator Bar -->
+<div class="h-6 w-full flex justify-center items-center bg-white border-t border-slate-100">
+<div class="w-24 h-1 bg-slate-300 rounded-full"></div>
+</div>
+</aside>
+<!-- Transparent touch-dismiss area on right side of drawer -->
+<div class="flex-1 h-full cursor-pointer" id="drawerDismissArea"></div>
+</div>
+<!-- END: SideNavigationDrawer -->
+</div>
+<!-- END: PhoneFrameWrapper -->
+<!-- BEGIN: InteractiveScripts -->
+<!-- Script for speed slider updates and drawer open/close toggles -->
+<script data-purpose="drawer-interactivity">
+    document.addEventListener('DOMContentLoaded', () => {
+      const drawerContainer = document.getElementById('drawerContainer');
+      const drawerToggleBtn = document.getElementById('drawerToggleBtn');
+      const drawerCloseBtn = document.getElementById('drawerCloseBtn');
+      const drawerDismissArea = document.getElementById('drawerDismissArea');
+      const speedRange = document.getElementById('speedRange');
+      const speedValue = document.getElementById('speedValue');
+
+      // Update speed display value dynamically
+      if (speedRange && speedValue) {
+        speedRange.addEventListener('input', (e) => {
+          speedValue.textContent = parseFloat(e.target.value).toFixed(2);
+        });
+      }
+
+      // Open drawer function
+      const openDrawer = () => {
+        drawerContainer.classList.remove('hidden');
+        drawerContainer.classList.remove('opacity-0', 'pointer-events-none');
+      };
+
+      // Close drawer function
+      const closeDrawer = () => {
+        drawerContainer.classList.add('opacity-0', 'pointer-events-none');
+        setTimeout(() => {
+          drawerContainer.classList.add('hidden');
+        }, 200);
+      };
+
+      // Event listeners
+      if (drawerToggleBtn) {
+        drawerToggleBtn.addEventListener('click', () => {
+          if (drawerContainer.classList.contains('hidden') || drawerContainer.classList.contains('opacity-0')) {
+            openDrawer();
+          } else {
+            closeDrawer();
+          }
+        });
+      }
+
+      if (drawerCloseBtn) drawerCloseBtn.addEventListener('click', closeDrawer);
+      if (drawerDismissArea) drawerDismissArea.addEventListener('click', closeDrawer);
+    });
+  </script>
+<!-- END: InteractiveScripts -->
+
+
+</body></html>
