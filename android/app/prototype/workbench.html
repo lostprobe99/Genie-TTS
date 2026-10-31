@@ -1,4 +1,4 @@
-<!DOCTYPE html><html class="h-full" lang="zh-CN"><svg class="inline-defs-container" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"></svg><head>
+<!DOCTYPE html><html class="h-full" lang="zh-CN" style=""><head></head><body class="bg-slate-200 text-tealTheme-textMain font-sansSystem h-full w-full flex justify-center items-center overflow-hidden select-none"><svg class="inline-defs-container" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden"></svg>
 <meta charset="utf-8">
 <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
 <title>Genie - 语音合成工作台</title>
@@ -65,8 +65,8 @@
       border-radius: 4px;
     }
   </style>
-</head>
-<body class="bg-slate-200 text-tealTheme-textMain font-sansSystem h-full w-full flex justify-center items-center overflow-hidden select-none">
+
+
 <!-- BEGIN: PhoneFrameWrapper -->
 <!-- Container simulating modern Android mobile viewport -->
 <div class="relative w-full max-w-[420px] h-full sm:h-[880px] bg-tealTheme-bgLight overflow-hidden sm:rounded-[36px] sm:border sm:border-slate-300 shadow-2xl flex flex-col justify-between" data-purpose="mobile-viewport">
@@ -123,23 +123,94 @@
 <!-- Home TTS reading interface with modern clean styling matching reference atmosphere -->
 <main class="flex-1 w-full px-4 py-3 flex flex-col justify-between overflow-hidden bg-[#f1f5f7]" data-purpose="tts-workspace">
 <!-- Parameter Quick Display Bar (語速/音量/音調 like reference right panel) -->
-<div class="flex items-center justify-around py-1.5 px-3 bg-white rounded border border-slate-200 text-xs text-slate-600 shadow-sm shrink-0 mb-3">
-<span class="">语速: <strong class="text-tealTheme-primary">1.00</strong></span>
-<span class="text-slate-300">|</span>
-<span class="">音量: <strong class="text-tealTheme-primary">50</strong></span>
-<span class="text-slate-300">|</span>
-<span class="">音调: <strong class="text-tealTheme-primary">25</strong></span>
-</div>
+
 <!-- Text Area Card matching reference visual style -->
+<!-- Compact Parameter Bar -->
+<div class="w-full bg-white px-3 py-1.5 rounded-md border border-slate-200 shadow-sm flex items-center justify-between text-xs text-slate-600 mb-2.5 shrink-0" data-purpose="quick-param-bar">
+  <div class="flex-1 text-center border-r border-slate-100">
+    <span class="text-slate-400 text-[11px]">语速:</span> <span class="font-medium text-[#0d828a] font-mono">1.00</span>
+  </div>
+  <div class="flex-1 text-center border-r border-slate-100">
+    <span class="text-slate-400 text-[11px]">音量:</span> <span class="font-medium text-[#0d828a] font-mono">50</span>
+  </div>
+  <div class="flex-1 text-center">
+    <span class="text-slate-400 text-[11px]">音调:</span> <span class="font-medium text-[#0d828a] font-mono">25</span>
+  </div>
+</div>
+
+<!-- Sentence Segmentation Panel (分句试听) -->
 <section class="w-full flex-1 rounded-md border border-slate-200 bg-white p-5 overflow-y-auto custom-scrollbar shadow-sm" data-purpose="content-display">
 <p class="font-serifTraditional text-lg sm:text-[19px] leading-[2.1] tracking-wider text-slate-800 text-justify">
           钦天监、十大历局看着那地球仪，眼睛一亮！过去猜测是过去猜测，大明水师一路向西，用船丈量天下，终于证实了地球真的是个球！
         </p>
 </section>
 <!-- Bottom Audio Parameter Controls & Primary Action Buttons -->
-<footer class="w-full pt-4 pb-2 space-y-3 shrink-0" data-purpose="playback-controls">
+<section class="w-full mt-2.5 bg-white rounded-md border border-slate-200 shadow-sm p-3 flex flex-col shrink-0" data-purpose="sentence-segmentation-list">
+  <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+    <div class="flex items-center space-x-1.5">
+      <span class="w-1.5 h-3.5 bg-tealTheme-primary rounded-full"></span>
+      <h3 class="text-xs font-medium text-slate-800 tracking-wide">分句列表 <span class="text-slate-400 font-normal font-mono text-[11px]">(共 3 句)</span></h3>
+    </div>
+    <span class="text-[11px] bg-teal-50/60 border border-teal-400/30 text-tealTheme-primary px-1.5 py-0.5 rounded font-medium">
+      合成完毕 · 点击单句播放
+    </span>
+  </div>
+  <div class="max-h-36 overflow-y-auto custom-scrollbar divide-y divide-slate-100 pt-1">
+    <!-- Sentence Item 1 (Playing State) -->
+    <div class="flex items-center justify-between py-2 px-1 rounded hover:bg-teal-50/60 bg-teal-50/60 transition-colors cursor-pointer group">
+      <div class="flex items-center space-x-2 flex-1 min-w-0 mr-2">
+        <span class="w-5 h-5 rounded flex items-center justify-center bg-tealTheme-primary text-white text-[11px] font-mono shrink-0">01</span>
+        <p class="text-xs text-slate-800 font-serifTraditional truncate flex-1 font-medium">
+          钦天监、十大历局看着那地球仪，
+        </p>
+      </div>
+      <div class="flex items-center space-x-2 shrink-0">
+        <span class="text-[11px] font-mono text-tealTheme-primary font-medium">1.4s</span>
+        <button class="w-6 h-6 rounded-full bg-tealTheme-primary text-white flex items-center justify-center shadow-sm hover:bg-tealTheme-primaryHover" title="重新试听第一句">
+          <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <!-- Sentence Item 2 -->
+    <div class="flex items-center justify-between py-2 px-1 rounded hover:bg-slate-50 transition-colors cursor-pointer group">
+      <div class="flex items-center space-x-2 flex-1 min-w-0 mr-2">
+        <span class="w-5 h-5 rounded flex items-center justify-center bg-slate-100 text-slate-600 text-[11px] font-mono shrink-0">02</span>
+        <p class="text-xs text-slate-700 font-serifTraditional truncate flex-1">
+          眼睛一亮！过去猜测是过去猜测，
+        </p>
+      </div>
+      <div class="flex items-center space-x-2 shrink-0">
+        <span class="text-[11px] font-mono text-slate-400">1.8s</span>
+        <button class="w-6 h-6 rounded-full bg-slate-100 hover:bg-teal-100/80 text-slate-600 hover:text-tealTheme-primary flex items-center justify-center transition-colors" title="试听第二句">
+          <svg class="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <!-- Sentence Item 3 -->
+    <div class="flex items-center justify-between py-2 px-1 rounded hover:bg-slate-50 transition-colors cursor-pointer group">
+      <div class="flex items-center space-x-2 flex-1 min-w-0 mr-2">
+        <span class="w-5 h-5 rounded flex items-center justify-center bg-slate-100 text-slate-600 text-[11px] font-mono shrink-0">03</span>
+        <p class="text-xs text-slate-700 font-serifTraditional truncate flex-1">
+          大明水师一路向西，用船丈量天下，终于证实了地球真的是个球！
+        </p>
+      </div>
+      <div class="flex items-center space-x-2 shrink-0">
+        <span class="text-[11px] font-mono text-slate-400">1.6s</span>
+        <button class="w-6 h-6 rounded-full bg-slate-100 hover:bg-teal-100/80 text-slate-600 hover:text-tealTheme-primary flex items-center justify-center transition-colors" title="试听第三句">
+          <svg class="w-3.5 h-3.5 ml-0.5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8 5v14l11-7z"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</section><footer class="w-full pb-2 space-y-3 shrink-0 pt-2.5" data-purpose="playback-controls">
 <!-- Speed (语速) Slider Section -->
-<div class="space-y-1.5 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
+<div class="bg-white px-3 rounded-lg border border-slate-200 shadow-sm flex items-center justify-between text-xs py-1" data-purpose="synthesis-status"><div class="flex items-center space-x-1.5"><span class="w-1.5 h-1.5 rounded-full bg-tealTheme-primary animate-pulse"></span><span class="text-slate-600 font-medium text-[11px]">状态</span></div><div class="flex items-center space-x-1.5 text-[11px] font-mono"><span class="px-1.5 py-0.5 rounded bg-teal-50/60 border border-teal-400/30 text-tealTheme-primary text-[11px]">分句: 3/3</span><span class="text-slate-600">耗时: <b class="text-tealTheme-primary font-medium">382ms</b></span><span class="text-slate-300">|</span><span class="text-slate-600">时长: <b class="text-tealTheme-primary font-medium">4.8s</b></span><span class="text-slate-300">|</span><span class="text-slate-600">实时率: <b class="text-tealTheme-primary font-medium">0.08x</b></span></div></div><div class="space-y-1.5 bg-white p-3 rounded-lg border border-slate-200 shadow-sm">
 <div class="flex items-baseline justify-between text-xs">
 <span class="text-slate-600 font-normal">语速调整 <span class="text-tealTheme-primary font-mono ml-2 font-semibold" id="speedValue">1.00</span></span>
 <span class="text-[11px] text-slate-400 font-mono">0.5x ~ 2.0x</span>
@@ -169,7 +240,7 @@
 <!-- END: MainWorkspace -->
 <!-- BEGIN: SideNavigationDrawer -->
 <!-- Drawer backdrop overlay and slide-out navigation container matching Reference https://lh3.googleusercontent.com/aida-public/AB6AXuDbRFPjddcrgSRhQu2kDITyxUyeznZHYSfsMs50lSh2q4Zd9Eg8eITfoTUIRatgOUrvTlWqSUNSZTZa-ip7IQJbdr3WSleWB0TwgZhABCS2gNIdqQVeRXsP0OiqFAv9VC2EPmygTQ0m-lzr-_e5HNwTsECfWkHLBS04TM0UThV3D1nXeG1pG5ev193229J4WYjv2m2wq7DjdR-qaVsT6gl4fzY2fxwsgrMu6ylTuSZuP_aKfG5GNSyy -->
-<div class="absolute inset-0 z-30 transition-opacity duration-300 ease-out bg-black/50 backdrop-blur-[2px] flex" data-purpose="drawer-backdrop" id="drawerContainer">
+<div class="absolute inset-0 z-30 transition-opacity duration-300 ease-out bg-black/50 backdrop-blur-[2px] flex opacity-0 pointer-events-none hidden" data-purpose="drawer-backdrop" id="drawerContainer">
 <!-- Drawer Content Surface -->
 <aside class="w-[82%] max-w-[325px] h-full bg-white flex flex-col justify-between shadow-2xl relative select-none" data-purpose="drawer-surface">
 <!-- Top Drawer Header in Deep Teal (#005461) matching Reference Image -->
@@ -333,6 +404,10 @@
     });
   </script>
 <!-- END: InteractiveScripts -->
+
+
+
+
 
 
 </body></html>
