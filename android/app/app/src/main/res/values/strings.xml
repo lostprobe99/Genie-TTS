@@ -20,7 +20,6 @@
     <string name="service_notice">通知没打开，系统可能会把接口收掉。</string>
     <string name="service_net">网络与端口</string>
     <string name="service_port_range">1 到 65535，默认 8001</string>
-    <string name="service_save">保存</string>
     <string name="service_local">本机</string>
     <string name="service_lan">局域网</string>
     <string name="service_port_note">接口开着时改端口，会先停掉原来的端口，再在新端口打开。</string>

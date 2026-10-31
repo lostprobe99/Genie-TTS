@@ -544,7 +544,6 @@ class MainActivity : AppCompatActivity() {
             toast("已复制")
         }
         serviceToggle.setOnClickListener { toggleService() }
-        findViewById<View>(R.id.serviceSave).setOnClickListener { commitPort() }
         findViewById<View>(R.id.copyLocal).setOnClickListener { copyPlain("tts", serviceLocalUrl.text) }
         findViewById<View>(R.id.copyLan).setOnClickListener { copyPlain("tts", serviceLanUrl.text) }
         findViewById<View>(R.id.copyLog).setOnClickListener {
