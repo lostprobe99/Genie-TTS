@@ -110,8 +110,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var placeholder: TextView
     private lateinit var characters: android.widget.Spinner
     private lateinit var sentence: EditText
+    private lateinit var sentenceCard: View
     private lateinit var sentenceScroll: View
     private lateinit var sentenceList: LinearLayout
+    private lateinit var sentenceHeading: TextView
+    private lateinit var sentenceBadge: TextView
+    private lateinit var speedMeter: TextView
+    private lateinit var volumeMeter: TextView
+    private lateinit var pitchMeter: TextView
+    private lateinit var workDot: View
+    private lateinit var workMetrics: TextView
+    private lateinit var workNoteLine: TextView
     private lateinit var speedLabel: TextView
     private lateinit var speed: SeekBar
     private lateinit var synthesizeButton: Button
@@ -178,6 +187,9 @@ class MainActivity : AppCompatActivity() {
     private var roster: List<CharacterInfo> = emptyList()
     private var selectedId: String? = null
     private var clips: MutableList<Clip?> = mutableListOf()
+    private var workNote = ""
+    private var synthStartedAt = 0L
+    private var synthElapsedMs = 0L
     private var active = -1
     private var busy = false
     private var playing = false
@@ -265,6 +277,7 @@ class MainActivity : AppCompatActivity() {
         TtsLog.listener = { if (!isDestroyed) serviceLog.text = TtsLog.recent() }
         renderService()
         serviceLog.text = TtsLog.recent()
+        renderMeters()
     }
 
     override fun onStop() {
@@ -315,8 +328,17 @@ class MainActivity : AppCompatActivity() {
         placeholder = findViewById(R.id.characterPlaceholder)
         characters = findViewById(R.id.characters)
         sentence = findViewById(R.id.sentence)
+        sentenceCard = findViewById(R.id.sentenceCard)
         sentenceScroll = findViewById(R.id.sentenceScroll)
         sentenceList = findViewById(R.id.sentenceList)
+        sentenceHeading = findViewById(R.id.sentenceHeading)
+        sentenceBadge = findViewById(R.id.sentenceBadge)
+        speedMeter = findViewById(R.id.speedMeter)
+        volumeMeter = findViewById(R.id.volumeMeter)
+        pitchMeter = findViewById(R.id.pitchMeter)
+        workDot = findViewById(R.id.workDot)
+        workMetrics = findViewById(R.id.workMetrics)
+        workNoteLine = findViewById(R.id.workNote)
         speedLabel = findViewById(R.id.speedLabel)
         speed = findViewById(R.id.speed)
         synthesizeButton = findViewById(R.id.synthesize)
@@ -660,7 +682,8 @@ class MainActivity : AppCompatActivity() {
         stopPlaying()
         clips = pieces.map { Clip(it, null, 32000, null) }.toMutableList()
         active = 0
-        sentenceScroll.visibility = View.VISIBLE
+        synthStartedAt = SystemClock.elapsedRealtime()
+        synthElapsedMs = 0
         synthesizing = true
         loadingModel = true
         showWork("正在加载模型，共 ${pieces.size} 句")
@@ -706,6 +729,8 @@ class MainActivity : AppCompatActivity() {
                 )
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
+                    if (synthStartedAt > 0L) synthElapsedMs = SystemClock.elapsedRealtime() - synthStartedAt
+                    synthStartedAt = 0
                     synthesizing = false
                     loadingModel = false
                     active = -1
@@ -1747,42 +1772,96 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderSentences() {
+        sentenceCard.visibility = if (clips.isEmpty()) View.GONE else View.VISIBLE
+        sentenceHeading.text = "分句列表（共 ${clips.size} 句）"
+        sentenceBadge.text = when {
+            synthesizing && loadingModel -> "正在加载模型"
+            synthesizing -> "正在合成"
+            playing -> "正在播放"
+            clips.any { it?.samples != null } -> "合成完毕 · 点击单句播放"
+            else -> ""
+        }
+        sentenceBadge.visibility = if (sentenceBadge.text.isNullOrBlank()) View.GONE else View.VISIBLE
+        val scrollHeight = if (clips.size > 3) dp(132) else ViewGroup.LayoutParams.WRAP_CONTENT
+        if (sentenceScroll.layoutParams.height != scrollHeight) {
+            sentenceScroll.layoutParams.height = scrollHeight
+            sentenceScroll.requestLayout()
+        }
         sentenceList.removeAllViews()
         clips.forEachIndexed { index, clip ->
-            val column = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(0, dp(8), 0, dp(4))
-            }
-            val title = TextView(this).apply {
-                text = clip?.text ?: ""
-                textSize = 16f
-                setTextColor(color(if (index == active) R.color.primary else R.color.text_main))
-            }
-            column.addView(title)
+            val hot = index == active && (playing || synthesizing)
             val samples = clip?.samples
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(4), dp(8), dp(4), dp(8))
+                if (hot) background = rounded(Color.parseColor("#F0FDFA"), 6f)
+            }
+            row.addView(TextView(this).apply {
+                text = "%02d".format(Locale.US, index + 1)
+                gravity = Gravity.CENTER
+                textSize = 11f
+                typeface = Typeface.MONOSPACE
+                setTextColor(if (hot) Color.WHITE else color(R.color.text_sub))
+                background = rounded(if (hot) color(R.color.primary) else Color.parseColor("#F1F5F9"), 4f)
+                minWidth = dp(20)
+                minHeight = dp(20)
+            })
+            row.addView(TextView(this).apply {
+                text = clip?.text.orEmpty()
+                textSize = 12f
+                typeface = Typeface.SERIF
+                maxLines = 1
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                setTextColor(color(if (hot) R.color.text_main else R.color.text_sub))
+                setPadding(dp(8), 0, dp(8), 0)
+            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             val detail = when {
-                samples != null && isQuiet(samples) -> "几乎没有声音"
-                samples != null -> "${formatSec(secondsOf(samples, clip?.sampleRate ?: 32000))} 秒"
-                clip != null && !clip.error.isNullOrBlank() -> clip.error
-                synthesizing && index == active && loadingModel -> "等待模型"
-                synthesizing && index == active -> "正在合成"
-                else -> null
+                samples != null -> "${formatSec(secondsOf(samples, clip.sampleRate))}s"
+                !clip?.error.isNullOrBlank() -> clip?.error
+                synthesizing && index == active -> "合成中"
+                else -> ""
             }
-            if (!detail.isNullOrBlank()) {
-                column.addView(TextView(this).apply {
-                    text = detail
-                    textSize = 14f
-                    setTextColor(color(if (samples != null && isQuiet(samples)) R.color.amber else R.color.text_sub))
-                    setPadding(0, dp(2), 0, 0)
-                })
-            }
-            if (clip?.samples != null && !busy) {
-                column.setOnClickListener {
-                    if (!busy) play(listOf(index))
+            row.addView(TextView(this).apply {
+                text = detail
+                textSize = 11f
+                typeface = Typeface.MONOSPACE
+                setTextColor(
+                    when {
+                        !clip?.error.isNullOrBlank() -> color(R.color.amber)
+                        hot -> color(R.color.primary)
+                        else -> color(R.color.text_sub)
+                    },
+                )
+            })
+            if (samples != null) {
+                val button = ImageButton(this).apply {
+                    setImageResource(R.drawable.ic_role_play)
+                    imageTintList = ColorStateList.valueOf(if (hot) Color.WHITE else color(R.color.text_sub))
+                    background = rounded(if (hot) color(R.color.primary) else Color.parseColor("#F1F5F9"), 99f)
+                    contentDescription = "播放这一句"
+                    scaleType = ImageView.ScaleType.CENTER
+                    minimumWidth = 0
+                    minimumHeight = 0
+                    setPadding(dp(4), dp(4), dp(4), dp(4))
+                    val side = dp(24)
+                    layoutParams = LinearLayout.LayoutParams(side, side).apply { marginStart = dp(8) }
                 }
+                if (!busy) {
+                    val playThis = {
+                        if (!busy) play(listOf(index))
+                    }
+                    button.setOnClickListener { playThis() }
+                    row.setOnClickListener { playThis() }
+                }
+                row.addView(button)
             }
-            sentenceList.addView(column)
+            sentenceList.addView(
+                row,
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+            )
         }
+        paintWork()
     }
 
     private fun renderProsody() {
@@ -1965,6 +2044,21 @@ class MainActivity : AppCompatActivity() {
     private fun renderSpeed() {
         val rate = "%.2f".format(Locale.US, speedOf(speed.progress))
         speedLabel.text = labeled(getString(R.string.speed_adjust), rate, "  ")
+        renderMeters()
+    }
+
+    private fun renderMeters() {
+        val rate = "%.2f".format(Locale.US, speedOf(speed.progress))
+        speedMeter.text = labeled("语速", rate, ": ")
+        volumeMeter.text = labeled("音量", volumePercent().toString(), ": ")
+        pitchMeter.text = labeled("音调", "—", ": ")
+    }
+
+    private fun volumePercent(): Int {
+        val audio = getSystemService(AUDIO_SERVICE) as AudioManager
+        val maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        val now = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+        return (now * 100f / maxVolume).roundToInt()
     }
 
     private fun labeled(label: String, value: String, gap: String): CharSequence {
@@ -2050,14 +2144,91 @@ class MainActivity : AppCompatActivity() {
     private fun clearAudio() {
         clips.clear()
         active = -1
-        sentenceScroll.visibility = View.GONE
+        synthStartedAt = 0
+        synthElapsedMs = 0
+        sentenceCard.visibility = View.GONE
         sentenceList.removeAllViews()
         showWork("")
     }
 
     private fun showWork(text: String) {
-        workStatus.text = text
-        workStatus.visibility = if (text.isEmpty()) View.GONE else View.VISIBLE
+        workNote = text
+        paintWork()
+    }
+
+    private fun paintWork() {
+        val warn = workNote.contains("没有声音") || workNote.contains("占用") || workNote.contains("没有可以播放")
+        workStatus.text = when {
+            synthesizing && loadingModel -> "加载中"
+            synthesizing -> "合成中"
+            playing -> "播放中"
+            clips.any { it?.samples != null } -> "完成"
+            else -> "状态"
+        }
+        val metrics = metricsLine()
+        val playingLine = workNote.startsWith("正在播放")
+        workMetrics.text = when {
+            playingLine -> workNote
+            metrics.isNotBlank() -> metrics
+            else -> if (isProgressNote(workNote)) "" else workNote
+        }
+        val extra = workNote.isNotBlank() && !isProgressNote(workNote) && workMetrics.text != workNote
+        workNoteLine.text = workNote
+        workNoteLine.visibility = if (extra) View.VISIBLE else View.GONE
+        workDot.backgroundTintList = ColorStateList.valueOf(
+            when {
+                warn -> color(R.color.amber)
+                playing || synthesizing -> color(R.color.primary)
+                clips.any { it?.samples != null } -> Color.parseColor("#10B981")
+                else -> Color.parseColor("#CBD5E1")
+            },
+        )
+    }
+
+    private fun isProgressNote(note: String): Boolean {
+        return note.isBlank() ||
+            note.startsWith("正在加载") ||
+            note.startsWith("正在合成") ||
+            note.startsWith("正在打开") ||
+            note.startsWith("正在播放") ||
+            note.startsWith("合成完成") ||
+            note == "播放结束" ||
+            note == "已停止"
+    }
+
+    private fun metricsLine(): String {
+        if (clips.isEmpty()) return ""
+        val total = clips.size
+        val finished = clips.count { it?.samples != null || !it?.error.isNullOrBlank() }
+        val shown = if (synthesizing) (active + 1).coerceIn(0, total) else finished
+        val parts = mutableListOf("分句: $shown/$total")
+        val elapsed = currentElapsed()
+        if (elapsed > 0) parts += "耗时: ${formatElapsed(elapsed)}"
+        val audio = clips.sumOf { clip ->
+            val samples = clip?.samples ?: return@sumOf 0.0
+            secondsOf(samples, clip.sampleRate)
+        }
+        if (audio > 0) {
+            parts += "时长: ${formatSec(audio)}s"
+            if (elapsed > 0) parts += "实时率: ${"%.2f".format(Locale.US, (elapsed / 1000.0) / audio)}x"
+        }
+        return parts.joinToString("  ")
+    }
+
+    private fun currentElapsed(): Long {
+        if (synthesizing && synthStartedAt > 0L) return SystemClock.elapsedRealtime() - synthStartedAt
+        return synthElapsedMs
+    }
+
+    private fun formatElapsed(ms: Long): String {
+        return if (ms < 1000) "${ms}ms" else "${"%.1f".format(Locale.US, ms / 1000.0)}s"
+    }
+
+    private fun rounded(fill: Int, radiusDp: Float): GradientDrawable {
+        return GradientDrawable().apply {
+            setColor(fill)
+            cornerRadius = radiusDp * resources.displayMetrics.density
+        }
     }
 
     private fun scrollToActive() {
@@ -2201,7 +2372,7 @@ class MainActivity : AppCompatActivity() {
     private fun setBusy(value: Boolean) {
         busy = value
         updateControls()
-        if (sentenceScroll.visibility == View.VISIBLE) renderSentences()
+        if (sentenceCard.visibility == View.VISIBLE) renderSentences()
     }
 
     private fun fileSize(uri: Uri): Long {
