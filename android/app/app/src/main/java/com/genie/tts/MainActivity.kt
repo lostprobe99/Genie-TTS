@@ -1396,14 +1396,13 @@ class MainActivity : AppCompatActivity() {
             return
         }
         val count = picked.size
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.batch_manage))
-            .setMessage("要删除这 $count 个角色。")
-            .setNegativeButton("取消", null)
-            .setPositiveButton(getString(R.string.delete)) { _, _ ->
-                removeCharacters(roster.filter { it.id in picked })
-            }
-            .show()
+        showLightConfirm(
+            getString(R.string.batch_manage),
+            "要删除这 $count 个角色。",
+            getString(R.string.delete),
+        ) {
+            removeCharacters(roster.filter { it.id in picked })
+        }
     }
 
     private fun confirmClearRoles() {
@@ -1412,23 +1411,53 @@ class MainActivity : AppCompatActivity() {
             toast(getString(R.string.no_roles))
             return
         }
-        AlertDialog.Builder(this)
-            .setTitle(getString(R.string.clear_roles))
-            .setMessage("已导入的角色都会删掉。首页正在用的角色会回到未选择。")
-            .setNegativeButton("取消", null)
-            .setPositiveButton("清空") { _, _ ->
-                removeCharacters(roster.toList())
-            }
-            .show()
+        showLightConfirm(
+            getString(R.string.clear_roles),
+            "已导入的角色都会删掉。首页正在用的角色会回到未选择。",
+            "清空",
+        ) {
+            removeCharacters(roster.toList())
+        }
     }
 
     private fun roleActions(info: CharacterInfo) {
-        AlertDialog.Builder(this)
-            .setTitle(info.name)
-            .setItems(arrayOf(getString(R.string.rename), getString(R.string.delete))) { _, which ->
-                if (which == 0) renameCharacter(info) else deleteCharacter(info)
-            }
-            .show()
+        val root = layoutInflater.inflate(R.layout.dialog_role_actions, null)
+        val dialog = showLightCard(root)
+        root.findViewById<TextView>(R.id.roleActionName).text = info.name
+        root.findViewById<TextView>(R.id.roleActionId).text = info.id
+        root.findViewById<View>(R.id.roleActionRename).setOnClickListener {
+            dialog.dismiss()
+            renameCharacter(info)
+        }
+        root.findViewById<View>(R.id.roleActionDelete).setOnClickListener {
+            dialog.dismiss()
+            deleteCharacter(info)
+        }
+    }
+
+    private fun showLightConfirm(title: String, message: String, confirm: String, onConfirm: () -> Unit) {
+        val root = layoutInflater.inflate(R.layout.dialog_light_confirm, null)
+        val dialog = showLightCard(root)
+        root.findViewById<TextView>(R.id.confirmTitle).text = title
+        root.findViewById<TextView>(R.id.confirmMessage).text = message
+        root.findViewById<TextView>(R.id.confirmOk).text = confirm
+        root.findViewById<View>(R.id.confirmCancel).setOnClickListener { dialog.dismiss() }
+        root.findViewById<View>(R.id.confirmOk).setOnClickListener {
+            dialog.dismiss()
+            onConfirm()
+        }
+    }
+
+    private fun showLightCard(content: View): Dialog {
+        val dialog = Dialog(this, R.style.Theme_Genie_Sheet)
+        dialog.setContentView(content)
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+        val width = (resources.displayMetrics.widthPixels * 0.86f).toInt()
+        dialog.window?.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
+        dialog.window?.setGravity(Gravity.CENTER)
+        return dialog
     }
 
     private fun toggleRoleSearch() {
