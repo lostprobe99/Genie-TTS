@@ -55,10 +55,13 @@ import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.text.HtmlCompat
 import androidx.core.view.updatePadding
 import androidx.drawerlayout.widget.DrawerLayout
 import java.io.File
 import java.io.FileInputStream
+import java.text.SimpleDateFormat
+import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -82,6 +85,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pageFrame: View
     private lateinit var homeBar: View
     private lateinit var rolesBar: View
+    private lateinit var prosodyBar: View
     private lateinit var otherBar: View
     private lateinit var roleRow: View
     private lateinit var menuButton: android.widget.ImageButton
@@ -128,9 +132,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var serviceLog: TextView
     private lateinit var prosodyStatus: TextView
     private lateinit var prosodyDetail: TextView
-    private lateinit var downloadProsody: Button
-    private lateinit var importProsody: Button
-    private lateinit var deleteProsody: Button
+    private lateinit var prosodyBadge: TextView
+    private lateinit var prosodyModel: TextView
+    private lateinit var prosodyFile: TextView
+    private lateinit var prosodySize: TextView
+    private lateinit var prosodyPath: TextView
+    private lateinit var prosodyUpdated: TextView
+    private lateinit var prosodyDownloadSub: TextView
+    private lateinit var prosodyCopy: ImageButton
+    private lateinit var prosodyDeleteCard: View
+    private lateinit var downloadProsody: TextView
+    private lateinit var importProsody: TextView
+    private lateinit var deleteProsody: TextView
     private lateinit var aboutText: TextView
 
     private var page = Page.Speak
@@ -254,6 +267,7 @@ class MainActivity : AppCompatActivity() {
         pageFrame = findViewById(R.id.pageFrame)
         homeBar = findViewById(R.id.homeBar)
         rolesBar = findViewById(R.id.rolesBar)
+        prosodyBar = findViewById(R.id.prosodyBar)
         otherBar = findViewById(R.id.otherBar)
         roleRow = findViewById(R.id.roleRow)
         menuButton = findViewById(R.id.menuButton)
@@ -300,9 +314,22 @@ class MainActivity : AppCompatActivity() {
         serviceLog = findViewById(R.id.serviceLog)
         prosodyStatus = findViewById(R.id.prosodyStatus)
         prosodyDetail = findViewById(R.id.prosodyDetail)
+        prosodyBadge = findViewById(R.id.prosodyBadge)
+        prosodyModel = findViewById(R.id.prosodyModel)
+        prosodyFile = findViewById(R.id.prosodyFile)
+        prosodySize = findViewById(R.id.prosodySize)
+        prosodyPath = findViewById(R.id.prosodyPath)
+        prosodyUpdated = findViewById(R.id.prosodyUpdated)
+        prosodyDownloadSub = findViewById(R.id.prosodyDownloadSub)
+        prosodyCopy = findViewById(R.id.prosodyCopy)
+        prosodyDeleteCard = findViewById(R.id.prosodyDeleteCard)
         downloadProsody = findViewById(R.id.downloadProsody)
         importProsody = findViewById(R.id.importProsody)
         deleteProsody = findViewById(R.id.deleteProsody)
+        prosodyModel.text = Prosody.FILE_NAME
+        prosodyFile.text = Prosody.FILE_NAME
+        prosodyDownloadSub.text = "拉取 ${Release.TAG} 的 prosody.zip，大约 ${bytesLabel(Prosody.MODEL_BYTES)}，中断后可以接着下。"
+        prosodyTipWhat()
         aboutText = findViewById(R.id.aboutText)
         characters.setPopupBackgroundResource(R.color.card)
         padForScreen()
@@ -361,6 +388,7 @@ class MainActivity : AppCompatActivity() {
         rolesBack.setOnClickListener {
             if (batching) exitBatch() else showPage(Page.Speak)
         }
+        findViewById<View>(R.id.prosodyBack).setOnClickListener { showPage(Page.Speak) }
         findViewById<View>(R.id.roleSearchButton).setOnClickListener { toggleRoleSearch() }
         findViewById<View>(R.id.roleMore).setOnClickListener { showRoleMenu(it) }
         roleQuery.addTextChangedListener(object : TextWatcher {
@@ -471,7 +499,12 @@ class MainActivity : AppCompatActivity() {
             if (busy) return@setOnClickListener
             pickProsody.launch(arrayOf("*/*", "application/zip", "application/octet-stream"))
         }
-        deleteProsody.setOnClickListener { deleteProsody() }
+        deleteProsody.setOnClickListener { confirmDeleteProsody() }
+        prosodyCopy.setOnClickListener {
+            val clipboard = getSystemService(ClipboardManager::class.java)
+            clipboard.setPrimaryClip(ClipData.newPlainText("prosody", Prosody.modelFile(filesDir).absolutePath))
+            toast("已复制")
+        }
         serviceToggle.setOnClickListener { toggleService() }
         copyService.setOnClickListener {
             val clipboard = getSystemService(ClipboardManager::class.java)
@@ -511,6 +544,7 @@ class MainActivity : AppCompatActivity() {
         aboutPage.visibility = if (next == Page.About) View.VISIBLE else View.GONE
         val onSpeak = next == Page.Speak
         val onRoles = next == Page.Characters
+        val onProsody = next == Page.Prosody
         if (!onRoles) {
             roleMenu?.dismiss()
             batching = false
@@ -518,8 +552,9 @@ class MainActivity : AppCompatActivity() {
         }
         homeBar.visibility = if (onSpeak) View.VISIBLE else View.GONE
         rolesBar.visibility = if (onRoles) View.VISIBLE else View.GONE
-        otherBar.visibility = if (onSpeak || onRoles) View.GONE else View.VISIBLE
-        val light = onSpeak || onRoles
+        prosodyBar.visibility = if (onProsody) View.VISIBLE else View.GONE
+        otherBar.visibility = if (onSpeak || onRoles || onProsody) View.GONE else View.VISIBLE
+        val light = onSpeak || onRoles || onProsody
         val pageColor = color(if (light) R.color.bg_light else R.color.ink)
         val headerColor = color(if (light) R.color.header else R.color.ink)
         headerSlot.setBackgroundColor(headerColor)
@@ -1077,7 +1112,8 @@ class MainActivity : AppCompatActivity() {
         if (busy) return
         setBusy(true)
         downloading = true
-        prosodyDetail.text = "正在下载"
+        prosodyDetail.visibility = View.VISIBLE
+        prosodyDetail.setText(R.string.prosody_downloading)
         worker.execute {
             try {
                 speech.dropProsody()
@@ -1087,7 +1123,11 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         "已下载 ${bytesLabel(done)}"
                     }
-                    runOnUiThread { if (!isDestroyed) prosodyDetail.text = line }
+                    runOnUiThread {
+                        if (isDestroyed) return@runOnUiThread
+                        prosodyDetail.visibility = View.VISIBLE
+                        prosodyDetail.text = line
+                    }
                 }
             } catch (error: Exception) {
                 runOnUiThread { if (!isDestroyed) alert(human(error)) }
@@ -1121,6 +1161,15 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun confirmDeleteProsody() {
+        if (busy) return
+        showLightConfirm(
+            getString(R.string.prosody_delete_title),
+            getString(R.string.prosody_delete_sub),
+            getString(R.string.prosody_remove),
+        ) { deleteProsody() }
     }
 
     private fun deleteProsody() {
@@ -1537,16 +1586,40 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderProsody() {
-        if (downloading) return
+        val file = Prosody.modelFile(filesDir)
         val ready = Prosody.isReady(filesDir)
-        prosodyStatus.text = if (ready) "已安装" else "未安装"
-        prosodyDetail.text = if (ready) {
-            "占用 ${bytesLabel(Prosody.modelFile(filesDir).length())}\n所有中文角色共用这一份。"
-        } else {
-            "所有中文角色共用这一份。"
+        prosodyStatus.setText(if (ready) R.string.prosody_installed else R.string.prosody_missing)
+        prosodyStatus.setBackgroundResource(if (ready) R.drawable.bg_prosody_ready else R.drawable.bg_prosody_idle)
+        prosodyStatus.setTextColor(if (ready) 0xFF047857.toInt() else color(R.color.text_sub))
+        prosodyBadge.setText(if (ready) R.string.prosody_ready else R.string.prosody_missing)
+        prosodySize.text = when {
+            ready -> bytesLabel(file.length())
+            file.isFile -> getString(R.string.prosody_bad_size)
+            else -> getString(R.string.prosody_missing)
         }
-        deleteProsody.visibility = if (ready) View.VISIBLE else View.GONE
+        prosodyPath.text = file.absolutePath
+        prosodyUpdated.text = when {
+            ready -> "上次写入：${writtenAt(file.lastModified())}"
+            file.isFile -> "大小不是 ${"%,d".format(Locale.US, Prosody.MODEL_BYTES)} 字节"
+            else -> getString(R.string.prosody_absent)
+        }
+        prosodyDeleteCard.visibility = if (file.isFile) View.VISIBLE else View.GONE
+        if (!downloading) prosodyDetail.visibility = View.GONE
         drawerProsodyState.text = if (ready) "已就绪" else "未安装"
+    }
+
+    private fun prosodyTipWhat() {
+        val size = getString(R.string.prosody_tip_size, Prosody.MODEL_BYTES)
+        findViewById<TextView>(R.id.prosodyTipWhat).text = html(getString(R.string.prosody_tip_what))
+        findViewById<TextView>(R.id.prosodyTipNet).text = html(getString(R.string.prosody_tip_net))
+        findViewById<TextView>(R.id.prosodyTipSize).text = html(size)
+    }
+
+    private fun html(source: String): CharSequence = HtmlCompat.fromHtml(source, HtmlCompat.FROM_HTML_MODE_COMPACT)
+
+    private fun writtenAt(millis: Long): String {
+        val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA)
+        return format.format(Date(millis))
     }
 
     private fun renderService() {
@@ -1679,6 +1752,10 @@ class MainActivity : AppCompatActivity() {
         downloadProsody.isEnabled = !busy
         importProsody.isEnabled = !busy
         deleteProsody.isEnabled = !busy
+        val prosodyAlpha = if (busy) 0.4f else 1f
+        downloadProsody.alpha = prosodyAlpha
+        importProsody.alpha = prosodyAlpha
+        deleteProsody.alpha = prosodyAlpha
         when {
             synthesizing && loadingModel -> {
                 synthesizeButton.isEnabled = true
