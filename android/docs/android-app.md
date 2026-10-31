@@ -108,7 +108,7 @@
 
 https://github.com/lostprobe99/Genie-TTS/releases/download/app-0.0.3/prosody.zip
 
-不使用 `releases/latest`，也不使用演示程序的 `android-*` 标签。角色包在 `app-0.0.3` 里是 `feibi.zip` 和 `sanyueqi.zip`。用 `tools/pack_android_prosody.py` 从那份 599,034,176 字节的模型打出 `prosody.zip`。
+不使用 `releases/latest`，也不使用演示程序的 `android-*` 标签。角色包在 `app-0.0.3` 里是 `feibi.zip` 和 `sanyueqi.zip`。用 `android/tools/pack_android_prosody.py` 从那份 599,034,176 字节的模型打出 `prosody.zip`。
 
 删除只去掉韵律包，已导入的角色还在。删掉角色，韵律包还在。
 
