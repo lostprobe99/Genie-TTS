@@ -451,6 +451,10 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.drawerClose).setOnClickListener {
             drawer.closeDrawer(drawerPanel)
         }
+        findViewById<View>(R.id.openHome).setOnClickListener {
+            drawer.closeDrawer(drawerPanel)
+            showPage(Page.Speak)
+        }
         roleRow.setOnClickListener {
             if (roster.isEmpty()) showPage(Page.Characters)
             else characters.performClick()

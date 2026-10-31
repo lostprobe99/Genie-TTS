@@ -786,6 +786,33 @@
                 android:orientation="vertical">
 
                 <LinearLayout
+                    android:id="@+id/openHome"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="?android:attr/selectableItemBackground"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:paddingStart="20dp"
+                    android:paddingTop="14dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="14dp">
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:src="@drawable/ic_nav_home" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="16dp"
+                        android:layout_weight="1"
+                        android:text="@string/home_screen"
+                        android:textColor="@color/text_main"
+                        android:textSize="15sp" />
+                </LinearLayout>
+
+                <LinearLayout
                     android:id="@+id/openSettings"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
