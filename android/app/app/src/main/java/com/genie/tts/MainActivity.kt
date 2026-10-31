@@ -1949,7 +1949,7 @@ class MainActivity : AppCompatActivity() {
     private fun versionLabel(): String = "${versionName()}（${versionCode()}）"
 
     private fun versionName(): String {
-        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.8"
+        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.9"
     }
 
     private fun versionCode(): Long {
