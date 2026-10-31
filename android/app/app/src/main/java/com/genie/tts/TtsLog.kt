@@ -38,7 +38,9 @@ internal object TtsLog {
     }
 
     fun recent(): String {
-        return synchronized(lines) { lines.joinToString("\n").ifBlank { "还没有日志" } }
+        return synchronized(lines) {
+            lines.reversed().joinToString("\n").ifBlank { "还没有日志" }
+        }
     }
 
     private fun write(line: String) {

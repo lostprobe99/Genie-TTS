@@ -139,6 +139,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var serviceLanUrl: TextView
     private lateinit var serviceIds: TextView
     private lateinit var serviceLog: TextView
+    private lateinit var serviceLogChevron: View
+    private var logOpen = false
     private lateinit var prosodyStatus: TextView
     private lateinit var prosodyDetail: TextView
     private lateinit var prosodyProgress: ProgressBar
@@ -336,6 +338,7 @@ class MainActivity : AppCompatActivity() {
         serviceLanUrl = findViewById(R.id.serviceLanUrl)
         serviceIds = findViewById(R.id.serviceIds)
         serviceLog = findViewById(R.id.serviceLog)
+        serviceLogChevron = findViewById(R.id.serviceLogChevron)
         prosodyStatus = findViewById(R.id.prosodyStatus)
         prosodyDetail = findViewById(R.id.prosodyDetail)
         prosodyProgress = findViewById(R.id.prosodyProgress)
@@ -423,10 +426,8 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.prosodyBack).setOnClickListener { showPage(Page.Speak) }
         findViewById<View>(R.id.aboutBack).setOnClickListener { showPage(Page.Speak) }
         findViewById<View>(R.id.serviceBack).setOnClickListener { showPage(Page.Speak) }
-        findViewById<View>(R.id.serviceLogJump).setOnClickListener {
-            val card = findViewById<View>(R.id.serviceLogCard)
-            (servicePage as android.widget.ScrollView).smoothScrollTo(0, card.top)
-        }
+        findViewById<View>(R.id.serviceLogJump).setOnClickListener { revealLog() }
+        findViewById<View>(R.id.serviceLogHead).setOnClickListener { setLogOpen(!logOpen) }
         findViewById<View>(R.id.roleSearchButton).setOnClickListener { toggleRoleSearch() }
         findViewById<View>(R.id.roleMore).setOnClickListener { showRoleMenu(it) }
         roleQuery.addTextChangedListener(object : TextWatcher {
@@ -1740,6 +1741,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun serviceUrl(address: String): String = "http://$address:${TtsRuntime.port}/tts"
+
+    private fun setLogOpen(open: Boolean) {
+        logOpen = open
+        serviceLog.visibility = if (open) View.VISIBLE else View.GONE
+        serviceLogChevron.rotation = if (open) 180f else 0f
+    }
+
+    private fun revealLog() {
+        setLogOpen(true)
+        val card = findViewById<View>(R.id.serviceLogCard)
+        card.post { (servicePage as android.widget.ScrollView).smoothScrollTo(0, card.top) }
+    }
 
     private fun copyPlain(label: String, text: CharSequence) {
         val clipboard = getSystemService(ClipboardManager::class.java)
