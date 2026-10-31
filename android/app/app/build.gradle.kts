@@ -16,6 +16,11 @@ android {
         ndk {
             abiFilters += "arm64-v8a"
         }
+        buildConfigField("long", "BUILT_AT", "${System.currentTimeMillis()}L")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     signingConfigs {

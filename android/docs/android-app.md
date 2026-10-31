@@ -134,15 +134,15 @@ https://github.com/lostprobe99/Genie-TTS/releases/download/app-0.0.3/prosody.zip
 
 ## 关于
 
-关于单独成一页，底色和角色管理一样。顶栏是返回和标题。版式跟着原型：顶上是标志、GenieTTS、版本胶囊和一句标语，下面三列是运行架构 arm64-v8a、这台手机的 Android 版本、ONNX Runtime 1.22.0。
+关于单独成一页，底色和角色管理一样。顶栏是返回和标题。版式跟着原型：顶上是标志、GenieTTS、版本胶囊和一句标语，下面三列是 cpu架构 ARM64-v8a、这台手机的 Android 版本、ONNX v1.22.0。
 
-「版本与开源信息」用图标行写软件版本、机型、当前角色、这次安装，以及仓库 `https://github.com/lostprobe99/Genie-TTS`。包名写在仓库下面。可以复制，也可以打开仓库。许可胶囊写 MIT。
+「版本与开源信息」用图标行写软件版本、构建时间、包名、机型、当前角色、安装时间，以及仓库 `https://github.com/lostprobe99/Genie-TTS`。构建时间是打这个安装包时的时间，安装时间是这台手机装上或更新这个包的时间。可以复制，也可以打开仓库。许可胶囊写 MIT。
 
 「技术架构与引擎」三行：本机 ONNX Runtime、中文韵律、朗读接口 `POST /tts`。没有 WebSocket。
 
 「致谢与隐私」写合成不把文字和声音传到应用自己的服务器。接口开着时，同一台手机或同一个局域网里的软件可以来要声音。从 GitHub 下载韵律包时会联网。致谢只写 ONNX Runtime 和角色包里的 VITS。页脚是 MIT，版权 2025 High_Logic。
 
-没有检查更新，也不写「已是最新」「稳定版」、构建日期、延迟、Apache 或另一套仓库地址。
+没有检查更新，也不写「已是最新」「稳定版」、延迟、Apache 或另一套仓库地址。
 
 ## 第一次使用
 
@@ -317,12 +317,13 @@ https://github.com/lostprobe99/Genie-TTS/releases/download/app-0.0.3/prosody.zip
 | GenieTTS ✦                       |
 | v0.0.10 (10)                     |
 | 为文字谱写声音，为声音描绘色彩   |
-| 运行架构   系统      推理引擎    |
-| arm64-v8a  Android .. 1.22.0     |
+| cpu架构    系统      推理引擎    |
+| ARM64-v8a Android.. ONNX v1.22.0 |
 |                                  |
 | 版本与开源信息   MIT     [复制]  |
-| 软件版本 / 机型 / 当前角色       |
-| 这次安装 / GitHub         [打开] |
+| 软件版本 / 构建时间 / 包名       |
+| 机型 / 当前角色 / 安装时间       |
+| GitHub                    [打开] |
 |                                  |
 | 技术架构与引擎        本机合成   |
 | ONNX Runtime / 中文韵律 / 接口   |

@@ -153,6 +153,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var aboutModel: TextView
     private lateinit var aboutRole: TextView
     private lateinit var aboutInstalled: TextView
+    private lateinit var aboutBuilt: TextView
     private lateinit var aboutVersion: TextView
     private lateinit var aboutPackage: TextView
 
@@ -343,6 +344,7 @@ class MainActivity : AppCompatActivity() {
         aboutModel = findViewById(R.id.aboutModel)
         aboutRole = findViewById(R.id.aboutRole)
         aboutInstalled = findViewById(R.id.aboutInstalled)
+        aboutBuilt = findViewById(R.id.aboutBuilt)
         aboutVersion = findViewById(R.id.aboutVersion)
         aboutPackage = findViewById(R.id.aboutPackage)
         prosodyModel.text = Prosody.FILE_NAME
@@ -2002,6 +2004,7 @@ class MainActivity : AppCompatActivity() {
         aboutModel.text = "${Build.MANUFACTURER} ${Build.MODEL}"
         aboutRole.text = role
         aboutInstalled.text = writtenAt(packageManager.getPackageInfo(packageName, 0).lastUpdateTime)
+        aboutBuilt.text = writtenAt(BuildConfig.BUILT_AT)
         aboutVersion.text = versionLabel()
         aboutPackage.text = packageName
     }
@@ -2019,11 +2022,12 @@ class MainActivity : AppCompatActivity() {
         val role = roster.find { it.id == selectedId }?.name ?: getString(R.string.unselected)
         val installed = writtenAt(packageManager.getPackageInfo(packageName, 0).lastUpdateTime)
         return "版本 ${versionLabel()}\n" +
+            "构建时间 ${writtenAt(BuildConfig.BUILT_AT)}\n" +
             "包名 $packageName\n" +
             "系统 Android ${Build.VERSION.RELEASE}（API ${Build.VERSION.SDK_INT}）\n" +
             "机型 ${Build.MANUFACTURER} ${Build.MODEL}\n" +
             "当前角色 $role\n" +
-            "这次安装 $installed"
+            "安装时间 $installed"
     }
 
     private fun versionLabel(): String = "${versionName()}（${versionCode()}）"
