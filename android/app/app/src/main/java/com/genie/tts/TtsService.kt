@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import org.json.JSONObject
 import java.io.File
@@ -27,6 +28,9 @@ internal object TtsRuntime {
 
     @Volatile
     var running = false
+
+    @Volatile
+    var startedAt = 0L
 
     @Volatile
     var switching = false
@@ -82,6 +86,7 @@ class TtsService : Service() {
         }
         TtsRuntime.running = false
         TtsRuntime.switching = false
+        TtsRuntime.startedAt = 0L
         TtsLog.add("接口已关闭")
         TtsRuntime.publish()
         thread(name = "genie-http-stop", isDaemon = true) {
@@ -119,6 +124,7 @@ class TtsService : Service() {
                     return@thread
                 }
                 TtsRuntime.port = port
+                if (TtsRuntime.startedAt == 0L) TtsRuntime.startedAt = SystemClock.elapsedRealtime()
                 TtsRuntime.running = true
                 TtsRuntime.switching = false
                 TtsRuntime.error = null
@@ -129,6 +135,7 @@ class TtsService : Service() {
                 if (stale(ticket)) return@thread
                 TtsRuntime.running = false
                 TtsRuntime.switching = false
+                TtsRuntime.startedAt = 0L
                 TtsRuntime.error = if (error is java.net.BindException) {
                     "端口 $port 已被占用"
                 } else {

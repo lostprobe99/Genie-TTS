@@ -15,6 +15,7 @@
     <string name="service_log">日志</string>
     <string name="copy_log">复制日志</string>
     <string name="service_running">已开启</string>
+    <string name="service_uptime">运行时间：</string>
     <string name="service_stopped">未开启</string>
     <string name="service_switching">正在切换端口</string>
     <string name="service_notice">通知没打开，系统可能会把接口收掉。</string>

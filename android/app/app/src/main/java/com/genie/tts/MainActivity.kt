@@ -22,6 +22,9 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.text.Editable
 import android.text.SpannableString
@@ -129,7 +132,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var roleDeletePicked: TextView
     private lateinit var importCharacter: View
     private lateinit var serviceStatus: TextView
+    private lateinit var serviceUptime: View
+    private lateinit var serviceUptimeValue: TextView
     private lateinit var serviceDot: View
+    private val uptimeHandler = Handler(Looper.getMainLooper())
+    private val uptimeTicker = Runnable {
+        if (isDestroyed) return@Runnable
+        paintUptime()
+        scheduleUptime()
+    }
     private lateinit var serviceNotice: TextView
     private lateinit var serviceToggle: TextView
     private lateinit var servicePort: EditText
@@ -258,6 +269,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        uptimeHandler.removeCallbacks(uptimeTicker)
         TtsRuntime.listener = null
         TtsLog.listener = null
         super.onStop()
@@ -327,6 +339,8 @@ class MainActivity : AppCompatActivity() {
         roleDeletePicked = findViewById(R.id.roleDeletePicked)
         importCharacter = findViewById(R.id.importCharacter)
         serviceStatus = findViewById(R.id.serviceStatus)
+        serviceUptime = findViewById(R.id.serviceUptime)
+        serviceUptimeValue = findViewById(R.id.serviceUptimeValue)
         serviceDot = findViewById(R.id.serviceDot)
         serviceNotice = findViewById(R.id.serviceNotice)
         serviceToggle = findViewById(R.id.serviceToggle)
@@ -625,6 +639,7 @@ class MainActivity : AppCompatActivity() {
             Page.About -> renderAbout()
             Page.Speak -> Unit
         }
+        scheduleUptime()
     }
 
     private fun onSynthesize() {
@@ -1707,6 +1722,8 @@ class MainActivity : AppCompatActivity() {
             else -> getString(R.string.service_stopped)
         }
         val open = running && !switching
+        paintUptime()
+        scheduleUptime()
         serviceDot.backgroundTintList = ColorStateList.valueOf(
             when {
                 open -> Color.parseColor("#10B981")
@@ -1736,6 +1753,28 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun serviceUrl(address: String): String = "http://$address:${TtsRuntime.port}/tts"
+
+    private fun paintUptime() {
+        val started = TtsRuntime.startedAt
+        val show = TtsRuntime.running && started > 0L
+        serviceUptime.visibility = if (show) View.VISIBLE else View.GONE
+        if (!show) return
+        val total = ((SystemClock.elapsedRealtime() - started) / 1000).coerceAtLeast(0)
+        val hours = total / 3600
+        val minutes = (total % 3600) / 60
+        val seconds = total % 60
+        serviceUptimeValue.text = "%02d:%02d:%02d".format(Locale.US, hours, minutes, seconds)
+    }
+
+    private fun scheduleUptime() {
+        uptimeHandler.removeCallbacks(uptimeTicker)
+        val started = TtsRuntime.startedAt
+        val show = TtsRuntime.running && started > 0L && page == Page.Service && !isDestroyed
+        if (!show) return
+        val elapsed = SystemClock.elapsedRealtime() - started
+        val delay = (1000 - (elapsed % 1000)).coerceIn(32, 1000)
+        uptimeHandler.postDelayed(uptimeTicker, delay)
+    }
 
     private fun setLogOpen(open: Boolean) {
         logOpen = open

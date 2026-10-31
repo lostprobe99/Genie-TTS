@@ -54,6 +54,39 @@
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
+                <LinearLayout
+                    android:id="@+id/serviceUptime"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal"
+                    android:visibility="gone">
+
+                    <ImageView
+                        android:layout_width="13dp"
+                        android:layout_height="13dp"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_service_clock" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:text="@string/service_uptime"
+                        android:textColor="@color/text_sub"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:id="@+id/serviceUptimeValue"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="4dp"
+                        android:fontFamily="monospace"
+                        android:textColor="#334155"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
                 <TextView
                     android:id="@+id/serviceNotice"
                     android:layout_width="match_parent"
