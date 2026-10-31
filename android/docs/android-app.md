@@ -2,7 +2,7 @@
 
 这条分支用来做正式应用。本文是功能设计和界面示意图。合成全部在手机上完成，文字、音素、韵律、声学模型和声码器都不出手机。只做中文。
 
-工程在 `android/app`。给人看的版本遵循 [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)，现在是 `0.0.15`。`0.y.z` 是初始开发，角色包和韵律包的格式到 `1.0.0` 才锁定。那之后，修订号加一是修问题，次版本号加一是加功能，旧包仍能用；主版本号加一是旧包不能继续用。`versionCode` 是 15，只给系统比较新旧，每次发布加一，不由这三位数字算出来。包名 `com.genie.tts`，和演示程序分开安装。韵律包这次没有改，下载地址仍是已经发出的 `app-0.0.3`。
+工程在 `android/app`。给人看的版本遵循 [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)，现在是 `0.0.15`。`0.y.z` 是初始开发，角色包和韵律包的格式到 `1.0.0` 才锁定。那之后，修订号加一是修问题，次版本号加一是加功能，旧包仍能用；主版本号加一是旧包不能继续用。`versionCode` 是 15，只给系统比较新旧，每次发布加一，不由这三位数字算出来。包名 `com.genie.tts`，和演示程序分开安装。韵律包和角色包在单独的资源 release `packs-0.0.1`，不跟应用安装包放在一起。
 
 安装包不带角色，也不带韵律模型。应用使用正式签名，只安装在 arm64 手机上。更新应用不会清掉已导入的角色和韵律包。
 
@@ -116,11 +116,11 @@
 
 模型文件大小必须是 599,034,176 字节。对不上就视为没装好。再次导入会替换原来的那一份。
 
-韵律包和角色包打在同一次 GitHub release 里。文件名固定是 `prosody.zip`，根目录只有 `manifest.json` 和 `model_fp16.onnx`。`0.0.15` 没有改韵律包，应用里的下载地址仍是：
+韵律包和角色包在单独的资源 release 里，不跟应用安装包放在一起。文件名固定是 `prosody.zip`，根目录只有 `manifest.json` 和 `model_fp16.onnx`。应用里的下载地址是：
 
-https://github.com/lostprobe99/Genie-TTS/releases/download/app-0.0.3/prosody.zip
+https://github.com/lostprobe99/Genie-TTS/releases/download/packs-0.0.1/prosody.zip
 
-不使用 `releases/latest`，也不使用演示程序的 `android-*` 标签。角色包在 `app-0.0.3` 里是 `feibi.zip` 和 `sanyueqi.zip`。用 `android/tools/pack_android_prosody.py` 从那份 599,034,176 字节的模型打出 `prosody.zip`。
+不使用 `releases/latest`，也不使用演示程序的 `android-*` 标签。角色包在 `packs-0.0.1` 里是 `feibi.zip` 和 `sanyueqi.zip`。用 `android/tools/pack_android_prosody.py` 从那份 599,034,176 字节的模型打出 `prosody.zip`。
 
 删除只去掉韵律包，已导入的角色还在。删掉角色，韵律包还在。
 
