@@ -98,8 +98,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var menuButton: android.widget.ImageButton
     private lateinit var pageTitle: TextView
     private lateinit var banner: TextView
-    private lateinit var speedChip: TextView
-    private lateinit var volumeChip: TextView
     private lateinit var drawerRoleCount: TextView
     private lateinit var drawerServiceState: TextView
     private lateinit var drawerProsodyState: TextView
@@ -251,7 +249,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.drawerVersion).text = version
         findViewById<TextView>(R.id.homeVersion).text = version
         renderProsody()
-        renderMeters()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -305,8 +302,6 @@ class MainActivity : AppCompatActivity() {
         menuButton = findViewById(R.id.menuButton)
         pageTitle = findViewById(R.id.pageTitle)
         banner = findViewById(R.id.banner)
-        speedChip = findViewById(R.id.speedChip)
-        volumeChip = findViewById(R.id.volumeChip)
         drawerRoleCount = findViewById(R.id.drawerRoleCount)
         drawerServiceState = findViewById(R.id.drawerServiceState)
         drawerProsodyState = findViewById(R.id.drawerProsodyState)
@@ -616,7 +611,6 @@ class MainActivity : AppCompatActivity() {
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         controller.isAppearanceLightStatusBars = false
         controller.isAppearanceLightNavigationBars = light
-        if (onSpeak) renderMeters()
         pageTitle.setText(
             when (next) {
                 Page.Speak -> R.string.app_name
@@ -1845,13 +1839,6 @@ class MainActivity : AppCompatActivity() {
     private fun renderSpeed() {
         val rate = "%.2f".format(Locale.US, speedOf(speed.progress))
         speedLabel.text = labeled(getString(R.string.speed_adjust), rate, "  ")
-        speedChip.text = labeled("语速", rate, ": ")
-    }
-
-    private fun renderMeters() {
-        val rate = "%.2f".format(Locale.US, speedOf(speed.progress))
-        speedChip.text = labeled("语速", rate, ": ")
-        volumeChip.text = labeled(getString(R.string.volume_label), volumePercent().toString(), ": ")
     }
 
     private fun labeled(label: String, value: String, gap: String): CharSequence {
@@ -1871,13 +1858,6 @@ class MainActivity : AppCompatActivity() {
                 android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
             )
         }
-    }
-
-    private fun volumePercent(): Int {
-        val audio = getSystemService(AUDIO_SERVICE) as AudioManager
-        val maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-        val now = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
-        return (now * 100f / maxVolume).roundToInt()
     }
 
     private fun versionBadge(): String = "v${versionName()} (${versionCode()})"

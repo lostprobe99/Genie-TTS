@@ -408,58 +408,10 @@
                 android:paddingEnd="16dp"
                 android:paddingBottom="8dp">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/bg_card"
-                    android:gravity="center"
-                    android:orientation="horizontal"
-                    android:paddingTop="8dp"
-                    android:paddingBottom="8dp">
-
-                    <TextView
-                        android:id="@+id/speedChip"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="center"
-                        android:textColor="@color/text_sub"
-                        android:textSize="12sp" />
-
-                    <View
-                        android:layout_width="1dp"
-                        android:layout_height="14dp"
-                        android:background="@color/border" />
-
-                    <TextView
-                        android:id="@+id/volumeChip"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="center"
-                        android:textColor="@color/text_sub"
-                        android:textSize="12sp" />
-
-                    <View
-                        android:layout_width="1dp"
-                        android:layout_height="14dp"
-                        android:background="@color/border" />
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="center"
-                        android:text="@string/pitch_label"
-                        android:textColor="@color/text_sub"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
                 <EditText
                     android:id="@+id/sentence"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"
-                    android:layout_marginTop="12dp"
                     android:layout_weight="1"
                     android:background="@drawable/bg_card"
                     android:fontFamily="serif"

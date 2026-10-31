@@ -50,8 +50,6 @@
     <string name="current_role">当前角色：</string>
     <string name="speed_adjust">语速调整</string>
     <string name="speed_range">0.60x ~ 1.40x</string>
-    <string name="volume_label">音量</string>
-    <string name="pitch_label">音调: —</string>
     <string name="settings">软件设置</string>
     <string name="help_pending">使用帮助（待定）</string>
     <string name="view_log">查看日志</string>
