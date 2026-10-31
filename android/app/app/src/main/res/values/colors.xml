@@ -6,4 +6,13 @@
     <color name="ink_soft">#1C1F18</color>
     <color name="muted">#A39B88</color>
     <color name="line">#34382C</color>
+    <color name="header">#005461</color>
+    <color name="primary">#0D828A</color>
+    <color name="bg_light">#F1F5F7</color>
+    <color name="card">#FFFFFF</color>
+    <color name="text_main">#1E293B</color>
+    <color name="text_sub">#64748B</color>
+    <color name="border">#E2E8F0</color>
+    <color name="teal_soft">#E6F4F6</color>
+    <color name="on_header">#CCFBF1</color>
 </resources>

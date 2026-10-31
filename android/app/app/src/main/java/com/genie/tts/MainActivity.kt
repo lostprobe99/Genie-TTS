@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.media.AudioManager
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -55,9 +56,19 @@ class MainActivity : AppCompatActivity() {
     private lateinit var speech: Speech
     private lateinit var drawer: DrawerLayout
     private lateinit var drawerPanel: View
+    private lateinit var headerSlot: View
+    private lateinit var pageFrame: View
+    private lateinit var homeBar: View
+    private lateinit var otherBar: View
+    private lateinit var roleRow: View
     private lateinit var menuButton: android.widget.ImageButton
     private lateinit var pageTitle: TextView
     private lateinit var banner: TextView
+    private lateinit var speedChip: TextView
+    private lateinit var volumeChip: TextView
+    private lateinit var drawerRoleCount: TextView
+    private lateinit var drawerServiceState: TextView
+    private lateinit var drawerProsodyState: TextView
     private lateinit var speakPage: View
     private lateinit var characterPage: View
     private lateinit var servicePage: View
@@ -128,7 +139,11 @@ class MainActivity : AppCompatActivity() {
         renderSpeed()
         showPage(Page.Speak)
         openRequestedPage(intent)
-        findViewById<TextView>(R.id.drawerVersion).text = versionName()
+        val version = versionBadge()
+        findViewById<TextView>(R.id.drawerVersion).text = version
+        findViewById<TextView>(R.id.homeVersion).text = version
+        renderProsody()
+        renderMeters()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -163,9 +178,19 @@ class MainActivity : AppCompatActivity() {
     private fun bindViews() {
         drawer = findViewById(R.id.drawer)
         drawerPanel = findViewById(R.id.drawerPanel)
+        headerSlot = findViewById(R.id.headerSlot)
+        pageFrame = findViewById(R.id.pageFrame)
+        homeBar = findViewById(R.id.homeBar)
+        otherBar = findViewById(R.id.otherBar)
+        roleRow = findViewById(R.id.roleRow)
         menuButton = findViewById(R.id.menuButton)
         pageTitle = findViewById(R.id.pageTitle)
         banner = findViewById(R.id.banner)
+        speedChip = findViewById(R.id.speedChip)
+        volumeChip = findViewById(R.id.volumeChip)
+        drawerRoleCount = findViewById(R.id.drawerRoleCount)
+        drawerServiceState = findViewById(R.id.drawerServiceState)
+        drawerProsodyState = findViewById(R.id.drawerProsodyState)
         speakPage = findViewById(R.id.speakPage)
         characterPage = findViewById(R.id.characterPage)
         servicePage = findViewById(R.id.servicePage)
@@ -195,24 +220,28 @@ class MainActivity : AppCompatActivity() {
         importProsody = findViewById(R.id.importProsody)
         deleteProsody = findViewById(R.id.deleteProsody)
         aboutText = findViewById(R.id.aboutText)
-        characters.setPopupBackgroundResource(R.color.ink)
+        characters.setPopupBackgroundResource(R.color.card)
         padForScreen()
     }
 
     private fun padForScreen() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        val controller = WindowCompat.getInsetsController(window, window.decorView)
-        controller.isAppearanceLightStatusBars = false
-        controller.isAppearanceLightNavigationBars = false
+        if (Build.VERSION.SDK_INT >= 29) {
+            window.isStatusBarContrastEnforced = false
+            window.isNavigationBarContrastEnforced = false
+        }
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
         val content = findViewById<View>(R.id.contentRoot)
+        val drawerHeader = findViewById<View>(R.id.drawerHeader)
+        val drawerNav = findViewById<View>(R.id.drawerNav)
         val contentLeft = content.paddingLeft
-        val contentTop = content.paddingTop
         val contentRight = content.paddingRight
-        val contentBottom = content.paddingBottom
+        val headerTop = headerSlot.paddingTop
+        val pageBottom = pageFrame.paddingBottom
         val drawerLeft = drawerPanel.paddingLeft
-        val drawerTop = drawerPanel.paddingTop
-        val drawerRight = drawerPanel.paddingRight
-        val drawerBottom = drawerPanel.paddingBottom
+        val drawerHeaderTop = drawerHeader.paddingTop
+        val drawerNavBottom = drawerNav.paddingBottom
         ViewCompat.setOnApplyWindowInsetsListener(drawer) { _, insets ->
             val bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout(),
@@ -220,16 +249,13 @@ class MainActivity : AppCompatActivity() {
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
             content.updatePadding(
                 left = contentLeft + bars.left,
-                top = contentTop + bars.top,
                 right = contentRight + bars.right,
-                bottom = contentBottom + max(bars.bottom, ime),
             )
-            drawerPanel.updatePadding(
-                left = drawerLeft + bars.left,
-                top = drawerTop + bars.top,
-                right = drawerRight + bars.right,
-                bottom = drawerBottom + bars.bottom,
-            )
+            headerSlot.updatePadding(top = headerTop + bars.top)
+            pageFrame.updatePadding(bottom = pageBottom + max(bars.bottom, ime))
+            drawerPanel.updatePadding(left = drawerLeft + bars.left)
+            drawerHeader.updatePadding(top = drawerHeaderTop + bars.top)
+            drawerNav.updatePadding(bottom = drawerNavBottom + bars.bottom)
             WindowInsetsCompat.CONSUMED
         }
     }
@@ -238,6 +264,34 @@ class MainActivity : AppCompatActivity() {
         menuButton.setOnClickListener {
             if (page == Page.Speak) drawer.openDrawer(drawerPanel)
             else showPage(Page.Speak)
+        }
+        findViewById<View>(R.id.homeMenu).setOnClickListener {
+            drawer.openDrawer(drawerPanel)
+        }
+        findViewById<View>(R.id.homeSearch).setOnClickListener {
+            sentence.requestFocus()
+        }
+        findViewById<View>(R.id.homeMore).setOnClickListener {
+            toast(getString(R.string.not_ready))
+        }
+        findViewById<View>(R.id.drawerClose).setOnClickListener {
+            drawer.closeDrawer(drawerPanel)
+        }
+        roleRow.setOnClickListener {
+            if (roster.isEmpty()) showPage(Page.Characters)
+            else characters.performClick()
+        }
+        findViewById<View>(R.id.openSettings).setOnClickListener {
+            drawer.closeDrawer(drawerPanel)
+            toast(getString(R.string.not_ready))
+        }
+        findViewById<View>(R.id.openHelp).setOnClickListener {
+            drawer.closeDrawer(drawerPanel)
+            toast(getString(R.string.not_ready))
+        }
+        findViewById<View>(R.id.openLogs).setOnClickListener {
+            drawer.closeDrawer(drawerPanel)
+            showPage(Page.Service)
         }
         findViewById<View>(R.id.openCharacters).setOnClickListener {
             drawer.closeDrawer(drawerPanel)
@@ -357,6 +411,17 @@ class MainActivity : AppCompatActivity() {
         prosodyPage.visibility = if (next == Page.Prosody) View.VISIBLE else View.GONE
         aboutPage.visibility = if (next == Page.About) View.VISIBLE else View.GONE
         val onSpeak = next == Page.Speak
+        homeBar.visibility = if (onSpeak) View.VISIBLE else View.GONE
+        otherBar.visibility = if (onSpeak) View.GONE else View.VISIBLE
+        val pageColor = color(if (onSpeak) R.color.bg_light else R.color.ink)
+        val headerColor = color(if (onSpeak) R.color.header else R.color.ink)
+        headerSlot.setBackgroundColor(headerColor)
+        pageFrame.setBackgroundColor(pageColor)
+        findViewById<View>(R.id.contentRoot).setBackgroundColor(pageColor)
+        val controller = WindowCompat.getInsetsController(window, window.decorView)
+        controller.isAppearanceLightStatusBars = false
+        controller.isAppearanceLightNavigationBars = onSpeak
+        if (onSpeak) renderMeters()
         pageTitle.setText(
             when (next) {
                 Page.Speak -> R.string.app_name
@@ -796,7 +861,7 @@ class MainActivity : AppCompatActivity() {
             val labels = roster.map { it.name } + getString(R.string.unselected)
             val generation = ++spinnerGen
             suppress = true
-            val adapter = ArrayAdapter(this, R.layout.spinner_item, labels)
+            val adapter = ArrayAdapter(this, R.layout.spinner_selected, labels)
             adapter.setDropDownViewResource(R.layout.spinner_item)
             characters.adapter = adapter
             val index = roster.indexOfFirst { it.id == selectedId }
@@ -806,6 +871,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         renderCards()
+        drawerRoleCount.text = "${roster.size}个角色"
         if (page == Page.About) aboutText.text = aboutLines()
         updateControls()
     }
@@ -877,7 +943,7 @@ class MainActivity : AppCompatActivity() {
             val title = TextView(this).apply {
                 text = clip?.text ?: ""
                 textSize = 16f
-                setTextColor(color(if (index == active) R.color.amber else R.color.paper))
+                setTextColor(color(if (index == active) R.color.primary else R.color.text_main))
             }
             column.addView(title)
             val samples = clip?.samples
@@ -893,7 +959,7 @@ class MainActivity : AppCompatActivity() {
                 column.addView(TextView(this).apply {
                     text = detail
                     textSize = 14f
-                    setTextColor(color(if (samples != null && isQuiet(samples)) R.color.amber else R.color.muted))
+                    setTextColor(color(if (samples != null && isQuiet(samples)) R.color.amber else R.color.text_sub))
                     setPadding(0, dp(2), 0, 0)
                 })
             }
@@ -916,6 +982,7 @@ class MainActivity : AppCompatActivity() {
             "所有中文角色共用这一份。"
         }
         deleteProsody.visibility = if (ready) View.VISIBLE else View.GONE
+        drawerProsodyState.text = if (ready) "已就绪" else "未安装"
     }
 
     private fun renderService() {
@@ -933,6 +1000,7 @@ class MainActivity : AppCompatActivity() {
         serviceDetail.text = serviceAddresses() + "\n\n角色 id\n$ids\n\n" +
             notice +
             "POST /tts，JSON 里是 character_name、text、split_sentence。语速固定 1.00。切走或锁屏后，通知会留着。"
+        drawerServiceState.text = if (running) "运行中" else "未开启"
         serviceToggle.setText(if (running) R.string.service_stop else R.string.service_start)
         serviceToggle.backgroundTintList = colorState(if (running) R.color.line else R.color.amber)
         serviceToggle.setTextColor(color(if (running) R.color.paper else R.color.ink))
@@ -998,8 +1066,44 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderSpeed() {
-        speedLabel.text = "语速 ${"%.2f".format(Locale.US, speedOf(speed.progress))}"
+        val rate = "%.2f".format(Locale.US, speedOf(speed.progress))
+        speedLabel.text = labeled(getString(R.string.speed_adjust), rate, "  ")
+        speedChip.text = labeled("语速", rate, ": ")
     }
+
+    private fun renderMeters() {
+        val rate = "%.2f".format(Locale.US, speedOf(speed.progress))
+        speedChip.text = labeled("语速", rate, ": ")
+        volumeChip.text = labeled(getString(R.string.volume_label), volumePercent().toString(), ": ")
+    }
+
+    private fun labeled(label: String, value: String, gap: String): CharSequence {
+        val text = "$label$gap$value"
+        val start = text.length - value.length
+        return android.text.SpannableString(text).apply {
+            setSpan(
+                android.text.style.ForegroundColorSpan(color(R.color.primary)),
+                start,
+                text.length,
+                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+            setSpan(
+                android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
+                start,
+                text.length,
+                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+            )
+        }
+    }
+
+    private fun volumePercent(): Int {
+        val audio = getSystemService(AUDIO_SERVICE) as AudioManager
+        val maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        val now = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+        return (now * 100f / maxVolume).roundToInt()
+    }
+
+    private fun versionBadge(): String = "v${versionName()} (${versionCode()})"
 
     private fun updateControls() {
         val canSpeak = !busy && !playing && !synthesizing && currentCharacter() != null && sentence.text.toString().isNotBlank()
@@ -1025,29 +1129,27 @@ class MainActivity : AppCompatActivity() {
                 synthesizeButton.setText(R.string.synthesize)
             }
         }
-        synthesizeButton.backgroundTintList = colorState(R.color.amber)
-        synthesizeButton.setTextColor(color(R.color.ink))
+        synthesizeButton.backgroundTintList = null
+        synthesizeButton.setTextColor(color(android.R.color.white))
+        synthesizeButton.alpha = if (synthesizeButton.isEnabled) 1f else 0.4f
         val ready = clips.any { it?.samples != null }
         when {
             playing -> {
                 playButton.isEnabled = true
                 playButton.setText(R.string.stop)
-                playButton.backgroundTintList = colorState(R.color.amber)
-                playButton.setTextColor(color(R.color.ink))
             }
             ready && !busy && !synthesizing -> {
                 playButton.isEnabled = true
                 playButton.setText(R.string.play)
-                playButton.backgroundTintList = colorState(R.color.amber)
-                playButton.setTextColor(color(R.color.ink))
             }
             else -> {
                 playButton.isEnabled = false
                 playButton.setText(R.string.play)
-                playButton.backgroundTintList = colorState(R.color.line)
-                playButton.setTextColor(color(R.color.paper))
             }
         }
+        playButton.backgroundTintList = null
+        playButton.setTextColor(color(R.color.primary))
+        playButton.alpha = if (playButton.isEnabled) 1f else 0.4f
     }
 
     private fun invalidateAudio() {
