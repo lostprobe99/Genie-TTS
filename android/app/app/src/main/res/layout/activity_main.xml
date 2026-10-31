@@ -277,6 +277,45 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/serviceBar"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="4dp"
+                android:paddingEnd="8dp"
+                android:visibility="gone">
+
+                <ImageButton
+                    android:id="@+id/serviceBack"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="@string/back"
+                    android:src="@drawable/ic_back"
+                    app:tint="@android:color/white" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="2dp"
+                    android:layout_weight="1"
+                    android:fontFamily="serif"
+                    android:text="@string/service_menu"
+                    android:textColor="@android:color/white"
+                    android:textSize="18sp" />
+
+                <ImageButton
+                    android:id="@+id/serviceLogJump"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="@string/view_log"
+                    android:src="@drawable/ic_nav_log"
+                    app:tint="@android:color/white" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/aboutBar"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
@@ -537,111 +576,13 @@
                 </LinearLayout>
             </LinearLayout>
 
-            <ScrollView
+            <include
                 android:id="@+id/servicePage"
+                layout="@layout/page_service"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="@color/ink"
-                android:paddingStart="20dp"
-                android:paddingTop="12dp"
-                android:paddingEnd="20dp"
-                android:paddingBottom="16dp"
-                android:visibility="gone">
+                android:visibility="gone" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:id="@+id/serviceStatus"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:textColor="@color/paper"
-                        android:textSize="18sp" />
-
-                    <TextView
-                        android:id="@+id/serviceDetail"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:lineSpacingExtra="4dp"
-                        android:textColor="@color/muted"
-                        android:textSize="15sp" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:text="@string/port"
-                        android:textColor="@color/paper"
-                        android:textSize="15sp" />
-
-                    <EditText
-                        android:id="@+id/servicePort"
-                        android:layout_width="match_parent"
-                        android:layout_height="48dp"
-                        android:layout_marginTop="8dp"
-                        android:background="@drawable/field_bg"
-                        android:digits="0123456789"
-                        android:gravity="center_vertical"
-                        android:imeOptions="actionDone"
-                        android:importantForAutofill="no"
-                        android:inputType="number"
-                        android:maxLength="5"
-                        android:paddingStart="12dp"
-                        android:paddingEnd="12dp"
-                        android:singleLine="true"
-                        android:textColor="@color/paper"
-                        android:textSize="18sp" />
-
-                    <Button
-                        android:id="@+id/serviceToggle"
-                        android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:layout_marginTop="20dp"
-                        android:backgroundTint="@color/amber"
-                        android:text="@string/service_start"
-                        android:textColor="@color/ink" />
-
-                    <Button
-                        android:id="@+id/copyService"
-                        android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:layout_marginTop="8dp"
-                        android:backgroundTint="@color/line"
-                        android:text="@string/copy_address"
-                        android:textColor="@color/paper" />
-
-                    <TextView
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="20dp"
-                        android:text="@string/service_log"
-                        android:textColor="@color/paper"
-                        android:textSize="15sp" />
-
-                    <TextView
-                        android:id="@+id/serviceLog"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:lineSpacingExtra="3dp"
-                        android:textColor="@color/muted"
-                        android:textIsSelectable="true"
-                        android:textSize="13sp"
-                        android:typeface="monospace" />
-
-                    <Button
-                        android:id="@+id/copyLog"
-                        android:layout_width="match_parent"
-                        android:layout_height="52dp"
-                        android:layout_marginTop="8dp"
-                        android:backgroundTint="@color/line"
-                        android:text="@string/copy_log"
-                        android:textColor="@color/paper" />
-                </LinearLayout>
-            </ScrollView>
 
             <FrameLayout
                 android:id="@+id/characterPage"

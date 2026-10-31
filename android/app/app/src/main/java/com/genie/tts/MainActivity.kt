@@ -89,6 +89,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var rolesBar: View
     private lateinit var prosodyBar: View
     private lateinit var aboutBar: View
+    private lateinit var serviceBar: View
     private lateinit var otherBar: View
     private lateinit var roleRow: View
     private lateinit var menuButton: android.widget.ImageButton
@@ -128,10 +129,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var roleDeletePicked: TextView
     private lateinit var importCharacter: View
     private lateinit var serviceStatus: TextView
-    private lateinit var serviceDetail: TextView
-    private lateinit var serviceToggle: Button
-    private lateinit var copyService: Button
+    private lateinit var serviceBadge: TextView
+    private lateinit var serviceDot: View
+    private lateinit var serviceNotice: TextView
+    private lateinit var serviceToggle: TextView
     private lateinit var servicePort: EditText
+    private lateinit var serviceLocalUrl: TextView
+    private lateinit var serviceLanRow: View
+    private lateinit var serviceLanUrl: TextView
+    private lateinit var serviceIds: TextView
     private lateinit var serviceLog: TextView
     private lateinit var prosodyStatus: TextView
     private lateinit var prosodyDetail: TextView
@@ -280,6 +286,7 @@ class MainActivity : AppCompatActivity() {
         rolesBar = findViewById(R.id.rolesBar)
         prosodyBar = findViewById(R.id.prosodyBar)
         aboutBar = findViewById(R.id.aboutBar)
+        serviceBar = findViewById(R.id.serviceBar)
         otherBar = findViewById(R.id.otherBar)
         roleRow = findViewById(R.id.roleRow)
         menuButton = findViewById(R.id.menuButton)
@@ -319,10 +326,15 @@ class MainActivity : AppCompatActivity() {
         roleDeletePicked = findViewById(R.id.roleDeletePicked)
         importCharacter = findViewById(R.id.importCharacter)
         serviceStatus = findViewById(R.id.serviceStatus)
-        serviceDetail = findViewById(R.id.serviceDetail)
+        serviceBadge = findViewById(R.id.serviceBadge)
+        serviceDot = findViewById(R.id.serviceDot)
+        serviceNotice = findViewById(R.id.serviceNotice)
         serviceToggle = findViewById(R.id.serviceToggle)
-        copyService = findViewById(R.id.copyService)
         servicePort = findViewById(R.id.servicePort)
+        serviceLocalUrl = findViewById(R.id.serviceLocalUrl)
+        serviceLanRow = findViewById(R.id.serviceLanRow)
+        serviceLanUrl = findViewById(R.id.serviceLanUrl)
+        serviceIds = findViewById(R.id.serviceIds)
         serviceLog = findViewById(R.id.serviceLog)
         prosodyStatus = findViewById(R.id.prosodyStatus)
         prosodyDetail = findViewById(R.id.prosodyDetail)
@@ -410,6 +422,11 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.prosodyBack).setOnClickListener { showPage(Page.Speak) }
         findViewById<View>(R.id.aboutBack).setOnClickListener { showPage(Page.Speak) }
+        findViewById<View>(R.id.serviceBack).setOnClickListener { showPage(Page.Speak) }
+        findViewById<View>(R.id.serviceLogJump).setOnClickListener {
+            val card = findViewById<View>(R.id.serviceLogCard)
+            (servicePage as android.widget.ScrollView).smoothScrollTo(0, card.top)
+        }
         findViewById<View>(R.id.roleSearchButton).setOnClickListener { toggleRoleSearch() }
         findViewById<View>(R.id.roleMore).setOnClickListener { showRoleMenu(it) }
         roleQuery.addTextChangedListener(object : TextWatcher {
@@ -527,11 +544,9 @@ class MainActivity : AppCompatActivity() {
             toast("已复制")
         }
         serviceToggle.setOnClickListener { toggleService() }
-        copyService.setOnClickListener {
-            val clipboard = getSystemService(ClipboardManager::class.java)
-            clipboard.setPrimaryClip(ClipData.newPlainText("tts", serviceAddresses()))
-            toast("已复制")
-        }
+        findViewById<View>(R.id.serviceSave).setOnClickListener { commitPort() }
+        findViewById<View>(R.id.copyLocal).setOnClickListener { copyPlain("tts", serviceLocalUrl.text) }
+        findViewById<View>(R.id.copyLan).setOnClickListener { copyPlain("tts", serviceLanUrl.text) }
         findViewById<View>(R.id.copyLog).setOnClickListener {
             val clipboard = getSystemService(ClipboardManager::class.java)
             clipboard.setPrimaryClip(ClipData.newPlainText("tts-log", TtsLog.recent()))
@@ -567,6 +582,7 @@ class MainActivity : AppCompatActivity() {
         val onRoles = next == Page.Characters
         val onProsody = next == Page.Prosody
         val onAbout = next == Page.About
+        val onService = next == Page.Service
         if (!onRoles) {
             roleMenu?.dismiss()
             batching = false
@@ -576,7 +592,8 @@ class MainActivity : AppCompatActivity() {
         rolesBar.visibility = if (onRoles) View.VISIBLE else View.GONE
         prosodyBar.visibility = if (onProsody) View.VISIBLE else View.GONE
         aboutBar.visibility = if (onAbout) View.VISIBLE else View.GONE
-        val light = onSpeak || onRoles || onProsody || onAbout
+        serviceBar.visibility = if (onService) View.VISIBLE else View.GONE
+        val light = onSpeak || onRoles || onProsody || onAbout || onService
         otherBar.visibility = if (light) View.GONE else View.VISIBLE
         val pageColor = color(if (light) R.color.bg_light else R.color.ink)
         val headerColor = color(if (light) R.color.header else R.color.ink)
@@ -1684,26 +1701,49 @@ class MainActivity : AppCompatActivity() {
     private fun renderService() {
         val running = TtsRuntime.running
         val problem = TtsRuntime.error
+        val switching = TtsRuntime.switching
         serviceStatus.text = when {
-            TtsRuntime.switching -> "正在切换端口"
-            running -> "已开启"
+            switching -> getString(R.string.service_switching)
+            running -> getString(R.string.service_running)
             !problem.isNullOrBlank() -> problem
-            else -> "未开启"
+            else -> getString(R.string.service_stopped)
         }
-        serviceStatus.setTextColor(color(if (!running && !problem.isNullOrBlank()) R.color.amber else R.color.paper))
-        val ids = roster.joinToString("、") { it.id }.ifBlank { "还没有。先在角色管理里导入" }
-        val notice = if (running && !notificationsAllowed()) "通知没打开，系统可能会把接口收掉。\n" else ""
-        serviceDetail.text = serviceAddresses() + "\n\n角色 id\n$ids\n\n" +
-            notice +
-            "POST /tts，JSON 里是 character_name、text、split_sentence。语速固定 1.00。切走或锁屏后，通知会留着。"
+        val open = running && !switching
+        serviceBadge.setText(if (open) R.string.service_running else R.string.service_stopped)
+        serviceBadge.setTextColor(color(if (open) R.color.primary else R.color.text_sub))
+        serviceBadge.setBackgroundResource(if (open) R.drawable.bg_about_pill else R.drawable.bg_prosody_idle)
+        serviceDot.backgroundTintList = ColorStateList.valueOf(
+            when {
+                open -> Color.parseColor("#10B981")
+                !running && problem.isNullOrBlank() && !switching -> Color.parseColor("#CBD5E1")
+                else -> color(R.color.amber)
+            },
+        )
+        val warn = running && !notificationsAllowed()
+        serviceNotice.visibility = if (warn) View.VISIBLE else View.GONE
+        serviceLocalUrl.text = serviceUrl("127.0.0.1")
+        val lan = interfaceAddresses().filter { it != "127.0.0.1" }
+        serviceLanRow.visibility = if (lan.isEmpty()) View.GONE else View.VISIBLE
+        serviceLanUrl.text = lan.joinToString("\n") { serviceUrl(it) }
+        serviceIds.text = roster.joinToString("、") { it.id }.ifBlank { getString(R.string.service_ids_empty) }
         drawerServiceState.text = if (running) "运行中" else "未开启"
         serviceToggle.setText(if (running) R.string.service_stop else R.string.service_start)
-        serviceToggle.backgroundTintList = colorState(if (running) R.color.line else R.color.amber)
-        serviceToggle.setTextColor(color(if (running) R.color.paper else R.color.ink))
+        serviceToggle.setBackgroundResource(if (running) R.drawable.bg_service_stop else R.drawable.bg_service_start)
+        serviceToggle.setTextColor(if (running) Color.parseColor("#BE123C") else Color.WHITE)
+        serviceToggle.isEnabled = !switching
+        serviceToggle.alpha = if (switching) 0.45f else 1f
         val shown = TtsRuntime.port.toString()
         if (!servicePort.hasFocus() && servicePort.text.toString() != shown) {
             servicePort.setText(shown)
         }
+    }
+
+    private fun serviceUrl(address: String): String = "http://$address:${TtsRuntime.port}/tts"
+
+    private fun copyPlain(label: String, text: CharSequence) {
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
+        toast("已复制")
     }
 
     private fun commitPort() {
@@ -1721,14 +1761,6 @@ class MainActivity : AppCompatActivity() {
             ContextCompat.startForegroundService(this, Intent(this, TtsService::class.java))
         }
         renderService()
-    }
-
-    private fun serviceAddresses(): String {
-        val lines = interfaceAddresses().map { address ->
-            val label = if (address == "127.0.0.1") "本机" else "局域网"
-            "$label\nhttp://$address:${TtsRuntime.port}/tts"
-        }
-        return lines.joinToString("\n")
     }
 
     private fun toggleService() {
