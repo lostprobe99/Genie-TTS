@@ -136,7 +136,9 @@ https://github.com/lostprobe99/Genie-TTS/releases/download/app-0.0.3/prosody.zip
 
 关于单独成一页，底色和角色管理一样。顶栏是返回和标题。版式跟着原型：顶上是标志、GenieTTS、版本胶囊和一句标语，下面三列是 cpu架构 ARM64-v8a、这台手机的 Android 版本、ONNX v1.22.0。
 
-「版本与开源信息」用图标行写软件版本、构建时间、包名、机型、当前角色、安装时间，以及仓库 `https://github.com/lostprobe99/Genie-TTS`。构建时间是打这个安装包时的时间，安装时间是这台手机装上或更新这个包的时间。可以复制。仓库右边是指向右上角的箭头，点它打开仓库。许可胶囊写 MIT。
+「这台手机」写机型、当前角色、安装时间。安装时间是这台手机装上或更新这个包的时间。
+
+「版本与开源信息」用图标行写软件版本、构建时间、包名，以及仓库 `https://github.com/lostprobe99/Genie-TTS`。构建时间是打这个安装包时的时间。可以复制。仓库右边是指向右上角的箭头，点它打开仓库。许可胶囊写 MIT。
 
 「技术架构与引擎」三行：本机 ONNX Runtime、中文韵律、朗读接口 `POST /tts`。没有 WebSocket。
 
@@ -320,9 +322,11 @@ https://github.com/lostprobe99/Genie-TTS/releases/download/app-0.0.3/prosody.zip
 | cpu架构    系统      推理引擎    |
 | ARM64-v8a Android.. ONNX v1.22.0 |
 |                                  |
+| 这台手机                         |
+| 机型 / 当前角色 / 安装时间       |
+|                                  |
 | 版本与开源信息   MIT     [复制]  |
 | 软件版本 / 构建时间 / 包名       |
-| 机型 / 当前角色 / 安装时间       |
 | GitHub                       ↗   |
 |                                  |
 | 技术架构与引擎        本机合成   |
