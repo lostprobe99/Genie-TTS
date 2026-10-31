@@ -1793,7 +1793,8 @@ class MainActivity : AppCompatActivity() {
             else -> ""
         }
         sentenceBadge.visibility = if (sentenceBadge.text.isNullOrBlank()) View.GONE else View.VISIBLE
-        val scrollHeight = dp(132)
+        val rowHeight = dp(40)
+        val scrollHeight = rowHeight * 3
         if (sentenceScroll.layoutParams.height != scrollHeight) {
             sentenceScroll.layoutParams.height = scrollHeight
             sentenceScroll.requestLayout()
@@ -1869,7 +1870,7 @@ class MainActivity : AppCompatActivity() {
             }
             sentenceList.addView(
                 row,
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT),
+                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, rowHeight),
             )
         }
         paintWork()

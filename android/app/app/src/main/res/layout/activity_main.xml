@@ -445,10 +445,9 @@
 
                     <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
+                        android:layout_height="28dp"
                         android:gravity="center_vertical"
-                        android:orientation="horizontal"
-                        android:paddingBottom="8dp">
+                        android:orientation="horizontal">
 
                         <View
                             android:layout_width="3dp"
@@ -457,17 +456,15 @@
 
                         <TextView
                             android:id="@+id/sentenceHeading"
-                            android:layout_width="wrap_content"
+                            android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="6dp"
+                            android:layout_weight="1"
+                            android:ellipsize="end"
+                            android:maxLines="1"
                             android:text="分句列表（共 0 句）"
                             android:textColor="@color/text_main"
                             android:textSize="12sp" />
-
-                        <View
-                            android:layout_width="0dp"
-                            android:layout_height="0dp"
-                            android:layout_weight="1" />
 
                         <TextView
                             android:id="@+id/sentenceBadge"
@@ -475,6 +472,8 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="8dp"
                             android:background="@drawable/bg_status_badge"
+                            android:ellipsize="end"
+                            android:maxLines="1"
                             android:paddingStart="6dp"
                             android:paddingTop="2dp"
                             android:paddingEnd="6dp"
@@ -487,7 +486,7 @@
                     <ScrollView
                         android:id="@+id/sentenceScroll"
                         android:layout_width="match_parent"
-                        android:layout_height="132dp"
+                        android:layout_height="120dp"
                         android:overScrollMode="ifContentScrolls"
                         android:scrollbars="vertical">
 
