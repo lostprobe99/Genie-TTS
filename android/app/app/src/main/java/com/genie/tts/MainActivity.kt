@@ -2,6 +2,7 @@ package com.genie.tts
 
 import android.Manifest
 import android.app.Dialog
+import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -87,6 +88,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var homeBar: View
     private lateinit var rolesBar: View
     private lateinit var prosodyBar: View
+    private lateinit var aboutBar: View
     private lateinit var otherBar: View
     private lateinit var roleRow: View
     private lateinit var menuButton: android.widget.ImageButton
@@ -146,7 +148,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var downloadProsody: TextView
     private lateinit var importProsody: TextView
     private lateinit var deleteProsody: TextView
-    private lateinit var aboutText: TextView
+    private lateinit var aboutBadge: TextView
+    private lateinit var aboutSystem: TextView
+    private lateinit var aboutModel: TextView
+    private lateinit var aboutRole: TextView
+    private lateinit var aboutInstalled: TextView
+    private lateinit var aboutVersion: TextView
+    private lateinit var aboutPackage: TextView
 
     private var page = Page.Speak
     private var roster: List<CharacterInfo> = emptyList()
@@ -270,6 +278,7 @@ class MainActivity : AppCompatActivity() {
         homeBar = findViewById(R.id.homeBar)
         rolesBar = findViewById(R.id.rolesBar)
         prosodyBar = findViewById(R.id.prosodyBar)
+        aboutBar = findViewById(R.id.aboutBar)
         otherBar = findViewById(R.id.otherBar)
         roleRow = findViewById(R.id.roleRow)
         menuButton = findViewById(R.id.menuButton)
@@ -329,11 +338,17 @@ class MainActivity : AppCompatActivity() {
         downloadProsody = findViewById(R.id.downloadProsody)
         importProsody = findViewById(R.id.importProsody)
         deleteProsody = findViewById(R.id.deleteProsody)
+        aboutBadge = findViewById(R.id.aboutBadge)
+        aboutSystem = findViewById(R.id.aboutSystem)
+        aboutModel = findViewById(R.id.aboutModel)
+        aboutRole = findViewById(R.id.aboutRole)
+        aboutInstalled = findViewById(R.id.aboutInstalled)
+        aboutVersion = findViewById(R.id.aboutVersion)
+        aboutPackage = findViewById(R.id.aboutPackage)
         prosodyModel.text = Prosody.FILE_NAME
         prosodyFile.text = Prosody.FILE_NAME
         prosodyDownloadSub.text = "拉取 ${Release.TAG} 的 prosody.zip，大约 ${bytesLabel(Prosody.MODEL_BYTES)}，中断后可以接着下。"
         prosodyTipWhat()
-        aboutText = findViewById(R.id.aboutText)
         characters.setPopupBackgroundResource(R.color.card)
         padForScreen()
     }
@@ -392,6 +407,7 @@ class MainActivity : AppCompatActivity() {
             if (batching) exitBatch() else showPage(Page.Speak)
         }
         findViewById<View>(R.id.prosodyBack).setOnClickListener { showPage(Page.Speak) }
+        findViewById<View>(R.id.aboutBack).setOnClickListener { showPage(Page.Speak) }
         findViewById<View>(R.id.roleSearchButton).setOnClickListener { toggleRoleSearch() }
         findViewById<View>(R.id.roleMore).setOnClickListener { showRoleMenu(it) }
         roleQuery.addTextChangedListener(object : TextWatcher {
@@ -480,7 +496,7 @@ class MainActivity : AppCompatActivity() {
                 if (next == null) selectionFile().delete() else selectionFile().writeText(next)
                 invalidateAudio()
                 worker.execute { speech.dropEngine() }
-                if (page == Page.About) aboutText.text = aboutLines()
+                if (page == Page.About) renderAbout()
                 updateControls()
             }
 
@@ -531,11 +547,11 @@ class MainActivity : AppCompatActivity() {
             if (!hasFocus) commitPort()
         }
         findViewById<View>(R.id.copyAbout).setOnClickListener {
-            val text = aboutLines()
             val clipboard = getSystemService(ClipboardManager::class.java)
-            clipboard.setPrimaryClip(ClipData.newPlainText("about", text))
+            clipboard.setPrimaryClip(ClipData.newPlainText("about", aboutLines()))
             toast("已复制")
         }
+        findViewById<View>(R.id.aboutOpen).setOnClickListener { openRepo() }
     }
 
     private fun showPage(next: Page) {
@@ -548,6 +564,7 @@ class MainActivity : AppCompatActivity() {
         val onSpeak = next == Page.Speak
         val onRoles = next == Page.Characters
         val onProsody = next == Page.Prosody
+        val onAbout = next == Page.About
         if (!onRoles) {
             roleMenu?.dismiss()
             batching = false
@@ -556,8 +573,9 @@ class MainActivity : AppCompatActivity() {
         homeBar.visibility = if (onSpeak) View.VISIBLE else View.GONE
         rolesBar.visibility = if (onRoles) View.VISIBLE else View.GONE
         prosodyBar.visibility = if (onProsody) View.VISIBLE else View.GONE
-        otherBar.visibility = if (onSpeak || onRoles || onProsody) View.GONE else View.VISIBLE
-        val light = onSpeak || onRoles || onProsody
+        aboutBar.visibility = if (onAbout) View.VISIBLE else View.GONE
+        val light = onSpeak || onRoles || onProsody || onAbout
+        otherBar.visibility = if (light) View.GONE else View.VISIBLE
         val pageColor = color(if (light) R.color.bg_light else R.color.ink)
         val headerColor = color(if (light) R.color.header else R.color.ink)
         headerSlot.setBackgroundColor(headerColor)
@@ -587,7 +605,7 @@ class MainActivity : AppCompatActivity() {
             Page.Characters -> renderCards()
             Page.Service -> renderService()
             Page.Prosody -> renderProsody()
-            Page.About -> aboutText.text = aboutLines()
+            Page.About -> renderAbout()
             Page.Speak -> Unit
         }
     }
@@ -1245,7 +1263,7 @@ class MainActivity : AppCompatActivity() {
         }
         renderCards()
         drawerRoleCount.text = "${roster.size}个角色"
-        if (page == Page.About) aboutText.text = aboutLines()
+        if (page == Page.About) renderAbout()
         updateControls()
     }
 
@@ -1977,12 +1995,35 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
+    private fun renderAbout() {
+        val role = roster.find { it.id == selectedId }?.name ?: getString(R.string.unselected)
+        aboutBadge.text = versionBadge()
+        aboutSystem.text = "Android ${Build.VERSION.RELEASE}"
+        aboutModel.text = "${Build.MANUFACTURER} ${Build.MODEL}"
+        aboutRole.text = role
+        aboutInstalled.text = writtenAt(packageManager.getPackageInfo(packageName, 0).lastUpdateTime)
+        aboutVersion.text = versionLabel()
+        aboutPackage.text = packageName
+    }
+
+    private fun openRepo() {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.about_repo_url)))
+        try {
+            startActivity(intent)
+        } catch (error: ActivityNotFoundException) {
+            toast("打不开这个链接")
+        }
+    }
+
     private fun aboutLines(): String {
         val role = roster.find { it.id == selectedId }?.name ?: getString(R.string.unselected)
+        val installed = writtenAt(packageManager.getPackageInfo(packageName, 0).lastUpdateTime)
         return "版本 ${versionLabel()}\n" +
+            "包名 $packageName\n" +
             "系统 Android ${Build.VERSION.RELEASE}（API ${Build.VERSION.SDK_INT}）\n" +
             "机型 ${Build.MANUFACTURER} ${Build.MODEL}\n" +
-            "当前角色 $role"
+            "当前角色 $role\n" +
+            "这次安装 $installed"
     }
 
     private fun versionLabel(): String = "${versionName()}（${versionCode()}）"
