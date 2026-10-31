@@ -29,10 +29,25 @@ object CharacterPack {
     val REQUIRED_TENSORS = listOf("ref_seq", "ref_bert", "ssl_content", "ge", "ge_advanced")
     private val ID_PATTERN = Regex("[a-z][a-z0-9_]{0,31}")
     private const val NAME_FILE = "display-name.txt"
+    const val AVATAR_ICON = "avatar-icon.txt"
+    private val AVATAR_FILES = listOf("avatar.webp", "avatar.png", "avatar.jpg", "avatar.jpeg")
     private const val MIN_MODEL_BYTES = 1024L
     private const val MAX_ENTRY_BYTES = 2_000_000_000L
 
     fun directory(filesDir: File): File = File(filesDir, "characters")
+
+    fun avatarImage(root: File): File? =
+        AVATAR_FILES.map { File(root, it) }.firstOrNull { it.isFile && it.length() > 0L }
+
+    /** 新包带了头像就用新的。没有的话，留下上次抽中的扁平图标。 */
+    fun rememberAvatarChoice(root: File, previous: String?) {
+        if (avatarImage(root) != null) {
+            File(root, AVATAR_ICON).delete()
+            return
+        }
+        val file = File(root, AVATAR_ICON)
+        if (!file.isFile && !previous.isNullOrBlank()) file.writeText(previous)
+    }
 
     fun rename(info: CharacterInfo, name: String) {
         val trimmed = name.trim()
@@ -96,6 +111,7 @@ object CharacterPack {
             val dest = File(directory(filesDir), info.id)
             val replaced = dest.isDirectory
             val keptName = File(dest, NAME_FILE).takeIf { it.isFile }?.readText()
+            val keptIcon = File(dest, AVATAR_ICON).takeIf { it.isFile }?.readText()
             val backup = File(filesDir, "import-backup-${info.id}")
             if (replaced) {
                 backup.deleteRecursively()
@@ -109,6 +125,7 @@ object CharacterPack {
             }
             val chosen = displayName?.trim()?.takeIf { it.isNotEmpty() } ?: keptName?.trim()?.takeIf { it.isNotEmpty() }
             if (chosen != null) File(dest, NAME_FILE).writeText(chosen)
+            rememberAvatarChoice(dest, keptIcon)
             backup.deleteRecursively()
             staging.deleteRecursively()
             return ImportResult(read(dest), replaced)

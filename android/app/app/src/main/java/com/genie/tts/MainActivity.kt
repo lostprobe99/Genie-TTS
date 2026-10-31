@@ -4,6 +4,13 @@ import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
+import android.content.res.ColorStateList
+import android.graphics.BitmapFactory
+import android.graphics.Color
+import android.graphics.Outline
+import android.graphics.Typeface
+import android.graphics.drawable.ColorDrawable
+import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -11,16 +18,24 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.OpenableColumns
 import android.text.Editable
+import android.text.SpannableString
 import android.text.TextWatcher
-import android.view.inputmethod.EditorInfo
+import android.text.style.ForegroundColorSpan
+import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
+import android.view.ViewOutlineProvider
+import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
 import android.widget.AdapterView
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -59,6 +74,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var headerSlot: View
     private lateinit var pageFrame: View
     private lateinit var homeBar: View
+    private lateinit var rolesBar: View
     private lateinit var otherBar: View
     private lateinit var roleRow: View
     private lateinit var menuButton: android.widget.ImageButton
@@ -85,7 +101,18 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playButton: Button
     private lateinit var workStatus: TextView
     private lateinit var characterCards: LinearLayout
-    private lateinit var importCharacter: Button
+    private lateinit var rolesTitle: TextView
+    private lateinit var rolesBack: ImageButton
+    private lateinit var roleCount: TextView
+    private lateinit var roleQuery: EditText
+    private lateinit var roleSearchButton: View
+    private lateinit var roleMore: View
+    private lateinit var roleEmpty: View
+    private lateinit var roleFoot: TextView
+    private lateinit var roleBatchBar: View
+    private lateinit var roleSelectAll: TextView
+    private lateinit var roleDeletePicked: TextView
+    private lateinit var importCharacter: View
     private lateinit var serviceStatus: TextView
     private lateinit var serviceDetail: TextView
     private lateinit var serviceToggle: Button
@@ -112,6 +139,31 @@ class MainActivity : AppCompatActivity() {
     private var suppress = false
     private var spinnerGen = 0
     private var downloading = false
+    private var roleMenu: PopupWindow? = null
+    private var previewId: String? = null
+    private var batching = false
+    private val picked = mutableSetOf<String>()
+
+    private val avatarIcons = intArrayOf(
+        R.drawable.ic_avatar_wave,
+        R.drawable.ic_avatar_plus,
+        R.drawable.ic_avatar_mic,
+        R.drawable.ic_avatar_sparkles,
+        R.drawable.ic_avatar_note,
+        R.drawable.ic_avatar_microphone,
+        R.drawable.ic_avatar_heart,
+        R.drawable.ic_avatar_book,
+    )
+    private val avatarColors = arrayOf(
+        intArrayOf(0xFF005461.toInt(), 0xFF14B8A6.toInt()),
+        intArrayOf(0xFF059669.toInt(), 0xFF2DD4BF.toInt()),
+        intArrayOf(0xFFD97706.toInt(), 0xFF0F766E.toInt()),
+        intArrayOf(0xFF14B8A6.toInt(), 0xFF22D3EE.toInt()),
+        intArrayOf(0xFF0EA5E9.toInt(), 0xFF818CF8.toInt()),
+        intArrayOf(0xFF475569.toInt(), 0xFF005461.toInt()),
+        intArrayOf(0xFFFB7185.toInt(), 0xFF14B8A6.toInt()),
+        intArrayOf(0xFF115E59.toInt(), 0xFF10B981.toInt()),
+    )
 
     private val pickCharacter = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onCharacterPicked(uri)
@@ -181,6 +233,7 @@ class MainActivity : AppCompatActivity() {
         headerSlot = findViewById(R.id.headerSlot)
         pageFrame = findViewById(R.id.pageFrame)
         homeBar = findViewById(R.id.homeBar)
+        rolesBar = findViewById(R.id.rolesBar)
         otherBar = findViewById(R.id.otherBar)
         roleRow = findViewById(R.id.roleRow)
         menuButton = findViewById(R.id.menuButton)
@@ -207,6 +260,17 @@ class MainActivity : AppCompatActivity() {
         playButton = findViewById(R.id.play)
         workStatus = findViewById(R.id.workStatus)
         characterCards = findViewById(R.id.characterCards)
+        rolesTitle = findViewById(R.id.rolesTitle)
+        rolesBack = findViewById(R.id.rolesBack)
+        roleCount = findViewById(R.id.roleCount)
+        roleQuery = findViewById(R.id.roleQuery)
+        roleSearchButton = findViewById(R.id.roleSearchButton)
+        roleMore = findViewById(R.id.roleMore)
+        roleEmpty = findViewById(R.id.roleEmpty)
+        roleFoot = findViewById(R.id.roleFoot)
+        roleBatchBar = findViewById(R.id.roleBatchBar)
+        roleSelectAll = findViewById(R.id.roleSelectAll)
+        roleDeletePicked = findViewById(R.id.roleDeletePicked)
         importCharacter = findViewById(R.id.importCharacter)
         serviceStatus = findViewById(R.id.serviceStatus)
         serviceDetail = findViewById(R.id.serviceDetail)
@@ -274,6 +338,20 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.homeMore).setOnClickListener {
             toast(getString(R.string.not_ready))
         }
+        rolesBack.setOnClickListener {
+            if (batching) exitBatch() else showPage(Page.Speak)
+        }
+        findViewById<View>(R.id.roleSearchButton).setOnClickListener { toggleRoleSearch() }
+        findViewById<View>(R.id.roleMore).setOnClickListener { showRoleMenu(it) }
+        roleQuery.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                if (page == Page.Characters) renderCards()
+            }
+        })
+        roleSelectAll.setOnClickListener { toggleSelectShown() }
+        roleDeletePicked.setOnClickListener { confirmDeletePicked() }
         findViewById<View>(R.id.drawerClose).setOnClickListener {
             drawer.closeDrawer(drawerPanel)
         }
@@ -313,6 +391,7 @@ class MainActivity : AppCompatActivity() {
             override fun handleOnBackPressed() {
                 when {
                     drawer.isDrawerOpen(GravityCompat.START) -> drawer.closeDrawer(GravityCompat.START)
+                    page == Page.Characters && batching -> exitBatch()
                     page != Page.Speak -> showPage(Page.Speak)
                     else -> {
                         isEnabled = false
@@ -411,16 +490,25 @@ class MainActivity : AppCompatActivity() {
         prosodyPage.visibility = if (next == Page.Prosody) View.VISIBLE else View.GONE
         aboutPage.visibility = if (next == Page.About) View.VISIBLE else View.GONE
         val onSpeak = next == Page.Speak
+        val onRoles = next == Page.Characters
+        if (!onRoles) {
+            roleMenu?.dismiss()
+            batching = false
+            picked.clear()
+        }
         homeBar.visibility = if (onSpeak) View.VISIBLE else View.GONE
-        otherBar.visibility = if (onSpeak) View.GONE else View.VISIBLE
-        val pageColor = color(if (onSpeak) R.color.bg_light else R.color.ink)
-        val headerColor = color(if (onSpeak) R.color.header else R.color.ink)
+        rolesBar.visibility = if (onRoles) View.VISIBLE else View.GONE
+        otherBar.visibility = if (onSpeak || onRoles) View.GONE else View.VISIBLE
+        val light = onSpeak || onRoles
+        val pageColor = color(if (light) R.color.bg_light else R.color.ink)
+        val headerColor = color(if (light) R.color.header else R.color.ink)
         headerSlot.setBackgroundColor(headerColor)
         pageFrame.setBackgroundColor(pageColor)
         findViewById<View>(R.id.contentRoot).setBackgroundColor(pageColor)
+        banner.setTextColor(color(if (light) R.color.primary else R.color.amber))
         val controller = WindowCompat.getInsetsController(window, window.decorView)
         controller.isAppearanceLightStatusBars = false
-        controller.isAppearanceLightNavigationBars = onSpeak
+        controller.isAppearanceLightNavigationBars = light
         if (onSpeak) renderMeters()
         pageTitle.setText(
             when (next) {
@@ -538,6 +626,8 @@ class MainActivity : AppCompatActivity() {
         if (busy) return
         confirmProsody(preview = true) {
             stopPlaying()
+            previewId = character.id
+            if (page == Page.Characters) renderCards()
             setBusy(true)
             banner.text = "正在加载模型"
             banner.visibility = View.VISIBLE
@@ -591,9 +681,13 @@ class MainActivity : AppCompatActivity() {
                     marker.delete()
                     runOnUiThread {
                         if (isDestroyed) return@runOnUiThread
-                        if (gen == playGen.get()) playing = false
+                        if (gen == playGen.get()) {
+                            playing = false
+                            previewId = null
+                        }
                         banner.visibility = View.GONE
                         setBusy(false)
+                        if (page == Page.Characters) renderCards()
                     }
                 }
             }
@@ -751,22 +845,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun deleteCharacter(info: CharacterInfo) {
-        if (busy) return
+        removeCharacters(listOf(info))
+    }
+
+    private fun removeCharacters(targets: List<CharacterInfo>) {
+        if (busy || targets.isEmpty()) return
         setBusy(true)
-        val selected = info.id == selectedId
+        val ids = targets.map { it.id }.toSet()
+        val dropsSelection = selectedId in ids
+        if (previewId in ids) {
+            previewId = null
+            stopPlaying()
+        }
         worker.execute {
             try {
-                if (selected) speech.dropEngine()
-                info.root.deleteRecursively()
+                if (dropsSelection) speech.dropEngine()
+                targets.forEach { it.root.deleteRecursively() }
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
-                    if (selected) {
+                    if (dropsSelection) {
                         selectedId = null
                         selectionFile().delete()
                         invalidateAudio()
                     }
+                    picked.removeAll(ids)
                     setBusy(false)
                     refreshCharacters()
+                    if (batching && roster.isEmpty()) exitBatch()
                 }
             } catch (error: Exception) {
                 runOnUiThread {
@@ -877,60 +982,300 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderCards() {
+        val query = roleQuery.text?.toString()?.trim().orEmpty()
+        val shown = roster.filter { info ->
+            query.isEmpty() ||
+                info.name.contains(query, ignoreCase = true) ||
+                info.id.contains(query, ignoreCase = true)
+        }
+        roleFoot.text = roleFootText()
+        roleEmpty.visibility = if (query.isNotEmpty() && shown.isEmpty()) View.VISIBLE else View.GONE
+        val shownIds = shown.map { it.id }
+        val allShown = shownIds.isNotEmpty() && shownIds.all { it in picked }
+        roleSelectAll.setText(if (allShown) R.string.select_none else R.string.select_all)
+        roleSelectAll.tag = shownIds
         characterCards.removeAllViews()
-        roster.forEach { info ->
-            val card = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(0, dp(18), 0, dp(8))
-            }
-            card.addView(TextView(this).apply {
-                text = info.name
-                textSize = 18f
-                setTextColor(color(R.color.paper))
-            })
-            card.addView(TextView(this).apply {
-                text = info.id
-                textSize = 15f
-                setTextColor(color(R.color.muted))
-                setPadding(0, dp(2), 0, 0)
-            })
-            val size = TextView(this).apply {
-                text = "…"
-                textSize = 15f
-                setTextColor(color(R.color.muted))
-                gravity = Gravity.END
-            }
-            val top = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, dp(8), 0, 0)
-            }
-            top.addView(tonedButton(getString(R.string.preview), filled = false).apply {
-                setOnClickListener { preview(info) }
-            })
-            top.addView(size, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-            card.addView(top)
-            val actions = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                setPadding(0, dp(8), 0, 0)
-            }
-            actions.addView(
-                tonedButton(getString(R.string.rename), filled = false),
-                LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginEnd = dp(8) },
-            )
-            actions.addView(
-                tonedButton(getString(R.string.delete), filled = false),
-                LinearLayout.LayoutParams(0, dp(48), 1f),
-            )
-            (actions.getChildAt(0) as Button).setOnClickListener { renameCharacter(info) }
-            (actions.getChildAt(1) as Button).setOnClickListener { deleteCharacter(info) }
-            card.addView(actions)
-            characterCards.addView(card)
-            worker.execute {
-                val bytes = info.root.walkTopDown().filter { it.isFile }.sumOf { it.length() }
-                runOnUiThread { if (!isDestroyed) size.text = bytesLabel(bytes) }
+        shown.forEach { info -> characterCards.addView(roleCard(info)) }
+        applyBatchChrome()
+    }
+
+    private fun roleFootText(): CharSequence {
+        val total = "共 ${roster.size} 个模型"
+        val current = roster.find { it.id == selectedId } ?: return total
+        val text = "$total  |  当前：${current.name}"
+        val start = text.length - current.name.length
+        return SpannableString(text).apply {
+            setSpan(ForegroundColorSpan(color(R.color.header)), start, text.length, SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE)
+            setSpan(StyleSpan(Typeface.BOLD), start, text.length, SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
+    }
+
+    private fun roleCard(info: CharacterInfo): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_role_card)
+            elevation = dp(1).toFloat()
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+            setOnClickListener { if (batching) togglePicked(info.id) }
+            setOnLongClickListener {
+                if (!batching) roleActions(info)
+                true
             }
         }
+        if (batching && info.id in picked) {
+            card.background = GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                setColor(Color.parseColor("#E6F4F6"))
+            }
+        }
+        card.addView(avatarView(info))
+        val text = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                marginStart = dp(12)
+            }
+        }
+        text.addView(TextView(this).apply {
+            this.text = info.name
+            textSize = 14f
+            setTypeface(typeface, Typeface.BOLD)
+            setTextColor(color(R.color.text_main))
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        })
+        text.addView(TextView(this).apply {
+            this.text = "ID: ${info.id}"
+            textSize = 12f
+            typeface = Typeface.MONOSPACE
+            setTextColor(Color.parseColor("#94A3B8"))
+            setPadding(0, dp(2), 0, 0)
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        })
+        card.addView(text)
+        if (batching) {
+            card.addView(batchMark(info.id in picked))
+            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            params.topMargin = dp(10)
+            params.marginStart = dp(12)
+            params.marginEnd = dp(12)
+            card.layoutParams = params
+            return card
+        }
+        val playingThis = previewId == info.id
+        card.addView(ImageButton(this).apply {
+            val box = dp(40)
+            layoutParams = LinearLayout.LayoutParams(box, box).apply { marginStart = dp(8) }
+            background = ContextCompat.getDrawable(
+                this@MainActivity,
+                if (playingThis) R.drawable.bg_role_play_on else R.drawable.bg_role_play,
+            )
+            setImageResource(if (playingThis) R.drawable.ic_role_bars else R.drawable.ic_role_play)
+            imageTintList = ColorStateList.valueOf(color(if (playingThis) R.color.header else R.color.primary))
+            scaleType = ImageView.ScaleType.CENTER
+            contentDescription = if (playingThis) "正在试听${info.name}" else "试听${info.name}"
+            isEnabled = !busy || playingThis
+            alpha = if (isEnabled) 1f else 0.4f
+            setOnClickListener { preview(info) }
+        })
+        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        params.topMargin = dp(10)
+        params.marginStart = dp(12)
+        params.marginEnd = dp(12)
+        card.layoutParams = params
+        return card
+    }
+
+    private fun avatarView(info: CharacterInfo): View {
+        val size = dp(44)
+        val frame = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(size, size)
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
+                    outline.setRoundRect(0, 0, size, size, dp(12).toFloat())
+                }
+            }
+            clipToOutline = true
+        }
+        val image = CharacterPack.avatarImage(info.root)
+        val bitmap = image?.let { decodeAvatar(it) }
+        if (bitmap != null) {
+            frame.addView(ImageView(this).apply {
+                layoutParams = FrameLayout.LayoutParams(size, size)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                setImageBitmap(bitmap)
+            })
+        } else {
+            val index = avatarIndex(info)
+            frame.background = GradientDrawable(GradientDrawable.Orientation.BL_TR, avatarColors[index]).apply {
+                cornerRadius = dp(12).toFloat()
+            }
+            frame.addView(ImageView(this).apply {
+                val icon = dp(24)
+                layoutParams = FrameLayout.LayoutParams(icon, icon, Gravity.CENTER)
+                setImageResource(avatarIcons[index])
+                imageTintList = ColorStateList.valueOf(Color.WHITE)
+            })
+        }
+        return frame
+    }
+
+    private fun avatarIndex(info: CharacterInfo): Int {
+        val file = File(info.root, CharacterPack.AVATAR_ICON)
+        val saved = file.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull()
+        if (saved != null && saved in avatarIcons.indices) return saved
+        val pick = kotlin.random.Random.nextInt(avatarIcons.size)
+        runCatching { file.writeText(pick.toString()) }
+        return pick
+    }
+
+    private fun decodeAvatar(file: File): android.graphics.Bitmap? {
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeFile(file.absolutePath, bounds)
+        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+        var sample = 1
+        while (bounds.outWidth / sample > 256 || bounds.outHeight / sample > 256) sample *= 2
+        return BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
+    }
+
+    private fun batchMark(on: Boolean): View {
+        return ImageView(this).apply {
+            val box = dp(24)
+            layoutParams = LinearLayout.LayoutParams(box, box).apply { marginStart = dp(8) }
+            background = ContextCompat.getDrawable(
+                this@MainActivity,
+                if (on) R.drawable.bg_role_fab else R.drawable.bg_role_check_off,
+            )
+            if (on) {
+                setImageResource(R.drawable.ic_role_check)
+                imageTintList = ColorStateList.valueOf(Color.WHITE)
+            }
+            scaleType = ImageView.ScaleType.CENTER
+            isClickable = false
+        }
+    }
+
+    private fun applyBatchChrome() {
+        val batch = batching && page == Page.Characters
+        rolesTitle.setText(if (batch) R.string.batch_manage else R.string.characters)
+        rolesBack.setImageResource(if (batch) R.drawable.ic_close else R.drawable.ic_back)
+        rolesBack.contentDescription = if (batch) "取消" else "返回"
+        roleCount.text = if (batch) "已选 ${picked.size}" else "${roster.size}个角色"
+        roleMore.visibility = if (batch) View.GONE else View.VISIBLE
+        roleFoot.visibility = if (batch) View.GONE else View.VISIBLE
+        importCharacter.visibility = if (batch) View.GONE else View.VISIBLE
+        roleBatchBar.visibility = if (batch) View.VISIBLE else View.GONE
+        roleDeletePicked.alpha = if (picked.isEmpty()) 0.4f else 1f
+    }
+
+    private fun enterBatch() {
+        if (busy) return
+        if (roster.isEmpty()) {
+            toast(getString(R.string.no_roles))
+            return
+        }
+        batching = true
+        picked.clear()
+        renderCards()
+    }
+
+    private fun exitBatch() {
+        if (!batching) return
+        batching = false
+        picked.clear()
+        if (page == Page.Characters) renderCards()
+    }
+
+    private fun togglePicked(id: String) {
+        if (!picked.add(id)) picked.remove(id)
+        renderCards()
+    }
+
+    private fun toggleSelectShown() {
+        @Suppress("UNCHECKED_CAST")
+        val shownIds = roleSelectAll.tag as? List<String> ?: return
+        if (shownIds.isNotEmpty() && shownIds.all { it in picked }) picked.removeAll(shownIds.toSet())
+        else picked.addAll(shownIds)
+        renderCards()
+    }
+
+    private fun confirmDeletePicked() {
+        if (picked.isEmpty()) {
+            toast(getString(R.string.pick_first))
+            return
+        }
+        val count = picked.size
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.batch_manage))
+            .setMessage("要删除这 $count 个角色。")
+            .setNegativeButton("取消", null)
+            .setPositiveButton(getString(R.string.delete)) { _, _ ->
+                removeCharacters(roster.filter { it.id in picked })
+            }
+            .show()
+    }
+
+    private fun confirmClearRoles() {
+        if (busy) return
+        if (roster.isEmpty()) {
+            toast(getString(R.string.no_roles))
+            return
+        }
+        AlertDialog.Builder(this)
+            .setTitle(getString(R.string.clear_roles))
+            .setMessage("已导入的角色都会删掉。首页正在用的角色会回到未选择。")
+            .setNegativeButton("取消", null)
+            .setPositiveButton("清空") { _, _ ->
+                removeCharacters(roster.toList())
+            }
+            .show()
+    }
+
+    private fun roleActions(info: CharacterInfo) {
+        AlertDialog.Builder(this)
+            .setTitle(info.name)
+            .setItems(arrayOf(getString(R.string.rename), getString(R.string.delete))) { _, which ->
+                if (which == 0) renameCharacter(info) else deleteCharacter(info)
+            }
+            .show()
+    }
+
+    private fun toggleRoleSearch() {
+        val open = roleQuery.visibility != View.VISIBLE
+        roleQuery.visibility = if (open) View.VISIBLE else View.GONE
+        if (open) {
+            roleQuery.requestFocus()
+        } else {
+            roleQuery.setText("")
+        }
+    }
+
+    private fun showRoleMenu(anchor: View) {
+        roleMenu?.dismiss()
+        val menu = layoutInflater.inflate(R.layout.menu_roles, null)
+        val popup = PopupWindow(menu, dp(176), ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        popup.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        popup.isOutsideTouchable = true
+        popup.elevation = dp(12).toFloat()
+        menu.findViewById<View>(R.id.menuImport).setOnClickListener {
+            popup.dismiss()
+            importCharacter.performClick()
+        }
+        menu.findViewById<View>(R.id.menuBatch).setOnClickListener {
+            popup.dismiss()
+            enterBatch()
+        }
+        menu.findViewById<View>(R.id.menuExport).setOnClickListener {
+            popup.dismiss()
+            toast(getString(R.string.not_ready))
+        }
+        menu.findViewById<View>(R.id.menuClear).setOnClickListener {
+            popup.dismiss()
+            confirmClearRoles()
+        }
+        popup.showAsDropDown(anchor, 0, 0, Gravity.END)
+        roleMenu = popup
     }
 
     private fun renderSentences() {
@@ -1111,6 +1456,7 @@ class MainActivity : AppCompatActivity() {
         speed.isEnabled = !busy
         characters.isEnabled = !busy
         importCharacter.isEnabled = !busy
+        importCharacter.alpha = if (importCharacter.isEnabled) 1f else 0.4f
         downloadProsody.isEnabled = !busy
         importProsody.isEnabled = !busy
         deleteProsody.isEnabled = !busy

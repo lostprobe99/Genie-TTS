@@ -35,4 +35,15 @@
     <string name="view_log">查看日志</string>
     <string name="service_menu">服务管理</string>
     <string name="not_ready">还没有这一页</string>
+    <string name="import_model">导入角色模型</string>
+    <string name="batch_manage">批量管理</string>
+    <string name="export_roles">导出角色配置</string>
+    <string name="clear_roles">清空角色列表</string>
+    <string name="select_all">全选</string>
+    <string name="select_none">取消全选</string>
+    <string name="no_roles">还没有角色</string>
+    <string name="pick_first">先选角色</string>
+    <string name="search_role">搜索角色</string>
+    <string name="role_missing">未找到匹配的角色</string>
+    <string name="role_missing_hint">请尝试更换角色名或模型ID关键词</string>
 </resources>
