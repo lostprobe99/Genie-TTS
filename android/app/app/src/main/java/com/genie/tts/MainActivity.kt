@@ -115,9 +115,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var sentenceList: LinearLayout
     private lateinit var sentenceHeading: TextView
     private lateinit var sentenceBadge: TextView
-    private lateinit var speedMeter: TextView
-    private lateinit var volumeMeter: TextView
-    private lateinit var pitchMeter: TextView
     private lateinit var workDot: View
     private lateinit var workMetrics: TextView
     private lateinit var workNoteLine: TextView
@@ -277,7 +274,6 @@ class MainActivity : AppCompatActivity() {
         TtsLog.listener = { if (!isDestroyed) serviceLog.text = TtsLog.recent() }
         renderService()
         serviceLog.text = TtsLog.recent()
-        renderMeters()
     }
 
     override fun onStop() {
@@ -333,9 +329,6 @@ class MainActivity : AppCompatActivity() {
         sentenceList = findViewById(R.id.sentenceList)
         sentenceHeading = findViewById(R.id.sentenceHeading)
         sentenceBadge = findViewById(R.id.sentenceBadge)
-        speedMeter = findViewById(R.id.speedMeter)
-        volumeMeter = findViewById(R.id.volumeMeter)
-        pitchMeter = findViewById(R.id.pitchMeter)
         workDot = findViewById(R.id.workDot)
         workMetrics = findViewById(R.id.workMetrics)
         workNoteLine = findViewById(R.id.workNote)
@@ -2044,21 +2037,6 @@ class MainActivity : AppCompatActivity() {
     private fun renderSpeed() {
         val rate = "%.2f".format(Locale.US, speedOf(speed.progress))
         speedLabel.text = labeled(getString(R.string.speed_adjust), rate, "  ")
-        renderMeters()
-    }
-
-    private fun renderMeters() {
-        val rate = "%.2f".format(Locale.US, speedOf(speed.progress))
-        speedMeter.text = labeled("语速", rate, ": ")
-        volumeMeter.text = labeled("音量", volumePercent().toString(), ": ")
-        pitchMeter.text = labeled("音调", "—", ": ")
-    }
-
-    private fun volumePercent(): Int {
-        val audio = getSystemService(AUDIO_SERVICE) as AudioManager
-        val maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
-        val now = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
-        return (now * 100f / maxVolume).roundToInt()
     }
 
     private fun labeled(label: String, value: String, gap: String): CharSequence {

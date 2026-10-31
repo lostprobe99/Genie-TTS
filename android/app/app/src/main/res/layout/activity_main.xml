@@ -408,50 +408,6 @@
                 android:paddingEnd="16dp"
                 android:paddingBottom="8dp">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:background="@drawable/bg_card"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingTop="6dp"
-                    android:paddingBottom="6dp">
-
-                    <TextView
-                        android:id="@+id/speedMeter"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="center"
-                        android:textSize="12sp" />
-
-                    <View
-                        android:layout_width="1dp"
-                        android:layout_height="16dp"
-                        android:background="#F1F5F9" />
-
-                    <TextView
-                        android:id="@+id/volumeMeter"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="center"
-                        android:textSize="12sp" />
-
-                    <View
-                        android:layout_width="1dp"
-                        android:layout_height="16dp"
-                        android:background="#F1F5F9" />
-
-                    <TextView
-                        android:id="@+id/pitchMeter"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:gravity="center"
-                        android:textSize="12sp" />
-                </LinearLayout>
-
                 <EditText
                     android:id="@+id/sentence"
                     android:layout_width="match_parent"
