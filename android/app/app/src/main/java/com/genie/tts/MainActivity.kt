@@ -129,7 +129,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var roleDeletePicked: TextView
     private lateinit var importCharacter: View
     private lateinit var serviceStatus: TextView
-    private lateinit var serviceBadge: TextView
     private lateinit var serviceDot: View
     private lateinit var serviceNotice: TextView
     private lateinit var serviceToggle: TextView
@@ -328,7 +327,6 @@ class MainActivity : AppCompatActivity() {
         roleDeletePicked = findViewById(R.id.roleDeletePicked)
         importCharacter = findViewById(R.id.importCharacter)
         serviceStatus = findViewById(R.id.serviceStatus)
-        serviceBadge = findViewById(R.id.serviceBadge)
         serviceDot = findViewById(R.id.serviceDot)
         serviceNotice = findViewById(R.id.serviceNotice)
         serviceToggle = findViewById(R.id.serviceToggle)
@@ -1709,9 +1707,6 @@ class MainActivity : AppCompatActivity() {
             else -> getString(R.string.service_stopped)
         }
         val open = running && !switching
-        serviceBadge.setText(if (open) R.string.service_running else R.string.service_stopped)
-        serviceBadge.setTextColor(color(if (open) R.color.primary else R.color.text_sub))
-        serviceBadge.setBackgroundResource(if (open) R.drawable.bg_about_pill else R.drawable.bg_prosody_idle)
         serviceDot.backgroundTintList = ColorStateList.valueOf(
             when {
                 open -> Color.parseColor("#10B981")
