@@ -54,6 +54,15 @@ object CharacterPack {
     fun avatarImage(root: File): File? =
         AVATAR_FILES.map { File(root, it) }.firstOrNull { it.isFile && it.length() > 0L }
 
+    /** 包里留下的参考音频。模型目录里的大文件不扫。 */
+    fun referenceAudio(root: File): File? {
+        if (!root.isDirectory) return null
+        return root.walkTopDown()
+            .onEnter { dir -> dir.name != "models" }
+            .filter { it.isFile && isAudioName(it.name) }
+            .minWithOrNull(compareBy<File>({ audioRank(it.name) }, { it.path }))
+    }
+
     /** 新包带了头像就用新的。没有的话，留下上次抽中的扁平图标。 */
     fun rememberAvatarChoice(root: File, previous: String?) {
         if (avatarImage(root) != null) {

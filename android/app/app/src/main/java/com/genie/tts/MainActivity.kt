@@ -27,6 +27,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.text.Editable
+import android.text.InputFilter
 import android.text.SpannableString
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
@@ -197,6 +198,7 @@ class MainActivity : AppCompatActivity() {
     private var importFocus: AudioFocusRequest? = null
     private var importAudioFile: File? = null
     private var importListen: TextView? = null
+    private var onImportAudioStopped: (() -> Unit)? = null
 
     private val avatarIcons = intArrayOf(
         R.drawable.ic_avatar_wave,
@@ -1008,8 +1010,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playImportAudio(file: File, button: TextView) {
+        playHeldFile(
+            file,
+            onStarted = { button.text = "停止" },
+            onStopped = { button.text = getString(R.string.preview) },
+        )
+    }
+
+    private fun playHeldFile(file: File, onStarted: () -> Unit, onStopped: () -> Unit) {
         stopPlaying()
         stopImportAudio()
+        onImportAudioStopped = onStopped
         val attributes = AudioAttributes.Builder()
             .setUsage(AudioAttributes.USAGE_MEDIA)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
@@ -1028,7 +1039,7 @@ class MainActivity : AppCompatActivity() {
             player.setOnCompletionListener { runOnUiThread { stopImportAudio() } }
             player.prepare()
             player.start()
-            button.text = "停止"
+            onStarted()
             if (!granted) toast("声音可能被其他应用占用")
         } catch (_: Exception) {
             stopImportAudio()
@@ -1046,6 +1057,9 @@ class MainActivity : AppCompatActivity() {
         }
         importFocus = null
         importListen?.text = getString(R.string.preview)
+        val stopped = onImportAudioStopped
+        onImportAudioStopped = null
+        stopped?.invoke()
     }
 
     private fun mediaSeconds(file: File): Double? {
@@ -1089,29 +1103,6 @@ class MainActivity : AppCompatActivity() {
                     if (isDestroyed) return@runOnUiThread
                     setBusy(false)
                     alert(human(error))
-                }
-            }
-        }
-    }
-
-    private fun renameCharacter(info: CharacterInfo) {
-        askName("给角色命名", info.name) { name ->
-            if (busy) return@askName
-            setBusy(true)
-            worker.execute {
-                try {
-                    CharacterPack.rename(info, name)
-                    runOnUiThread {
-                        if (isDestroyed) return@runOnUiThread
-                        setBusy(false)
-                        refreshCharacters()
-                    }
-                } catch (error: Exception) {
-                    runOnUiThread {
-                        if (isDestroyed) return@runOnUiThread
-                        setBusy(false)
-                        alert(human(error))
-                    }
                 }
             }
         }
@@ -1332,7 +1323,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(14), dp(14), dp(14), dp(14))
             setOnClickListener { if (batching) togglePicked(info.id) }
             setOnLongClickListener {
-                if (!batching) roleActions(info)
+                if (!batching) editCharacter(info)
                 true
             }
         }
@@ -1543,18 +1534,149 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun roleActions(info: CharacterInfo) {
-        val root = layoutInflater.inflate(R.layout.dialog_role_actions, null)
+    private fun editCharacter(info: CharacterInfo) {
+        val root = layoutInflater.inflate(R.layout.dialog_edit_role, null)
         val dialog = showLightCard(root)
-        root.findViewById<TextView>(R.id.roleActionName).text = info.name
-        root.findViewById<TextView>(R.id.roleActionId).text = info.id
-        root.findViewById<View>(R.id.roleActionRename).setOnClickListener {
-            dialog.dismiss()
-            renameCharacter(info)
+        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        val limit = maxOf(20, info.name.length)
+        val nameField = root.findViewById<EditText>(R.id.editRoleName)
+        val count = root.findViewById<TextView>(R.id.editRoleCount)
+        val currentPill = root.findViewById<View>(R.id.editRoleCurrent)
+        val switch = root.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.editRoleSwitch)
+        root.findViewById<TextView>(R.id.editRoleBannerName).text = info.name
+        root.findViewById<TextView>(R.id.editRoleBannerId).text = "ID: ${info.id}"
+        root.findViewById<TextView>(R.id.editRoleId).text = info.id
+        nameField.filters = arrayOf(InputFilter.LengthFilter(limit))
+        nameField.setText(info.name)
+        nameField.setSelection(nameField.text.length)
+        fun paintCount() {
+            count.text = "${nameField.text.length} / $limit"
         }
-        root.findViewById<View>(R.id.roleActionDelete).setOnClickListener {
+        paintCount()
+        nameField.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) = paintCount()
+        })
+        val current = selectedId == info.id
+        currentPill.visibility = if (current) View.VISIBLE else View.GONE
+        switch.isChecked = current
+        switch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
+        switch.trackTintList = ColorStateList(
+            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
+            intArrayOf(Color.parseColor("#0F766E"), Color.parseColor("#E2E8F0")),
+        )
+        switch.setOnCheckedChangeListener { _, checked ->
+            currentPill.visibility = if (checked) View.VISIBLE else View.GONE
+        }
+        root.findViewById<View>(R.id.editRoleCopy).setOnClickListener {
+            val clipboard = getSystemService(ClipboardManager::class.java)
+            clipboard.setPrimaryClip(ClipData.newPlainText("character-id", info.id))
+            toast("已复制")
+        }
+        root.findViewById<View>(R.id.editRoleClear).setOnClickListener { nameField.setText("") }
+        root.findViewById<View>(R.id.editRoleClose).setOnClickListener { dialog.dismiss() }
+        root.findViewById<View>(R.id.editRoleCancel).setOnClickListener { dialog.dismiss() }
+        bindRoleAudio(root, info, dialog)
+        root.findViewById<View>(R.id.editRoleDelete).setOnClickListener {
+            if (busy) return@setOnClickListener
             dialog.dismiss()
-            deleteCharacter(info)
+            showLightConfirm(
+                getString(R.string.edit_role_delete),
+                getString(R.string.edit_role_delete_message),
+                getString(R.string.delete),
+            ) { deleteCharacter(info) }
+        }
+        root.findViewById<View>(R.id.editRoleSave).setOnClickListener {
+            saveRoleEdits(info, nameField.text.toString(), switch.isChecked, dialog)
+        }
+        dialog.setOnDismissListener { stopImportAudio() }
+        root.post {
+            val max = (resources.displayMetrics.heightPixels * 0.78f).toInt()
+            if (root.height > max) root.layoutParams = root.layoutParams.apply { height = max }
+        }
+    }
+
+    private fun bindRoleAudio(root: View, info: CharacterInfo, dialog: Dialog) {
+        val play = root.findViewById<ImageButton>(R.id.editRolePlay)
+        val label = root.findViewById<TextView>(R.id.editRoleAudio)
+        val meta = root.findViewById<TextView>(R.id.editRoleAudioMeta)
+        val audio = CharacterPack.referenceAudio(info.root)
+        if (audio == null) {
+            label.setText(R.string.import_no_audio)
+            return
+        }
+        play.visibility = View.VISIBLE
+        label.text = audio.name
+        meta.visibility = View.VISIBLE
+        meta.text = "正在读取"
+        worker.execute {
+            val seconds = mediaSeconds(audio)
+            runOnUiThread {
+                if (isDestroyed || !dialog.isShowing) return@runOnUiThread
+                meta.text = seconds?.let { "${formatSec(it)}s" }.orEmpty()
+                if (meta.text.isEmpty()) meta.visibility = View.GONE
+            }
+        }
+        play.setOnClickListener {
+            val playing = runCatching { importPlayer?.isPlaying == true }.getOrDefault(false)
+            if (playing) {
+                stopImportAudio()
+                return@setOnClickListener
+            }
+            playHeldFile(
+                audio,
+                onStarted = {
+                    play.setImageResource(R.drawable.ic_role_bars)
+                    play.contentDescription = "停止"
+                },
+                onStopped = {
+                    play.setImageResource(R.drawable.ic_role_play)
+                    play.contentDescription = getString(R.string.preview)
+                },
+            )
+        }
+    }
+
+    private fun saveRoleEdits(info: CharacterInfo, typed: String, makeCurrent: Boolean, dialog: Dialog) {
+        val name = typed.trim()
+        if (name.isEmpty()) {
+            toast("名字不能是空的")
+            return
+        }
+        if (busy) return
+        val nameChanged = name != info.name
+        val wasCurrent = selectedId == info.id
+        val selectionChanged = makeCurrent != wasCurrent
+        dialog.dismiss()
+        if (!nameChanged && !selectionChanged) return
+        setBusy(true)
+        worker.execute {
+            try {
+                if (nameChanged) CharacterPack.rename(info, name)
+                runOnUiThread {
+                    if (isDestroyed) return@runOnUiThread
+                    if (selectionChanged) {
+                        if (makeCurrent) {
+                            selectedId = info.id
+                            selectionFile().writeText(info.id)
+                        } else if (wasCurrent) {
+                            selectedId = null
+                            selectionFile().delete()
+                        }
+                        invalidateAudio()
+                    }
+                    setBusy(false)
+                    refreshCharacters()
+                    if (selectionChanged) worker.execute { speech.dropEngine() }
+                }
+            } catch (error: Exception) {
+                runOnUiThread {
+                    if (isDestroyed) return@runOnUiThread
+                    setBusy(false)
+                    alert(human(error))
+                }
+            }
         }
     }
 
@@ -1993,40 +2115,6 @@ class MainActivity : AppCompatActivity() {
         banner.text = "上次合成没有完成\n版本 $version"
         banner.visibility = View.VISIBLE
         marker.delete()
-    }
-
-    private fun askName(title: String, prefill: String, onOk: (String) -> Unit) {
-        val input = EditText(this).apply {
-            setText(prefill)
-            setSelection(text.length)
-            hint = "名字"
-            setTextColor(color(R.color.paper))
-            setHintTextColor(color(R.color.muted))
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.field_bg)
-            setPadding(dp(12), dp(12), dp(12), dp(12))
-        }
-        val wrap = FrameLayout(this).apply {
-            setPadding(dp(20), dp(8), dp(20), 0)
-            addView(input, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
-        }
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(title)
-            .setView(wrap)
-            .setPositiveButton("确定", null)
-            .setNegativeButton("取消", null)
-            .create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val name = input.text.toString().trim()
-                if (name.isEmpty()) {
-                    input.error = "名字不能是空的"
-                    return@setOnClickListener
-                }
-                dialog.dismiss()
-                onOk(name)
-            }
-        }
-        dialog.show()
     }
 
     private fun human(error: Throwable): String {
