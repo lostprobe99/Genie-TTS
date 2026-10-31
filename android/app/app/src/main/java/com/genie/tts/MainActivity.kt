@@ -192,6 +192,7 @@ class MainActivity : AppCompatActivity() {
     private var active = -1
     private var busy = false
     private var playing = false
+    private var speedGestureKeepsAudio = false
     private var synthesizing = false
     private var loadingModel = false
     private var playFocusGranted = true
@@ -540,11 +541,16 @@ class MainActivity : AppCompatActivity() {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 renderSpeed()
                 speedFile().writeText(progress.coerceIn(0, 16).toString())
-                if (fromUser && !suppress) invalidateAudio()
+                if (fromUser && !suppress && !playing && !speedGestureKeepsAudio) invalidateAudio()
             }
 
-            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
-            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStartTrackingTouch(seekBar: SeekBar?) {
+                speedGestureKeepsAudio = playing
+            }
+
+            override fun onStopTrackingTouch(seekBar: SeekBar?) {
+                speedGestureKeepsAudio = false
+            }
         })
         characters.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
