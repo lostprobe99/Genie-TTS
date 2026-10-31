@@ -1,8 +1,14 @@
 package com.genie.tts
 
 import org.json.JSONObject
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.InputStream
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.channels.FileChannel
+import java.util.zip.DataFormatException
+import java.util.zip.Inflater
 import java.util.zip.ZipInputStream
 
 data class CharacterInfo(
@@ -15,6 +21,13 @@ data class CharacterInfo(
 data class ImportResult(
     val info: CharacterInfo,
     val replaced: Boolean,
+)
+
+data class PackPreview(
+    val id: String,
+    val name: String,
+    val refText: String,
+    val audioName: String?,
 )
 
 /** 一个角色包解压后的目录。安装包本身不带角色。 */
@@ -33,6 +46,8 @@ object CharacterPack {
     private val AVATAR_FILES = listOf("avatar.webp", "avatar.png", "avatar.jpg", "avatar.jpeg")
     private const val MIN_MODEL_BYTES = 1024L
     private const val MAX_ENTRY_BYTES = 2_000_000_000L
+    private const val MAX_AUDIO_BYTES = 32L * 1024 * 1024
+    private val AUDIO_EXT = listOf(".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac")
 
     fun directory(filesDir: File): File = File(filesDir, "characters")
 
@@ -78,21 +93,57 @@ object CharacterPack {
         stamp(File(dest, "manifest.json"), id)
     }
 
-    fun peek(input: InputStream): Pair<String, String> {
-        ZipInputStream(input).use { zip ->
-            while (true) {
-                val entry = zip.nextEntry ?: break
-                val name = entry.name.trimStart('/', '\\').replace('\\', '/')
-                if (entry.isDirectory || !name.endsWith("manifest.json")) continue
-                if (name.split('/').any { it == ".." }) continue
-                val manifest = JSONObject(zip.readBytes().toString(Charsets.UTF_8))
-                val id = manifest.optString("id").trim().lowercase()
-                if (!ID_PATTERN.matches(id)) error("角色 id 不合法")
-                val packName = manifest.optString("name").ifBlank { displayName(id) }
-                return id to packName
+    fun peek(channel: FileChannel): PackPreview {
+        val items = catalog(channel)
+        val manifest = items
+            .filter { it.name.substringAfterLast('/') == "manifest.json" && safeZipPath(it.name) }
+            .minByOrNull { it.name.count { char -> char == '/' } }
+            ?: error("压缩包里没有 manifest.json")
+        val json = JSONObject(readZipEntry(channel, manifest, 1_000_000).toString(Charsets.UTF_8))
+        val id = json.optString("id").trim().lowercase()
+        if (!ID_PATTERN.matches(id)) error("角色 id 不合法")
+        val packName = json.optString("name").ifBlank { displayName(id) }
+        val refText = json.optString("ref_text")
+        val audio = items
+            .filter { safeZipPath(it.name) && isAudioName(it.name) }
+            .minWithOrNull(compareBy({ audioRank(it.name) }, { it.name }))
+        return PackPreview(id, packName, refText, audio?.name)
+    }
+
+    fun readNamed(channel: FileChannel, name: String): ByteArray {
+        val item = catalog(channel).firstOrNull { it.name == name && safeZipPath(it.name) }
+            ?: error("压缩包里没有参考音频")
+        return readZipEntry(channel, item, MAX_AUDIO_BYTES)
+    }
+
+    /** PCM wav 的时长。不是 wav，或者头不完整，就返回 null。 */
+    fun wavSeconds(bytes: ByteArray): Double? {
+        if (bytes.size < 44) return null
+        if (ascii(bytes, 0, 4) != "RIFF" || ascii(bytes, 8, 4) != "WAVE") return null
+        var offset = 12
+        var rate = 0
+        var channels = 0
+        var bits = 0
+        var dataBytes = -1L
+        while (offset + 8 <= bytes.size) {
+            val id = ascii(bytes, offset, 4) ?: return null
+            val size = ByteBuffer.wrap(bytes, offset + 4, 4).order(ByteOrder.LITTLE_ENDIAN).int.toLong() and 0xffffffffL
+            val body = offset + 8
+            if (body + size > bytes.size) return null
+            if (id == "fmt " && size >= 16) {
+                val fmt = ByteBuffer.wrap(bytes, body, 16).slice().order(ByteOrder.LITTLE_ENDIAN)
+                channels = fmt.getShort(2).toInt() and 0xffff
+                rate = fmt.getInt(4)
+                bits = fmt.getShort(14).toInt() and 0xffff
+            } else if (id == "data") {
+                dataBytes = size
             }
+            val padded = size + (size and 1L)
+            offset = body + padded.toInt()
         }
-        error("压缩包里没有 manifest.json")
+        val frame = channels * (bits / 8)
+        if (rate <= 0 || frame <= 0 || dataBytes < 0) return null
+        return dataBytes.toDouble() / (rate * frame)
     }
 
     fun importZip(filesDir: File, input: InputStream, displayName: String? = null): ImportResult {
@@ -284,5 +335,136 @@ object CharacterPack {
                 }
             }
         }
+    }
+
+    private data class ZipItem(
+        val name: String,
+        val method: Int,
+        val compressedSize: Long,
+        val size: Long,
+        val offset: Long,
+    )
+
+    private fun catalog(channel: FileChannel): List<ZipItem> {
+        val fileSize = channel.size()
+        if (fileSize < 22) error("压缩包不完整")
+        val tailLen = minOf(fileSize, 22L + 65535L).toInt()
+        val tail = readAt(channel, fileSize - tailLen, tailLen)
+        val bytes = ByteArray(tail.remaining())
+        tail.get(bytes)
+        var eocd = -1
+        for (index in bytes.size - 22 downTo 0) {
+            if (bytes[index] != 0x50.toByte() || bytes[index + 1] != 0x4b.toByte()) continue
+            if (bytes[index + 2] != 0x05.toByte() || bytes[index + 3] != 0x06.toByte()) continue
+            val commentLen = (bytes[index + 20].toInt() and 0xff) or ((bytes[index + 21].toInt() and 0xff) shl 8)
+            if (index + 22 + commentLen == bytes.size) {
+                eocd = index
+                break
+            }
+        }
+        if (eocd < 0) error("压缩包不完整")
+        val header = ByteBuffer.wrap(bytes, eocd, 22).slice().order(ByteOrder.LITTLE_ENDIAN)
+        val cdSize = header.getInt(12).toLong() and 0xffffffffL
+        val cdOffset = header.getInt(16).toLong() and 0xffffffffL
+        if (cdSize == 0xffffffffL || cdOffset == 0xffffffffL || cdSize > 20_000_000L) error("压缩包过大")
+        if (cdOffset < 0 || cdOffset + cdSize > fileSize) error("压缩包不完整")
+        val directory = readAt(channel, cdOffset, cdSize.toInt())
+        val items = mutableListOf<ZipItem>()
+        while (directory.remaining() >= 46) {
+            val start = directory.position()
+            if (directory.getInt(start) != 0x02014b50) break
+            val method = directory.getShort(start + 10).toInt() and 0xffff
+            val compressed = directory.getInt(start + 20).toLong() and 0xffffffffL
+            val size = directory.getInt(start + 24).toLong() and 0xffffffffL
+            val nameLen = directory.getShort(start + 28).toInt() and 0xffff
+            val extraLen = directory.getShort(start + 30).toInt() and 0xffff
+            val commentLen = directory.getShort(start + 32).toInt() and 0xffff
+            val offset = directory.getInt(start + 42).toLong() and 0xffffffffL
+            if (compressed == 0xffffffffL || size == 0xffffffffL || offset == 0xffffffffL) error("压缩包过大")
+            val nameBytes = ByteArray(nameLen)
+            directory.position(start + 46)
+            if (directory.remaining() < nameLen) error("压缩包不完整")
+            directory.get(nameBytes)
+            val name = String(nameBytes, Charsets.UTF_8).trimStart('/', '\\').replace('\\', '/')
+            items += ZipItem(name, method, compressed, size, offset)
+            val next = start + 46 + nameLen + extraLen + commentLen
+            if (next < start || next > directory.limit()) error("压缩包不完整")
+            directory.position(next)
+        }
+        return items
+    }
+
+    private fun readZipEntry(channel: FileChannel, item: ZipItem, limit: Long): ByteArray {
+        if (item.size > limit || item.compressedSize > limit) error("压缩包里的文件太大")
+        if (item.method != 0 && item.method != 8) error("参考音频读不出来")
+        val local = readAt(channel, item.offset, 30)
+        if (local.getInt(0) != 0x04034b50) error("压缩包不完整")
+        val nameLen = local.getShort(26).toInt() and 0xffff
+        val extraLen = local.getShort(28).toInt() and 0xffff
+        val dataStart = item.offset + 30L + nameLen + extraLen
+        if (item.compressedSize > Int.MAX_VALUE) error("参考音频太大")
+        val compressed = readAt(channel, dataStart, item.compressedSize.toInt())
+        val raw = ByteArray(item.compressedSize.toInt())
+        compressed.get(raw)
+        if (item.method == 0) return raw
+        val inflater = Inflater(true)
+        return try {
+            inflater.setInput(raw)
+            val output = ByteArrayOutputStream()
+            val buffer = ByteArray(8192)
+            var produced = 0L
+            while (!inflater.finished()) {
+                val count = inflater.inflate(buffer)
+                if (count == 0) {
+                    if (inflater.needsInput() || inflater.needsDictionary()) break
+                    continue
+                }
+                produced += count
+                if (produced > limit) error("压缩包里的文件太大")
+                output.write(buffer, 0, count)
+            }
+            if (!inflater.finished()) error("参考音频读不出来")
+            output.toByteArray()
+        } catch (error: DataFormatException) {
+            error("参考音频读不出来")
+        } finally {
+            inflater.end()
+        }
+    }
+
+    private fun readAt(channel: FileChannel, position: Long, length: Int): ByteBuffer {
+        if (length < 0 || position < 0 || position + length > channel.size()) error("压缩包不完整")
+        val buffer = ByteBuffer.allocate(length).order(ByteOrder.LITTLE_ENDIAN)
+        var got = 0
+        while (got < length) {
+            val count = channel.read(buffer, position + got)
+            if (count < 0) error("压缩包不完整")
+            got += count
+        }
+        buffer.flip()
+        return buffer
+    }
+
+    private fun safeZipPath(name: String): Boolean = name.isNotEmpty() && name.split('/').none { it == ".." }
+
+    private fun isAudioName(name: String): Boolean {
+        val file = name.substringAfterLast('/').lowercase()
+        return AUDIO_EXT.any { file.endsWith(it) }
+    }
+
+    private fun audioRank(name: String): Int {
+        val file = name.substringAfterLast('/').lowercase()
+        val named = listOf("sample", "ref", "prompt", "audio").any { file.contains(it) }
+        return when {
+            named && file.endsWith(".wav") -> 0
+            named -> 1
+            file.endsWith(".wav") -> 2
+            else -> 3
+        }
+    }
+
+    private fun ascii(bytes: ByteArray, offset: Int, length: Int): String? {
+        if (offset < 0 || length < 0 || offset + length > bytes.size) return null
+        return String(bytes, offset, length, Charsets.US_ASCII)
     }
 }

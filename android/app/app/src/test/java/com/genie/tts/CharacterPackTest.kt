@@ -3,9 +3,14 @@ package com.genie.tts
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.channels.FileChannel
+import java.util.zip.CRC32
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -61,6 +66,34 @@ class CharacterPackTest {
     }
 
     @Test
+    fun peekReadsTheManifestAndPrefersTheReferenceClip() {
+        val root = File("build/character-peek-test").apply { deleteRecursively(); mkdirs() }
+        val packed = File(root, "feibi.zip")
+        val clip = pcmWav(1)
+        val manifest = """{"id":"feibi","name":"菲比","ref_text":"参考原文feibi"}""".toByteArray()
+        ZipOutputStream(packed.outputStream()).use { zip ->
+            putStored(zip, "noise.mp3", byteArrayOf(1, 2, 3, 4))
+            putStored(zip, "voice/sample.wav", clip)
+            zip.putNextEntry(ZipEntry("models/manifest.json"))
+            zip.write(manifest)
+            zip.closeEntry()
+        }
+        FileChannel.open(packed.toPath()).use { channel ->
+            val preview = CharacterPack.peek(channel)
+            assertEquals("feibi", preview.id)
+            assertEquals("菲比", preview.name)
+            assertEquals("参考原文feibi", preview.refText)
+            assertEquals("voice/sample.wav", preview.audioName)
+        }
+        FileChannel.open(packed.toPath()).use { channel ->
+            val bytes = CharacterPack.readNamed(channel, "voice/sample.wav")
+            assertEquals(clip.size, bytes.size)
+            assertEquals(1.0, CharacterPack.wavSeconds(bytes)!!, 0.001)
+        }
+        assertNull(CharacterPack.wavSeconds(byteArrayOf(1, 2, 3)))
+    }
+
+    @Test
     fun caseAllowsManifestWithoutSampleSentence() {
         val root = File("build/case-no-text").apply { deleteRecursively(); mkdirs() }
         File(root, "manifest.json").writeText("""{"sample_rate":32000,"tensors":{}}""")
@@ -87,6 +120,37 @@ class CharacterPackTest {
         assertEquals(1, manifest.getInt("format"))
         assertEquals("feibi", manifest.getString("id"))
         assertEquals("菲比", manifest.getString("name"))
+    }
+
+    private fun putStored(zip: ZipOutputStream, name: String, bytes: ByteArray) {
+        val entry = ZipEntry(name)
+        entry.method = ZipEntry.STORED
+        entry.size = bytes.size.toLong()
+        entry.compressedSize = bytes.size.toLong()
+        entry.crc = CRC32().apply { update(bytes) }.value
+        zip.putNextEntry(entry)
+        zip.write(bytes)
+        zip.closeEntry()
+    }
+
+    private fun pcmWav(seconds: Int): ByteArray {
+        val rate = 8000
+        val data = ByteArray(rate * seconds)
+        val header = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
+        header.put("RIFF".toByteArray(Charsets.US_ASCII))
+        header.putInt(36 + data.size)
+        header.put("WAVE".toByteArray(Charsets.US_ASCII))
+        header.put("fmt ".toByteArray(Charsets.US_ASCII))
+        header.putInt(16)
+        header.putShort(1)
+        header.putShort(1)
+        header.putInt(rate)
+        header.putInt(rate)
+        header.putShort(1)
+        header.putShort(8)
+        header.put("data".toByteArray(Charsets.US_ASCII))
+        header.putInt(data.size)
+        return header.array() + data
     }
 
     private fun zip(dest: File, id: String, name: String): File {

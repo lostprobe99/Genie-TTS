@@ -1,6 +1,7 @@
 package com.genie.tts
 
 import android.Manifest
+import android.app.Dialog
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
@@ -11,7 +12,11 @@ import android.graphics.Outline
 import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
+import android.media.MediaMetadataRetriever
+import android.media.MediaPlayer
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -26,6 +31,7 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
 import android.widget.AdapterView
@@ -52,6 +58,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.drawerlayout.widget.DrawerLayout
 import java.io.File
+import java.io.FileInputStream
 import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -143,6 +150,13 @@ class MainActivity : AppCompatActivity() {
     private var previewId: String? = null
     private var batching = false
     private val picked = mutableSetOf<String>()
+    private var importSheet: Dialog? = null
+    private var importInspecting = false
+    private var importToken = 0
+    private var importPlayer: MediaPlayer? = null
+    private var importFocus: AudioFocusRequest? = null
+    private var importAudioFile: File? = null
+    private var importListen: TextView? = null
 
     private val avatarIcons = intArrayOf(
         R.drawable.ic_avatar_wave,
@@ -219,6 +233,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        importSheet?.setOnDismissListener(null)
+        importSheet?.dismiss()
+        importSheet = null
+        stopImportAudio()
+        importAudioFile?.delete()
+        importAudioFile = null
         playGen.incrementAndGet()
         if (isFinishing) {
             Engines.activityOpen = false
@@ -782,21 +802,191 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onCharacterPicked(uri: Uri) {
-        if (busy) return
+        if (busy || importInspecting) return
+        importInspecting = true
         worker.execute {
             try {
-                val peeked = contentResolver.openInputStream(uri)?.use { CharacterPack.peek(it) }
-                    ?: error("打不开这个文件")
-                val existing = CharacterPack.list(filesDir).find { it.id == peeked.first }?.name
-                val prefill = existing ?: peeked.second
+                val preview = contentResolver.openFileDescriptor(uri, "r")?.use { parcel ->
+                    FileInputStream(parcel.fileDescriptor).use { input -> CharacterPack.peek(input.channel) }
+                } ?: error("打不开这个文件")
+                val name = displayName(uri).ifBlank { "角色包.zip" }
+                val size = fileSize(uri)
                 runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    askName("给角色命名", prefill) { name -> importCharacter(uri, name) }
+                    importInspecting = false
+                    if (!isDestroyed) showImportSheet(uri, preview, name, size)
                 }
             } catch (error: Exception) {
-                runOnUiThread { if (!isDestroyed) alert(human(error)) }
+                runOnUiThread {
+                    importInspecting = false
+                    if (!isDestroyed) alert(human(error))
+                }
             }
         }
+    }
+
+    private fun showImportSheet(uri: Uri, preview: PackPreview, fileName: String, fileBytes: Long) {
+        importSheet?.setOnDismissListener(null)
+        importSheet?.dismiss()
+        stopImportAudio()
+        importAudioFile?.delete()
+        importAudioFile = null
+        val token = ++importToken
+        val dialog = Dialog(this, R.style.Theme_Genie_Sheet)
+        val root = layoutInflater.inflate(R.layout.dialog_import_role, null)
+        dialog.setContentView(root)
+        dialog.setCanceledOnTouchOutside(true)
+        dialog.window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setGravity(Gravity.BOTTOM)
+            setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        }
+        root.findViewById<TextView>(R.id.importFileName).text = fileName
+        val size = if (fileBytes >= 0) sizeLabel(fileBytes) else ""
+        root.findViewById<TextView>(R.id.importFileMeta).text =
+            if (size.isEmpty()) getString(R.string.import_full_pack) else "$size · ${getString(R.string.import_full_pack)}"
+        root.findViewById<TextView>(R.id.importRoleId).text = preview.id
+        val nameField = root.findViewById<EditText>(R.id.importRoleName)
+        val existing = roster.find { it.id == preview.id }?.name
+        nameField.setText(existing ?: preview.name)
+        nameField.setSelection(nameField.text.length)
+        val audioLabel = root.findViewById<TextView>(R.id.importAudioLabel)
+        val listen = root.findViewById<TextView>(R.id.importPreview)
+        importListen = listen
+        val audioName = preview.audioName
+        if (audioName == null) {
+            audioLabel.setText(R.string.import_no_audio)
+            listen.alpha = 0.4f
+            listen.setOnClickListener { toast(getString(R.string.import_no_audio)) }
+        } else {
+            audioLabel.text = "参考音频: ${audioName.substringAfterLast('/')}（正在读取）"
+            listen.alpha = 0.4f
+            listen.isEnabled = false
+            worker.execute {
+                try {
+                    val bytes = contentResolver.openFileDescriptor(uri, "r")?.use { parcel ->
+                        FileInputStream(parcel.fileDescriptor).use { input ->
+                            CharacterPack.readNamed(input.channel, audioName)
+                        }
+                    } ?: error("打不开这个文件")
+                    val ext = audioName.substringAfterLast('.', "bin").lowercase()
+                    val file = File(cacheDir, "import-reference.$ext")
+                    file.writeBytes(bytes)
+                    val seconds = CharacterPack.wavSeconds(bytes) ?: mediaSeconds(file)
+                    runOnUiThread {
+                        if (isDestroyed || token != importToken) {
+                            file.delete()
+                            return@runOnUiThread
+                        }
+                        importAudioFile = file
+                        audioLabel.text = audioCaption(audioName, seconds)
+                        listen.alpha = 1f
+                        listen.isEnabled = true
+                        listen.setOnClickListener {
+                            val playing = runCatching { importPlayer?.isPlaying == true }.getOrDefault(false)
+                            if (playing) stopImportAudio() else playImportAudio(file, listen)
+                        }
+                    }
+                } catch (error: Exception) {
+                    runOnUiThread {
+                        if (isDestroyed || token != importToken) return@runOnUiThread
+                        audioLabel.setText(R.string.import_audio_failed)
+                        listen.alpha = 0.4f
+                        listen.setOnClickListener { toast(human(error)) }
+                    }
+                }
+            }
+        }
+        root.findViewById<View>(R.id.importClose).setOnClickListener { dialog.dismiss() }
+        root.findViewById<View>(R.id.importCancel).setOnClickListener { dialog.dismiss() }
+        root.findViewById<View>(R.id.importReselect).setOnClickListener {
+            pickCharacter.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+        }
+        root.findViewById<View>(R.id.importConfirm).setOnClickListener {
+            if (busy) return@setOnClickListener
+            val typed = nameField.text.toString().trim()
+            dialog.dismiss()
+            importCharacter(uri, typed.ifEmpty { preview.id })
+        }
+        dialog.setOnDismissListener {
+            if (importSheet === dialog) importSheet = null
+            stopImportAudio()
+            importAudioFile?.delete()
+            importAudioFile = null
+            if (token == importToken) importToken++
+        }
+        val scroll = root.findViewById<android.widget.ScrollView>(R.id.importScroll)
+        scroll.post {
+            val max = (resources.displayMetrics.heightPixels * 0.58f).toInt()
+            if (scroll.height > max) scroll.layoutParams = scroll.layoutParams.apply { height = max }
+        }
+        importSheet = dialog
+        dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+    }
+
+    private fun playImportAudio(file: File, button: TextView) {
+        stopPlaying()
+        stopImportAudio()
+        val attributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_MEDIA)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build()
+        val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+            .setAudioAttributes(attributes)
+            .build()
+        val granted = getSystemService(AudioManager::class.java)
+            .requestAudioFocus(focus) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        importFocus = focus
+        val player = MediaPlayer()
+        importPlayer = player
+        try {
+            player.setAudioAttributes(attributes)
+            player.setDataSource(file.absolutePath)
+            player.setOnCompletionListener { runOnUiThread { stopImportAudio() } }
+            player.prepare()
+            player.start()
+            button.text = "停止"
+            if (!granted) toast("声音可能被其他应用占用")
+        } catch (_: Exception) {
+            stopImportAudio()
+            toast(getString(R.string.import_audio_failed))
+        }
+    }
+
+    private fun stopImportAudio() {
+        val player = importPlayer
+        importPlayer = null
+        player?.runCatching { stop() }
+        player?.runCatching { release() }
+        importFocus?.let { focus ->
+            getSystemService(AudioManager::class.java).abandonAudioFocusRequest(focus)
+        }
+        importFocus = null
+        importListen?.text = getString(R.string.preview)
+    }
+
+    private fun mediaSeconds(file: File): Double? {
+        val retriever = MediaMetadataRetriever()
+        return try {
+            retriever.setDataSource(file.absolutePath)
+            val millis = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+            if (millis == null || millis <= 0L) null else millis / 1000.0
+        } catch (_: Exception) {
+            null
+        } finally {
+            retriever.release()
+        }
+    }
+
+    private fun audioCaption(name: String, seconds: Double?): String {
+        val file = name.substringAfterLast('/')
+        val clock = seconds?.let { " (${formatSec(it)}s)" }.orEmpty()
+        return "参考音频: $file$clock"
+    }
+
+    private fun sizeLabel(bytes: Long): String {
+        val mb = bytes / (1024.0 * 1024.0)
+        return if (mb >= 0.1) "%.1f MB".format(Locale.US, mb) else "$bytes B"
     }
 
     private fun importCharacter(uri: Uri, name: String) {
@@ -1669,6 +1859,13 @@ class MainActivity : AppCompatActivity() {
         busy = value
         updateControls()
         if (sentenceScroll.visibility == View.VISIBLE) renderSentences()
+    }
+
+    private fun fileSize(uri: Uri): Long {
+        contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst() && !cursor.isNull(0)) return cursor.getLong(0)
+        }
+        return -1L
     }
 
     private fun displayName(uri: Uri): String {

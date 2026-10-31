@@ -11,6 +11,17 @@
         <item name="android:alertDialogTheme">@style/Theme.Genie.Dialog</item>
     </style>
 
+    <style name="Theme.Genie.Sheet" parent="Theme.AppCompat.Dialog">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowIsFloating">true</item>
+        <item name="android:backgroundDimEnabled">true</item>
+        <item name="android:backgroundDimAmount">0.5</item>
+        <item name="colorAccent">@color/primary</item>
+        <item name="android:textColor">@color/text_main</item>
+        <item name="android:textColorPrimary">@color/text_main</item>
+        <item name="android:textColorHint">@color/text_sub</item>
+    </style>
+
     <style name="Theme.Genie.Dialog" parent="Theme.AppCompat.Dialog.Alert">
         <item name="android:background">@color/ink_soft</item>
         <item name="android:windowBackground">@color/ink_soft</item>
