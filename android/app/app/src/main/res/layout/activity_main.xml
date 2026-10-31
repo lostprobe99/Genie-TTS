@@ -426,6 +426,12 @@
                     android:textSize="18sp" />
 
                 <LinearLayout
+                    android:id="@+id/speakChrome"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                <LinearLayout
                     android:id="@+id/sentenceCard"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -625,6 +631,7 @@
                         android:textColor="@color/primary"
                         android:textSize="16sp"
                         app:backgroundTint="@null" />
+                </LinearLayout>
                 </LinearLayout>
             </LinearLayout>
 

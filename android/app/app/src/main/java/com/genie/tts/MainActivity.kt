@@ -103,6 +103,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var drawerServiceState: TextView
     private lateinit var drawerProsodyState: TextView
     private lateinit var speakPage: View
+    private lateinit var speakChrome: View
+    private var imeBottom = 0
     private lateinit var characterPage: View
     private lateinit var servicePage: View
     private lateinit var prosodyPage: View
@@ -317,6 +319,7 @@ class MainActivity : AppCompatActivity() {
         drawerServiceState = findViewById(R.id.drawerServiceState)
         drawerProsodyState = findViewById(R.id.drawerProsodyState)
         speakPage = findViewById(R.id.speakPage)
+        speakChrome = findViewById(R.id.speakChrome)
         characterPage = findViewById(R.id.characterPage)
         servicePage = findViewById(R.id.servicePage)
         prosodyPage = findViewById(R.id.prosodyPage)
@@ -417,6 +420,8 @@ class MainActivity : AppCompatActivity() {
                 WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout(),
             )
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+            imeBottom = ime
+            applyTypingSpace()
             content.updatePadding(
                 left = contentLeft + bars.left,
                 right = contentRight + bars.right,
@@ -428,6 +433,11 @@ class MainActivity : AppCompatActivity() {
             drawerNav.updatePadding(bottom = drawerNavBottom + bars.bottom)
             WindowInsetsCompat.CONSUMED
         }
+    }
+
+    private fun applyTypingSpace() {
+        val typing = imeBottom > 0 && sentence.hasFocus()
+        speakChrome.visibility = if (typing) View.GONE else View.VISIBLE
     }
 
     private fun bindActions() {
@@ -516,6 +526,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+        sentence.setOnFocusChangeListener { _, _ -> applyTypingSpace() }
         sentence.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
@@ -606,6 +617,7 @@ class MainActivity : AppCompatActivity() {
         servicePage.visibility = if (next == Page.Service) View.VISIBLE else View.GONE
         prosodyPage.visibility = if (next == Page.Prosody) View.VISIBLE else View.GONE
         aboutPage.visibility = if (next == Page.About) View.VISIBLE else View.GONE
+        applyTypingSpace()
         val onSpeak = next == Page.Speak
         val onRoles = next == Page.Characters
         val onProsody = next == Page.Prosody
