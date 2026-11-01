@@ -77,6 +77,9 @@
     <string name="import_display_name">角色名称 (显示名称，支持自定义)</string>
     <string name="import_name_hint">请输入角色显示名称（可自定义）</string>
     <string name="import_name_note">注：角色名可在导入时编辑，留空将默认使用角色ID</string>
+    <string name="import_update">更新角色模型</string>
+    <string name="import_name_note_update">注：这会替换已经导入的同名角色。显示名可以改，留空将默认使用角色ID</string>
+    <string name="import_confirm_update">确认更新</string>
     <string name="import_cancel">取消</string>
     <string name="import_confirm">确认导入</string>
     <string name="import_close">关闭弹窗</string>

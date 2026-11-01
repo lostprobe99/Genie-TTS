@@ -1074,6 +1074,11 @@ class MainActivity : AppCompatActivity() {
         root.findViewById<TextView>(R.id.importRoleId).text = preview.id
         val nameField = root.findViewById<EditText>(R.id.importRoleName)
         val existing = roster.find { it.id == preview.id }?.name
+        if (existing != null) {
+            root.findViewById<TextView>(R.id.importTitle).setText(R.string.import_update)
+            root.findViewById<TextView>(R.id.importNameNote).setText(R.string.import_name_note_update)
+            root.findViewById<TextView>(R.id.importConfirm).setText(R.string.import_confirm_update)
+        }
         nameField.setText(existing ?: preview.name)
         nameField.setSelection(nameField.text.length)
         val audioLabel = root.findViewById<TextView>(R.id.importAudioLabel)
@@ -1235,7 +1240,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 val result = contentResolver.openInputStream(uri)?.use { CharacterPack.importZip(filesDir, it, name) }
                     ?: error("打不开这个文件")
-                val action = if (result.replaced) "已替换" else "已导入"
+                val action = if (result.replaced) "已更新" else "已导入"
                 TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "$action ${result.info.id}")
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
