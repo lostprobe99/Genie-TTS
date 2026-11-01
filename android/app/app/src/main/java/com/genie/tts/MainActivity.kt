@@ -2319,21 +2319,19 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(10), dp(8), dp(10), dp(8))
             setBackgroundColor(logRowColor(line.level))
         }
-        if (line.date.isNotBlank()) {
-            row.addView(TextView(this).apply {
-                text = line.date
-                textSize = 11f
-                typeface = Typeface.MONOSPACE
-                setTextColor(0xFF475569.toInt())
-            })
-        }
         val meta = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            isBaselineAligned = false
         }
+        val stamp = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        fun stampChild() = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        )
+        if (line.date.isNotBlank()) stamp.addView(logStamp(line.date), stampChild())
+        stamp.addView(logStamp(line.time.ifBlank { "--:--:--.---" }), stampChild())
         meta.addView(
-            logStamp(line.time.ifBlank { "--:--:--.---" }),
+            stamp,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,

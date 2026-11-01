@@ -6,6 +6,9 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Path
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -231,12 +234,31 @@ class TtsService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat)
+            .setLargeIcon(notificationLogo())
             .setContentTitle("朗读接口开着")
             .setContentText("http://127.0.0.1:${TtsRuntime.port}/tts")
             .setOngoing(true)
             .setContentIntent(pending)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
+    }
+
+    private fun notificationLogo(): Bitmap {
+        val size = (64 * resources.displayMetrics.density).toInt().coerceAtLeast(128)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.clipPath(Path().apply {
+            addCircle(size / 2f, size / 2f, size / 2f, Path.Direction.CW)
+        })
+        getDrawable(R.drawable.bg_launcher)?.also {
+            it.setBounds(0, 0, size, size)
+            it.draw(canvas)
+        }
+        getDrawable(R.drawable.ic_launcher_foreground)?.also {
+            it.setBounds(0, 0, size, size)
+            it.draw(canvas)
+        }
+        return bitmap
     }
 
     private fun enterForeground(notification: android.app.Notification) {
