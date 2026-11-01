@@ -345,6 +345,54 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/helpBar"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp"
+                android:visibility="gone">
+
+                <ImageButton
+                    android:id="@+id/helpBack"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="@string/back"
+                    android:src="@drawable/ic_back"
+                    app:tint="@android:color/white" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="2dp"
+                    android:layout_weight="1"
+                    android:text="@string/help"
+                    android:textColor="@android:color/white"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <ImageButton
+                    android:id="@+id/helpRefresh"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="当前版本"
+                    android:src="@drawable/ic_refresh"
+                    app:tint="@android:color/white" />
+
+                <ImageButton
+                    android:id="@+id/helpDocs"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="打开仓库"
+                    android:src="@drawable/ic_nav_help"
+                    app:tint="@android:color/white" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/logsBar"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -909,6 +957,13 @@
             <include
                 android:id="@+id/logsPage"
                 layout="@layout/page_logs"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone" />
+
+            <include
+                android:id="@+id/helpPage"
+                layout="@layout/page_help"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:visibility="gone" />

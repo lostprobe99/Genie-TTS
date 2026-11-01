@@ -80,7 +80,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity() {
-    private enum class Page { Speak, Characters, Service, Prosody, About, Logs }
+    private enum class Page { Speak, Characters, Service, Prosody, About, Logs, Help }
 
     private val worker = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "genie").apply { isDaemon = true }
@@ -99,6 +99,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var aboutBar: View
     private lateinit var serviceBar: View
     private lateinit var logsBar: View
+    private lateinit var helpBar: View
     private lateinit var otherBar: View
     private lateinit var roleRow: View
     private lateinit var menuButton: android.widget.ImageButton
@@ -115,6 +116,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prosodyPage: View
     private lateinit var aboutPage: View
     private lateinit var logsPage: View
+    private lateinit var helpPage: View
     private lateinit var placeholder: TextView
     private lateinit var characters: android.widget.Spinner
     private lateinit var sentence: EditText
@@ -162,6 +164,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var serviceLanUrl: TextView
     private lateinit var serviceIds: TextView
     private var logLevelFilter: LogLevel? = null
+    private var helpCategory = "all"
+    private val helpOpen = mutableMapOf<String, Boolean>()
     private var pendingLogText: String? = null
     private lateinit var prosodyStatus: TextView
     private lateinit var prosodyDetail: TextView
@@ -332,6 +336,7 @@ class MainActivity : AppCompatActivity() {
         aboutBar = findViewById(R.id.aboutBar)
         serviceBar = findViewById(R.id.serviceBar)
         logsBar = findViewById(R.id.logsBar)
+        helpBar = findViewById(R.id.helpBar)
         otherBar = findViewById(R.id.otherBar)
         roleRow = findViewById(R.id.roleRow)
         menuButton = findViewById(R.id.menuButton)
@@ -347,6 +352,7 @@ class MainActivity : AppCompatActivity() {
         prosodyPage = findViewById(R.id.prosodyPage)
         aboutPage = findViewById(R.id.aboutPage)
         logsPage = findViewById(R.id.logsPage)
+        helpPage = findViewById(R.id.helpPage)
         placeholder = findViewById(R.id.characterPlaceholder)
         characters = findViewById(R.id.characters)
         sentence = findViewById(R.id.sentence)
@@ -481,6 +487,31 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.prosodyBack).setOnClickListener { drawer.openDrawer(drawerPanel) }
         findViewById<View>(R.id.aboutBack).setOnClickListener { showPage(Page.Speak) }
         findViewById<View>(R.id.logsBack).setOnClickListener { showPage(Page.Speak) }
+        findViewById<View>(R.id.helpBack).setOnClickListener { showPage(Page.Speak) }
+        findViewById<View>(R.id.helpRefresh).setOnClickListener {
+            toast("当前是 ${versionBadge()}。应用不在线检查更新。")
+        }
+        findViewById<View>(R.id.helpDocs).setOnClickListener { openRepo() }
+        findViewById<View>(R.id.helpFilterAll).setOnClickListener { pickHelpCategory("all") }
+        findViewById<View>(R.id.helpFilterStarter).setOnClickListener { pickHelpCategory("starter") }
+        findViewById<View>(R.id.helpFilterLegado).setOnClickListener { pickHelpCategory("legado") }
+        findViewById<View>(R.id.helpFilterBattery).setOnClickListener { pickHelpCategory("battery") }
+        findViewById<View>(R.id.helpFilterModel).setOnClickListener { pickHelpCategory("model") }
+        findViewById<View>(R.id.helpFilterService).setOnClickListener { pickHelpCategory("service") }
+        val helpQuery = findViewById<EditText>(R.id.helpQuery)
+        helpQuery.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                findViewById<View>(R.id.helpQueryClear).visibility =
+                    if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
+                if (page == Page.Help) renderHelp(true)
+            }
+        })
+        findViewById<View>(R.id.helpQueryClear).setOnClickListener { helpQuery.setText("") }
+        findViewById<View>(R.id.helpRepo).setOnClickListener { openRepo() }
+        findViewById<View>(R.id.helpProsody).setOnClickListener { openLink(Release.PROSODY_URL) }
+        findViewById<View>(R.id.helpOpenLogs).setOnClickListener { showPage(Page.Logs) }
         findViewById<View>(R.id.logsRefresh).setOnClickListener {
             TtsLog.reload()
             renderLogs(true)
@@ -537,7 +568,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.openHelp).setOnClickListener {
             drawer.closeDrawer(drawerPanel)
-            toast(getString(R.string.not_ready))
+            showPage(Page.Help)
         }
         findViewById<View>(R.id.openLogs).setOnClickListener {
             drawer.closeDrawer(drawerPanel)
@@ -668,6 +699,7 @@ class MainActivity : AppCompatActivity() {
         prosodyPage.visibility = if (next == Page.Prosody) View.VISIBLE else View.GONE
         aboutPage.visibility = if (next == Page.About) View.VISIBLE else View.GONE
         logsPage.visibility = if (next == Page.Logs) View.VISIBLE else View.GONE
+        helpPage.visibility = if (next == Page.Help) View.VISIBLE else View.GONE
         applyTypingSpace()
         val onSpeak = next == Page.Speak
         val onRoles = next == Page.Characters
@@ -675,6 +707,7 @@ class MainActivity : AppCompatActivity() {
         val onAbout = next == Page.About
         val onService = next == Page.Service
         val onLogs = next == Page.Logs
+        val onHelp = next == Page.Help
         if (!onRoles) {
             roleMenu?.dismiss()
             batching = false
@@ -686,7 +719,8 @@ class MainActivity : AppCompatActivity() {
         aboutBar.visibility = if (onAbout) View.VISIBLE else View.GONE
         serviceBar.visibility = if (onService) View.VISIBLE else View.GONE
         logsBar.visibility = if (onLogs) View.VISIBLE else View.GONE
-        val light = onSpeak || onRoles || onProsody || onAbout || onService || onLogs
+        helpBar.visibility = if (onHelp) View.VISIBLE else View.GONE
+        val light = onSpeak || onRoles || onProsody || onAbout || onService || onLogs || onHelp
         otherBar.visibility = if (light) View.GONE else View.VISIBLE
         val pageColor = color(if (light) R.color.bg_light else R.color.ink)
         val headerColor = color(if (light) R.color.header else R.color.ink)
@@ -705,6 +739,7 @@ class MainActivity : AppCompatActivity() {
                 Page.Prosody -> R.string.prosody
                 Page.About -> R.string.about
                 Page.Logs -> R.string.view_log
+                Page.Help -> R.string.help
             },
         )
         menuButton.setImageResource(if (onSpeak) R.drawable.ic_menu else R.drawable.ic_back)
@@ -720,6 +755,7 @@ class MainActivity : AppCompatActivity() {
             Page.Prosody -> renderProsody()
             Page.About -> renderAbout()
             Page.Logs -> renderLogs(true)
+            Page.Help -> renderHelp(true)
             Page.Speak -> Unit
         }
         scheduleUptime()
@@ -2038,6 +2074,68 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun logAutoScroll(): SwitchCompat = findViewById(R.id.logAutoScroll)
+
+    private fun pickHelpCategory(key: String) {
+        helpCategory = key
+        if (page == Page.Help) renderHelp(true)
+    }
+
+    private fun renderHelp(toTop: Boolean) {
+        val scroll = helpPage as ScrollView
+        val scrollY = scroll.scrollY
+        paintHelpChips()
+        val query = findViewById<EditText>(R.id.helpQuery)
+        val shown = fillHelpList(
+            findViewById(R.id.helpTopics),
+            TtsRuntime.port,
+            query.text.toString(),
+            helpCategory,
+            helpOpen,
+            onToggle = { title ->
+                helpOpen[title] = helpOpen[title] != true
+                renderHelp(false)
+            },
+            onCopy = { copyHelpEndpoint() },
+        )
+        findViewById<View>(R.id.helpEmpty).visibility = if (shown) View.GONE else View.VISIBLE
+        findViewById<TextView>(R.id.helpProsodySub).text = "${Release.TAG} / prosody.zip"
+        findViewById<TextView>(R.id.helpVersion).text = "GenieTTS v${versionName()}"
+        scroll.post { scroll.scrollTo(0, if (toTop) 0 else scrollY) }
+    }
+
+    private fun paintHelpChips() {
+        listOf(
+            R.id.helpFilterAll to "all",
+            R.id.helpFilterStarter to "starter",
+            R.id.helpFilterLegado to "legado",
+            R.id.helpFilterBattery to "battery",
+            R.id.helpFilterModel to "model",
+            R.id.helpFilterService to "service",
+        ).forEach { (id, key) ->
+            val view = findViewById<TextView>(id)
+            val selected = helpCategory == key
+            view.setTextColor(if (selected) Color.WHITE else 0xFF475569.toInt())
+            view.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
+            view.background = GradientDrawable().apply {
+                cornerRadius = dp(16).toFloat()
+                setColor(if (selected) 0xFF0D7384.toInt() else Color.WHITE)
+            }
+        }
+    }
+
+    private fun copyHelpEndpoint() {
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("tts", helpCopyText(TtsRuntime.port)))
+        toast("已复制本机朗读接口")
+    }
+
+    private fun openLink(url: String) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (_: ActivityNotFoundException) {
+            toast("打不开这个链接")
+        }
+    }
 
     private fun pickLogLevel(level: LogLevel?) {
         logLevelFilter = level
