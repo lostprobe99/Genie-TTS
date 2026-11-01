@@ -42,17 +42,31 @@ internal object TtsRuntime {
     @Volatile
     var requests = 0
 
+    @Volatile
+    var failures = 0
+
+    @Volatile
+    var audioMs = 0.0
+
     private val statsLock = Any()
 
     var listener: (() -> Unit)? = null
 
-    fun noteCall() {
-        synchronized(statsLock) { requests += 1 }
+    fun noteCall(failed: Boolean, spokenMs: Double) {
+        synchronized(statsLock) {
+            requests += 1
+            if (failed) failures += 1
+            audioMs += spokenMs
+        }
         publish()
     }
 
     fun resetStats() {
-        synchronized(statsLock) { requests = 0 }
+        synchronized(statsLock) {
+            requests = 0
+            failures = 0
+            audioMs = 0.0
+        }
     }
 
     fun publish() {

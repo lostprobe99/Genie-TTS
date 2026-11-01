@@ -20,7 +20,7 @@ internal class TtsServer(
     private val characters: () -> Map<String, Int>,
     private val speaker: TtsSpeaker,
     private val log: (LogLevel, LogModule, String) -> Unit = { _, _, _ -> },
-    private val onCall: () -> Unit = {},
+    private val onCall: (Boolean, Double) -> Unit = { _, _ -> },
 ) {
     private var socket: ServerSocket? = null
     private var loop: Thread? = null
@@ -96,7 +96,7 @@ internal class TtsServer(
         if (length < 0 || length > MAX_BODY) {
             log(LogLevel.ERROR, LogModule.WEB, "$host 正文长度不对")
             writeText(output, 400, "Text is required")
-            onCall()
+            onCall(true, 0.0)
             return
         }
         val body = ByteArray(length)
@@ -111,14 +111,14 @@ internal class TtsServer(
         } catch (error: TtsException) {
             log(LogLevel.ERROR, LogModule.WEB, "$host ${error.status} ${error.message}")
             writeText(output, error.status, error.message ?: "Text is required")
-            onCall()
+            onCall(true, 0.0)
             return
         }
         val sampleRate = characters()[request.characterName]
         if (sampleRate == null) {
             log(LogLevel.ERROR, LogModule.WEB, "$host 404 character '${request.characterName}' not found")
             writeText(output, 404, "character '${request.characterName}' not found")
-            onCall()
+            onCall(true, 0.0)
             return
         }
         val begun = System.nanoTime()
@@ -186,7 +186,7 @@ internal class TtsServer(
                 LogModule.WEB,
                 "$host $ending ${count}段 音频 ${secondsText(totalAudioMs)} 秒 用时 ${secondsText(wallMs)} 秒",
             )
-            onCall()
+            onCall(failed != null && failed != "客户端断开", totalAudioMs)
             try {
                 client.close()
             } catch (_: Exception) {

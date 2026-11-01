@@ -164,6 +164,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var serviceLanUrl: TextView
     private lateinit var serviceIds: TextView
     private lateinit var serviceStatRequests: TextView
+    private lateinit var serviceStatFailures: TextView
+    private lateinit var serviceStatAudio: TextView
     private var logLevelFilter: LogLevel? = null
     private var helpCategory = "all"
     private val helpOpen = mutableMapOf<String, Boolean>()
@@ -395,6 +397,8 @@ class MainActivity : AppCompatActivity() {
         serviceLanUrl = findViewById(R.id.serviceLanUrl)
         serviceIds = findViewById(R.id.serviceIds)
         serviceStatRequests = findViewById(R.id.serviceStatRequests)
+        serviceStatFailures = findViewById(R.id.serviceStatFailures)
+        serviceStatAudio = findViewById(R.id.serviceStatAudio)
         prosodyStatus = findViewById(R.id.prosodyStatus)
         prosodyDetail = findViewById(R.id.prosodyDetail)
         prosodyProgress = findViewById(R.id.prosodyProgress)
@@ -2077,6 +2081,9 @@ class MainActivity : AppCompatActivity() {
         serviceLanUrl.text = lan.joinToString("\n") { serviceUrl(it) }
         serviceIds.text = roster.joinToString("、") { it.id }.ifBlank { getString(R.string.service_ids_empty) }
         serviceStatRequests.text = TtsRuntime.requests.toString()
+        serviceStatFailures.text = TtsRuntime.failures.toString()
+        serviceStatFailures.setTextColor(if (TtsRuntime.failures > 0) Color.parseColor("#BE123C") else color(R.color.text_main))
+        serviceStatAudio.text = audioLength(TtsRuntime.audioMs)
         drawerServiceState.text = if (running) "运行中" else getString(R.string.service_stopped)
         drawerServiceState.setTextColor(color(if (running) R.color.primary else R.color.text_sub))
         drawerServiceState.setBackgroundResource(if (running) R.drawable.bg_pill else R.drawable.bg_prosody_idle)
@@ -2092,6 +2099,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun serviceUrl(address: String): String = "http://$address:${TtsRuntime.port}/tts"
+
+    private fun audioLength(ms: Double): String {
+        val total = (ms / 1000.0 + 0.5).toLong().coerceAtLeast(0)
+        val hours = total / 3600
+        val minutes = (total % 3600) / 60
+        val seconds = total % 60
+        return if (hours > 0) {
+            "%d:%02d:%02d".format(Locale.US, hours, minutes, seconds)
+        } else {
+            "%d:%02d".format(Locale.US, minutes, seconds)
+        }
+    }
 
     private fun paintUptime() {
         val started = TtsRuntime.startedAt
