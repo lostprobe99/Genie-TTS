@@ -2324,11 +2324,19 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
         }
         val stamp = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        if (line.date.isNotBlank()) {
-            stamp.addView(logStamp(line.date))
-        }
-        stamp.addView(logStamp(line.time.ifBlank { "--:--:--.---" }))
-        meta.addView(stamp)
+        fun stampChild() = LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+        )
+        if (line.date.isNotBlank()) stamp.addView(logStamp(line.date), stampChild())
+        stamp.addView(logStamp(line.time.ifBlank { "--:--:--.---" }), stampChild())
+        meta.addView(
+            stamp,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            ),
+        )
         meta.addView(
             logBadge(line.level),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
