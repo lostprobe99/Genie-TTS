@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- GenieTTS ÁL4-R/5IÝØrišI -->
+    <linearGradient id="outerRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0e7490"/>
+      <stop offset="60%" stop-color="#0a4b56"/>
+      <stop offset="100%" stop-color="#052f36"/>
+    </linearGradient>
+    <linearGradient id="innerBandGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2dd4bf"/>
+      <stop offset="100%" stop-color="#0d9488"/>
+    </linearGradient>
+    <linearGradient id="barGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8"/>
+      <stop offset="100%" stop-color="#00b4d8"/>
+    </linearGradient>
+    <linearGradient id="starGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(0, -10)">
+    <!-- 1. AsàU'™WÍGÌBÃ¯Ó„ -->
+    <!-- ñRÛr;' -->
+    <path d="M 256,48 
+             A 172,172 0 1 0 428,220 
+             L 366,220 
+             A 110,110 0 1 1 256,110 
+             A 110,110 0 0 1 346,158 
+             L 404,112 
+             A 172,172 0 0 0 256,48 Z" 
+          fill="url(#outerRingGrad)" />
+
+    <!-- …RrùÔ'¿ -->
+    <path d="M 256,76 
+             A 144,144 0 1 0 400,220 
+             L 366,220 
+             A 110,110 0 1 1 256,110 
+             A 110,110 0 0 1 332,136 
+             L 358,98 
+             A 144,144 0 0 0 256,76 Z" 
+          fill="url(#innerBandGrad)" 
+          opacity="0.9" />
+
+    <!-- WÍGó§*sô¿a -->
+    <path d="M 330,200 
+             L 434,200 
+             C 440,200 444,204 444,210 
+             L 444,265 
+             C 444,271 440,275 434,275 
+             L 320,275 
+             Z" 
+          fill="#0a4b56" />
+
+    <!-- 2. TTS 8Ã 5 ñðfðâ‘1 (E-ùð) -->
+    <rect x="180" y="190" width="16" height="60" rx="8" fill="#00b4d8"/>
+    <rect x="212" y="162" width="16" height="116" rx="8" fill="#0ea5e9"/>
+    <rect x="244" y="138" width="16" height="164" rx="8" fill="url(#barGrad)"/>
+    <rect x="276" y="166" width="16" height="108" rx="8" fill="#14b8a6"/>
+    <rect x="308" y="190" width="16" height="60" rx="8" fill="#0d9488"/>
+
+    <!-- 3. Genie €ÛÒT{’ -->
+    <path d="M 426,52 
+             Q 426,80 454,80 
+             Q 426,80 426,108 
+             Q 426,80 398,80 
+             Q 426,80 426,52 Z" 
+          fill="url(#starGrad)" />
+    <circle cx="456" cy="48" r="4" fill="#38bdf8"/>
+  </g>
+
+  <!-- 4. ÁL‡W’H GenieTTS -->
+  <g transform="translate(256, 442)">
+    <text text-anchor="middle" 
+          font-family="system-ui, -apple-system, sans-serif" 
+          font-size="64" 
+          font-weight="800" 
+          letter-spacing="-1.5">
+      <tspan fill="#0a4b56">Genie</tspan><tspan fill="#00b4d8">TTS</tspan>
+    </text>
+  </g>
+</svg>
