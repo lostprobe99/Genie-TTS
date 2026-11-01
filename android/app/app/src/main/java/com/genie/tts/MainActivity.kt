@@ -1077,7 +1077,7 @@ class MainActivity : AppCompatActivity() {
         if (existing != null) {
             root.findViewById<TextView>(R.id.importTitle).setText(R.string.import_update)
             root.findViewById<TextView>(R.id.importNameNote).setText(R.string.import_name_note_update)
-            root.findViewById<TextView>(R.id.importConfirm).setText(R.string.import_confirm_update)
+            root.findViewById<TextView>(R.id.importConfirmLabel).setText(R.string.import_confirm_update)
         }
         nameField.setText(existing ?: preview.name)
         nameField.setSelection(nameField.text.length)
