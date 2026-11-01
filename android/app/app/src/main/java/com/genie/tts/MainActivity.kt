@@ -495,7 +495,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.openLogs).setOnClickListener {
             drawer.closeDrawer(drawerPanel)
-            showPage(Page.Service)
+            toast(getString(R.string.not_ready))
         }
         findViewById<View>(R.id.openCharacters).setOnClickListener {
             drawer.closeDrawer(drawerPanel)

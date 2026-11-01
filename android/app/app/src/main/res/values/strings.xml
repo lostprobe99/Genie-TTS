@@ -66,7 +66,7 @@
     <string name="speed_range">0.60x ~ 1.40x</string>
     <string name="home_screen">首页</string>
     <string name="settings">软件设置</string>
-    <string name="help_pending">使用帮助（待定）</string>
+    <string name="help">使用帮助</string>
     <string name="view_log">查看日志</string>
     <string name="service_menu">服务管理</string>
     <string name="not_ready">还没有这一页</string>

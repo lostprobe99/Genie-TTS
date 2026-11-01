@@ -1096,7 +1096,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="16dp"
                         android:layout_weight="1"
-                        android:text="@string/help_pending"
+                        android:text="@string/help"
                         android:textColor="@color/text_main"
                         android:textSize="15sp" />
                 </LinearLayout>
