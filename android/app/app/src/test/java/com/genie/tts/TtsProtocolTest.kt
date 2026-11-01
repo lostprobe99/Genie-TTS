@@ -113,6 +113,8 @@ class TtsProtocolTest {
     fun postStreamsOneWav() {
         val seen = mutableListOf<TtsRequest>()
         val logs = mutableListOf<String>()
+        val finished = mutableListOf<Boolean>()
+        val busy = mutableListOf<Boolean>()
         val server = TtsServer(
             port = 0,
             characters = { mapOf("feibi" to 32000) },
@@ -121,6 +123,8 @@ class TtsProtocolTest {
                 emit(floatArrayOf(0.25f, 0.25f))
             },
             log = { _, _, message -> logs.add(message) },
+            onBusy = { busy.add(it) },
+            onFinished = { finished.add(it) },
         )
         server.start()
         try {
@@ -134,6 +138,8 @@ class TtsProtocolTest {
             assertFalse(seen.single().splitSentence)
             assertTrue(logs.any { it.contains("第 1 段") && it.contains("音频") })
             assertTrue(logs.any { it.contains("完成") && it.contains("1段") })
+            assertEquals(listOf(false), finished)
+            assertEquals(listOf(true), busy)
         } finally {
             server.stop()
         }
@@ -141,12 +147,19 @@ class TtsProtocolTest {
 
     @Test
     fun unknownCharacterIs404() {
-        val server = TtsServer(0, { emptyMap() }, TtsSpeaker { _, _, _ -> })
+        val finished = mutableListOf<Boolean>()
+        val server = TtsServer(
+            0,
+            { emptyMap() },
+            TtsSpeaker { _, _, _ -> },
+            onFinished = { finished.add(it) },
+        )
         server.start()
         try {
             val response = post(server.localPort(), """{"character_name":"mika","text":"你好"}""")
             assertTrue(response.startsWith("HTTP/1.1 404"))
             assertTrue(response.contains("character 'mika' not found"))
+            assertEquals(listOf(true), finished)
         } finally {
             server.stop()
         }

@@ -39,7 +39,40 @@ internal object TtsRuntime {
     @Volatile
     var error: String? = null
 
+    @Volatile
+    var requests = 0
+
+    @Volatile
+    var failures = 0
+
+    @Volatile
+    var busy = false
+
+    private val statsLock = Any()
+
     var listener: (() -> Unit)? = null
+
+    fun noteBusy(active: Boolean) {
+        synchronized(statsLock) { busy = active }
+        publish()
+    }
+
+    fun noteFinished(failed: Boolean) {
+        synchronized(statsLock) {
+            requests += 1
+            if (failed) failures += 1
+            busy = false
+        }
+        publish()
+    }
+
+    fun resetStats() {
+        synchronized(statsLock) {
+            requests = 0
+            failures = 0
+            busy = false
+        }
+    }
 
     fun publish() {
         val current = listener ?: return
@@ -58,6 +91,11 @@ class TtsService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_STOP) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         val port = TtsPorts.read(filesDir)
         TtsRuntime.port = port
         CharacterCatalog.attach(filesDir)
@@ -93,6 +131,8 @@ class TtsService : Service() {
         TtsRuntime.publish()
         thread(name = "genie-http-stop", isDaemon = true) {
             current?.stop()
+            TtsRuntime.resetStats()
+            TtsRuntime.publish()
             Engines.closeIfIdle()
         }
         super.onDestroy()
@@ -110,9 +150,14 @@ class TtsService : Service() {
             previous?.stop()
             if (stale(ticket)) return@thread
             try {
-                val created = TtsServer(port, ::roster, ::speak) { level, module, message ->
-                    TtsLog.add(level, module, message)
-                }
+                val created = TtsServer(
+                    port,
+                    ::roster,
+                    ::speak,
+                    log = { level, module, message -> TtsLog.add(level, module, message) },
+                    onBusy = TtsRuntime::noteBusy,
+                    onFinished = TtsRuntime::noteFinished,
+                )
                 created.start()
                 val keep = synchronized(gate) {
                     if (ticket != generation || stopping) {
@@ -128,7 +173,10 @@ class TtsService : Service() {
                     return@thread
                 }
                 TtsRuntime.port = port
-                if (TtsRuntime.startedAt == 0L) TtsRuntime.startedAt = SystemClock.elapsedRealtime()
+                if (TtsRuntime.startedAt == 0L) {
+                    TtsRuntime.resetStats()
+                    TtsRuntime.startedAt = SystemClock.elapsedRealtime()
+                }
                 TtsRuntime.running = true
                 TtsRuntime.switching = false
                 TtsRuntime.error = null
@@ -140,6 +188,7 @@ class TtsService : Service() {
                 TtsRuntime.running = false
                 TtsRuntime.switching = false
                 TtsRuntime.startedAt = 0L
+                TtsRuntime.resetStats()
                 TtsRuntime.error = if (error is java.net.BindException) {
                     "端口 $port 已被占用"
                 } else {
@@ -232,6 +281,12 @@ class TtsService : Service() {
             open,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val stop = PendingIntent.getService(
+            this,
+            1,
+            Intent(this, TtsService::class.java).setAction(ACTION_STOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat)
             .setLargeIcon(notificationLogo())
@@ -239,6 +294,7 @@ class TtsService : Service() {
             .setContentText("http://127.0.0.1:${TtsRuntime.port}/tts")
             .setOngoing(true)
             .setContentIntent(pending)
+            .addAction(R.drawable.ic_notify_stop, "停止", stop)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }
@@ -270,6 +326,7 @@ class TtsService : Service() {
     }
 
     private companion object {
+        const val ACTION_STOP = "com.genie.tts.STOP"
         const val CHANNEL = "tts-service"
         const val NOTIFICATION_ID = 41
     }

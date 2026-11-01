@@ -163,6 +163,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var serviceLanRow: View
     private lateinit var serviceLanUrl: TextView
     private lateinit var serviceIds: TextView
+    private lateinit var serviceStatRequests: TextView
+    private lateinit var serviceStatFailures: TextView
+    private lateinit var serviceStatBusy: TextView
     private var logLevelFilter: LogLevel? = null
     private var helpCategory = "all"
     private val helpOpen = mutableMapOf<String, Boolean>()
@@ -393,6 +396,9 @@ class MainActivity : AppCompatActivity() {
         serviceLanRow = findViewById(R.id.serviceLanRow)
         serviceLanUrl = findViewById(R.id.serviceLanUrl)
         serviceIds = findViewById(R.id.serviceIds)
+        serviceStatRequests = findViewById(R.id.serviceStatRequests)
+        serviceStatFailures = findViewById(R.id.serviceStatFailures)
+        serviceStatBusy = findViewById(R.id.serviceStatBusy)
         prosodyStatus = findViewById(R.id.prosodyStatus)
         prosodyDetail = findViewById(R.id.prosodyDetail)
         prosodyProgress = findViewById(R.id.prosodyProgress)
@@ -2074,6 +2080,12 @@ class MainActivity : AppCompatActivity() {
         serviceLanRow.visibility = if (lan.isEmpty()) View.GONE else View.VISIBLE
         serviceLanUrl.text = lan.joinToString("\n") { serviceUrl(it) }
         serviceIds.text = roster.joinToString("、") { it.id }.ifBlank { getString(R.string.service_ids_empty) }
+        serviceStatRequests.text = TtsRuntime.requests.toString()
+        serviceStatFailures.text = TtsRuntime.failures.toString()
+        serviceStatFailures.setTextColor(if (TtsRuntime.failures > 0) Color.parseColor("#BE123C") else color(R.color.text_main))
+        val synthesizing = TtsRuntime.busy
+        serviceStatBusy.setText(if (synthesizing) R.string.service_stat_yes else R.string.service_stat_no)
+        serviceStatBusy.setTextColor(if (synthesizing) color(R.color.primary) else color(R.color.text_main))
         drawerServiceState.text = if (running) "运行中" else getString(R.string.service_stopped)
         drawerServiceState.setTextColor(color(if (running) R.color.primary else R.color.text_sub))
         drawerServiceState.setBackgroundResource(if (running) R.drawable.bg_pill else R.drawable.bg_prosody_idle)
