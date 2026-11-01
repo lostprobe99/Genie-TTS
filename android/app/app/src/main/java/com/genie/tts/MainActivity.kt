@@ -161,9 +161,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var serviceLanRow: View
     private lateinit var serviceLanUrl: TextView
     private lateinit var serviceIds: TextView
-    private lateinit var serviceLog: TextView
-    private lateinit var serviceLogChevron: View
-    private var logOpen = false
     private var logLevelFilter: LogLevel? = null
     private var pendingLogText: String? = null
     private lateinit var prosodyStatus: TextView
@@ -297,13 +294,9 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         TtsRuntime.listener = { if (!isDestroyed) renderService() }
         TtsLog.listener = {
-            if (!isDestroyed) {
-                serviceLog.text = TtsLog.recent()
-                if (page == Page.Logs) renderLogs(logAutoScroll().isChecked)
-            }
+            if (!isDestroyed && page == Page.Logs) renderLogs(logAutoScroll().isChecked)
         }
         renderService()
-        serviceLog.text = TtsLog.recent()
     }
 
     override fun onStop() {
@@ -394,8 +387,6 @@ class MainActivity : AppCompatActivity() {
         serviceLanRow = findViewById(R.id.serviceLanRow)
         serviceLanUrl = findViewById(R.id.serviceLanUrl)
         serviceIds = findViewById(R.id.serviceIds)
-        serviceLog = findViewById(R.id.serviceLog)
-        serviceLogChevron = findViewById(R.id.serviceLogChevron)
         prosodyStatus = findViewById(R.id.prosodyStatus)
         prosodyDetail = findViewById(R.id.prosodyDetail)
         prosodyProgress = findViewById(R.id.prosodyProgress)
@@ -492,7 +483,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.logsBack).setOnClickListener { showPage(Page.Speak) }
         findViewById<View>(R.id.logsRefresh).setOnClickListener {
             TtsLog.reload()
-            serviceLog.text = TtsLog.recent()
             renderLogs(true)
         }
         findViewById<View>(R.id.logsHeaderExport).setOnClickListener { exportLogs() }
@@ -518,8 +508,7 @@ class MainActivity : AppCompatActivity() {
         logSwitch.trackTintList = ColorStateList(switchStates, intArrayOf(0xFF0A4B56.toInt(), 0xFFCBD5E1.toInt()))
         logSwitch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
         findViewById<View>(R.id.serviceBack).setOnClickListener { drawer.openDrawer(drawerPanel) }
-        findViewById<View>(R.id.serviceLogJump).setOnClickListener { revealLog() }
-        findViewById<View>(R.id.serviceLogHead).setOnClickListener { setLogOpen(!logOpen) }
+        findViewById<View>(R.id.serviceLogJump).setOnClickListener { showPage(Page.Logs) }
         findViewById<View>(R.id.roleSearchButton).setOnClickListener { toggleRoleSearch() }
         findViewById<View>(R.id.roleMore).setOnClickListener { showRoleMenu(it) }
         roleQuery.addTextChangedListener(object : TextWatcher {
@@ -649,11 +638,6 @@ class MainActivity : AppCompatActivity() {
         serviceToggle.setOnClickListener { toggleService() }
         findViewById<View>(R.id.copyLocal).setOnClickListener { copyPlain("tts", serviceLocalUrl.text) }
         findViewById<View>(R.id.copyLan).setOnClickListener { copyPlain("tts", serviceLanUrl.text) }
-        findViewById<View>(R.id.copyLog).setOnClickListener {
-            val clipboard = getSystemService(ClipboardManager::class.java)
-            clipboard.setPrimaryClip(ClipData.newPlainText("tts-log", TtsLog.recent()))
-            toast("已复制")
-        }
         findViewById<View>(R.id.logClear).setOnClickListener { confirmClearLogs() }
         findViewById<View>(R.id.logCopy).setOnClickListener { copyAllLogs() }
         findViewById<View>(R.id.logExport).setOnClickListener { exportLogs() }
@@ -2053,12 +2037,6 @@ class MainActivity : AppCompatActivity() {
         uptimeHandler.postDelayed(uptimeTicker, delay)
     }
 
-    private fun setLogOpen(open: Boolean) {
-        logOpen = open
-        serviceLog.visibility = if (open) View.VISIBLE else View.GONE
-        serviceLogChevron.rotation = if (open) 180f else 0f
-    }
-
     private fun logAutoScroll(): SwitchCompat = findViewById(R.id.logAutoScroll)
 
     private fun pickLogLevel(level: LogLevel?) {
@@ -2286,12 +2264,6 @@ class MainActivity : AppCompatActivity() {
     private fun logBytes(bytes: Long): String {
         if (bytes < 1024) return "$bytes B"
         return "${(bytes + 512) / 1024} KB"
-    }
-
-    private fun revealLog() {
-        setLogOpen(true)
-        val card = findViewById<View>(R.id.serviceLogCard)
-        card.post { (servicePage as android.widget.ScrollView).smoothScrollTo(0, card.top) }
     }
 
     private fun copyPlain(label: String, text: CharSequence) {

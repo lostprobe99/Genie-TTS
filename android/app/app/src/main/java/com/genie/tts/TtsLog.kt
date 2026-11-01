@@ -67,12 +67,6 @@ internal object TtsLog {
         notifyListener()
     }
 
-    fun recent(): String {
-        return synchronized(lines) {
-            lines.reversed().joinToString("\n").ifBlank { "还没有日志" }
-        }
-    }
-
     fun entries(): List<LogLine> {
         return synchronized(lines) {
             lines.map { raw ->
