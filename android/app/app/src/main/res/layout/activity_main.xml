@@ -345,6 +345,100 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/logsBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="4dp"
+                android:paddingTop="4dp"
+                android:paddingEnd="4dp"
+                android:paddingBottom="10dp"
+                android:visibility="gone">
+
+                <ImageButton
+                    android:id="@+id/logsBack"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="@string/back"
+                    android:src="@drawable/ic_back"
+                    app:tint="@android:color/white" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="2dp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/view_log"
+                            android:textColor="@android:color/white"
+                            android:textSize="18sp"
+                            android:textStyle="bold" />
+
+                        <TextView
+                            android:id="@+id/logsVersion"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:background="@drawable/bg_log_version"
+                            android:fontFamily="monospace"
+                            android:paddingStart="6dp"
+                            android:paddingTop="1dp"
+                            android:paddingEnd="6dp"
+                            android:paddingBottom="1dp"
+                            android:textColor="#5EEAD4"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="本地合成引擎与服务实时监控"
+                        android:textColor="#99CCFBF1"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <ImageButton
+                    android:id="@+id/logsRefresh"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="刷新日志"
+                    android:src="@drawable/ic_refresh"
+                    app:tint="@android:color/white" />
+
+                <ImageButton
+                    android:id="@+id/logsHeaderExport"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="导出日志"
+                    android:src="@drawable/ic_role_export"
+                    app:tint="@android:color/white" />
+
+                <ImageButton
+                    android:id="@+id/logsMore"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="更多"
+                    android:src="@drawable/ic_more"
+                    app:tint="@android:color/white" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/otherBar"
                 android:layout_width="match_parent"
                 android:layout_height="48dp"
@@ -808,6 +902,13 @@
             <include
                 android:id="@+id/aboutPage"
                 layout="@layout/page_about"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:visibility="gone" />
+
+            <include
+                android:id="@+id/logsPage"
+                layout="@layout/page_logs"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:visibility="gone" />

@@ -22,8 +22,10 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Debug
 import android.os.Handler
 import android.os.Looper
+import android.os.Process
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.text.Editable
@@ -48,6 +50,7 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.ProgressBar
+import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -55,6 +58,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
@@ -76,7 +80,7 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity() {
-    private enum class Page { Speak, Characters, Service, Prosody, About }
+    private enum class Page { Speak, Characters, Service, Prosody, About, Logs }
 
     private val worker = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "genie").apply { isDaemon = true }
@@ -94,6 +98,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prosodyBar: View
     private lateinit var aboutBar: View
     private lateinit var serviceBar: View
+    private lateinit var logsBar: View
     private lateinit var otherBar: View
     private lateinit var roleRow: View
     private lateinit var menuButton: android.widget.ImageButton
@@ -109,6 +114,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var servicePage: View
     private lateinit var prosodyPage: View
     private lateinit var aboutPage: View
+    private lateinit var logsPage: View
     private lateinit var placeholder: TextView
     private lateinit var characters: android.widget.Spinner
     private lateinit var sentence: EditText
@@ -158,6 +164,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var serviceLog: TextView
     private lateinit var serviceLogChevron: View
     private var logOpen = false
+    private var logLevelFilter: LogLevel? = null
+    private var pendingLogText: String? = null
     private lateinit var prosodyStatus: TextView
     private lateinit var prosodyDetail: TextView
     private lateinit var prosodyProgress: ProgressBar
@@ -242,6 +250,19 @@ class MainActivity : AppCompatActivity() {
     private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
         startTtsService()
     }
+    private val saveLog = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        val text = pendingLogText
+        pendingLogText = null
+        if (uri == null || text.isNullOrEmpty()) return@registerForActivityResult
+        try {
+            contentResolver.openOutputStream(uri)?.use { stream ->
+                stream.write(text.toByteArray(Charsets.UTF_8))
+            } ?: error("empty")
+            toast("已导出")
+        } catch (_: Exception) {
+            toast("没有写出去")
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -262,6 +283,7 @@ class MainActivity : AppCompatActivity() {
         val version = versionBadge()
         findViewById<TextView>(R.id.drawerVersion).text = version
         findViewById<TextView>(R.id.homeVersion).text = version
+        findViewById<TextView>(R.id.logsVersion).text = version
         renderProsody()
     }
 
@@ -274,7 +296,12 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         TtsRuntime.listener = { if (!isDestroyed) renderService() }
-        TtsLog.listener = { if (!isDestroyed) serviceLog.text = TtsLog.recent() }
+        TtsLog.listener = {
+            if (!isDestroyed) {
+                serviceLog.text = TtsLog.recent()
+                if (page == Page.Logs) renderLogs(logAutoScroll().isChecked)
+            }
+        }
         renderService()
         serviceLog.text = TtsLog.recent()
     }
@@ -311,6 +338,7 @@ class MainActivity : AppCompatActivity() {
         prosodyBar = findViewById(R.id.prosodyBar)
         aboutBar = findViewById(R.id.aboutBar)
         serviceBar = findViewById(R.id.serviceBar)
+        logsBar = findViewById(R.id.logsBar)
         otherBar = findViewById(R.id.otherBar)
         roleRow = findViewById(R.id.roleRow)
         menuButton = findViewById(R.id.menuButton)
@@ -325,6 +353,7 @@ class MainActivity : AppCompatActivity() {
         servicePage = findViewById(R.id.servicePage)
         prosodyPage = findViewById(R.id.prosodyPage)
         aboutPage = findViewById(R.id.aboutPage)
+        logsPage = findViewById(R.id.logsPage)
         placeholder = findViewById(R.id.characterPlaceholder)
         characters = findViewById(R.id.characters)
         sentence = findViewById(R.id.sentence)
@@ -460,6 +489,34 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.prosodyBack).setOnClickListener { drawer.openDrawer(drawerPanel) }
         findViewById<View>(R.id.aboutBack).setOnClickListener { showPage(Page.Speak) }
+        findViewById<View>(R.id.logsBack).setOnClickListener { showPage(Page.Speak) }
+        findViewById<View>(R.id.logsRefresh).setOnClickListener {
+            TtsLog.reload()
+            serviceLog.text = TtsLog.recent()
+            renderLogs(true)
+        }
+        findViewById<View>(R.id.logsHeaderExport).setOnClickListener { exportLogs() }
+        findViewById<View>(R.id.logsMore).setOnClickListener { copyLogPath() }
+        findViewById<View>(R.id.logFilterAll).setOnClickListener { pickLogLevel(null) }
+        findViewById<View>(R.id.logFilterInfo).setOnClickListener { pickLogLevel(LogLevel.INFO) }
+        findViewById<View>(R.id.logFilterWarn).setOnClickListener { pickLogLevel(LogLevel.WARN) }
+        findViewById<View>(R.id.logFilterError).setOnClickListener { pickLogLevel(LogLevel.ERROR) }
+        findViewById<View>(R.id.logFilterDebug).setOnClickListener { pickLogLevel(LogLevel.DEBUG) }
+        val logQuery = findViewById<EditText>(R.id.logQuery)
+        logQuery.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                findViewById<View>(R.id.logQueryClear).visibility =
+                    if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
+                if (page == Page.Logs) renderLogs(false)
+            }
+        })
+        findViewById<View>(R.id.logQueryClear).setOnClickListener { logQuery.setText("") }
+        val logSwitch = logAutoScroll()
+        val switchStates = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
+        logSwitch.trackTintList = ColorStateList(switchStates, intArrayOf(0xFF0A4B56.toInt(), 0xFFCBD5E1.toInt()))
+        logSwitch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
         findViewById<View>(R.id.serviceBack).setOnClickListener { drawer.openDrawer(drawerPanel) }
         findViewById<View>(R.id.serviceLogJump).setOnClickListener { revealLog() }
         findViewById<View>(R.id.serviceLogHead).setOnClickListener { setLogOpen(!logOpen) }
@@ -495,7 +552,7 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.openLogs).setOnClickListener {
             drawer.closeDrawer(drawerPanel)
-            toast(getString(R.string.not_ready))
+            showPage(Page.Logs)
         }
         findViewById<View>(R.id.openCharacters).setOnClickListener {
             drawer.closeDrawer(drawerPanel)
@@ -597,6 +654,9 @@ class MainActivity : AppCompatActivity() {
             clipboard.setPrimaryClip(ClipData.newPlainText("tts-log", TtsLog.recent()))
             toast("已复制")
         }
+        findViewById<View>(R.id.logClear).setOnClickListener { confirmClearLogs() }
+        findViewById<View>(R.id.logCopy).setOnClickListener { copyAllLogs() }
+        findViewById<View>(R.id.logExport).setOnClickListener { exportLogs() }
         servicePort.setOnEditorActionListener { view, actionId, _ ->
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 view.clearFocus()
@@ -623,12 +683,14 @@ class MainActivity : AppCompatActivity() {
         servicePage.visibility = if (next == Page.Service) View.VISIBLE else View.GONE
         prosodyPage.visibility = if (next == Page.Prosody) View.VISIBLE else View.GONE
         aboutPage.visibility = if (next == Page.About) View.VISIBLE else View.GONE
+        logsPage.visibility = if (next == Page.Logs) View.VISIBLE else View.GONE
         applyTypingSpace()
         val onSpeak = next == Page.Speak
         val onRoles = next == Page.Characters
         val onProsody = next == Page.Prosody
         val onAbout = next == Page.About
         val onService = next == Page.Service
+        val onLogs = next == Page.Logs
         if (!onRoles) {
             roleMenu?.dismiss()
             batching = false
@@ -639,7 +701,8 @@ class MainActivity : AppCompatActivity() {
         prosodyBar.visibility = if (onProsody) View.VISIBLE else View.GONE
         aboutBar.visibility = if (onAbout) View.VISIBLE else View.GONE
         serviceBar.visibility = if (onService) View.VISIBLE else View.GONE
-        val light = onSpeak || onRoles || onProsody || onAbout || onService
+        logsBar.visibility = if (onLogs) View.VISIBLE else View.GONE
+        val light = onSpeak || onRoles || onProsody || onAbout || onService || onLogs
         otherBar.visibility = if (light) View.GONE else View.VISIBLE
         val pageColor = color(if (light) R.color.bg_light else R.color.ink)
         val headerColor = color(if (light) R.color.header else R.color.ink)
@@ -657,6 +720,7 @@ class MainActivity : AppCompatActivity() {
                 Page.Service -> R.string.service
                 Page.Prosody -> R.string.prosody
                 Page.About -> R.string.about
+                Page.Logs -> R.string.view_log
             },
         )
         menuButton.setImageResource(if (onSpeak) R.drawable.ic_menu else R.drawable.ic_back)
@@ -671,6 +735,7 @@ class MainActivity : AppCompatActivity() {
             Page.Service -> renderService()
             Page.Prosody -> renderProsody()
             Page.About -> renderAbout()
+            Page.Logs -> renderLogs(true)
             Page.Speak -> Unit
         }
         scheduleUptime()
@@ -1992,6 +2057,235 @@ class MainActivity : AppCompatActivity() {
         logOpen = open
         serviceLog.visibility = if (open) View.VISIBLE else View.GONE
         serviceLogChevron.rotation = if (open) 180f else 0f
+    }
+
+    private fun logAutoScroll(): SwitchCompat = findViewById(R.id.logAutoScroll)
+
+    private fun pickLogLevel(level: LogLevel?) {
+        logLevelFilter = level
+        if (page == Page.Logs) renderLogs(false)
+    }
+
+    private fun confirmClearLogs() {
+        if (TtsLog.entries().isEmpty()) {
+            toast("还没有日志")
+            return
+        }
+        showLightConfirm("清空日志", "要清空已经记下的日志。", "清空") {
+            TtsLog.clear()
+        }
+    }
+
+    private fun copyAllLogs() {
+        val text = TtsLog.text()
+        if (text.isBlank()) {
+            toast("还没有日志")
+            return
+        }
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("tts-log", text))
+        toast("已复制")
+    }
+
+    private fun exportLogs() {
+        val text = TtsLog.text()
+        if (text.isBlank()) {
+            toast("还没有日志")
+            return
+        }
+        pendingLogText = text
+        saveLog.launch("genie-log.txt")
+    }
+
+    private fun copyLogPath() {
+        val path = TtsLog.path()
+        if (path.isBlank()) {
+            toast("还没有日志")
+            return
+        }
+        val clipboard = getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("tts-log", path))
+        toast("已复制日志路径")
+    }
+
+    private fun renderLogs(follow: Boolean) {
+        val entries = TtsLog.entries()
+        val query = findViewById<EditText>(R.id.logQuery).text.toString().trim()
+        val shown = entries.mapIndexed { index, line -> (index + 1) to line }.filter { (_, line) ->
+            val levelOk = logLevelFilter == null || logLevel(line.message) == logLevelFilter
+            val queryOk = query.isEmpty() || line.message.contains(query, ignoreCase = true)
+            levelOk && queryOk
+        }
+        paintLogChip(R.id.logFilterAll, null, entries.size)
+        paintLogChip(R.id.logFilterInfo, LogLevel.INFO, entries.count { logLevel(it.message) == LogLevel.INFO })
+        paintLogChip(R.id.logFilterWarn, LogLevel.WARN, entries.count { logLevel(it.message) == LogLevel.WARN })
+        paintLogChip(R.id.logFilterError, LogLevel.ERROR, entries.count { logLevel(it.message) == LogLevel.ERROR })
+        paintLogChip(R.id.logFilterDebug, LogLevel.DEBUG, entries.count { logLevel(it.message) == LogLevel.DEBUG })
+        val running = TtsRuntime.running
+        val tone = if (running) 0xFF0F766E.toInt() else 0xFF64748B.toInt()
+        val bannerText = findViewById<TextView>(R.id.logBannerText)
+        bannerText.text = if (running) "接口开着 · PID ${Process.myPid()}" else "接口未开启 · PID ${Process.myPid()}"
+        bannerText.setTextColor(tone)
+        val ram = findViewById<TextView>(R.id.logBannerRam)
+        val memory = Debug.MemoryInfo()
+        Debug.getMemoryInfo(memory)
+        ram.text = "RAM %.1f MB".format(Locale.US, memory.totalPss / 1024.0)
+        ram.setTextColor(tone)
+        findViewById<View>(R.id.logBannerDot).backgroundTintList =
+            ColorStateList.valueOf(if (running) 0xFF0D9488.toInt() else 0xFF94A3B8.toInt())
+        val list = findViewById<LinearLayout>(R.id.logList)
+        val scroll = findViewById<ScrollView>(R.id.logScroll)
+        val scrollY = scroll.scrollY
+        list.removeAllViews()
+        val end = findViewById<TextView>(R.id.logEnd)
+        if (shown.isEmpty()) {
+            end.visibility = View.GONE
+            list.addView(TextView(this).apply {
+                text = if (entries.isEmpty()) "还没有日志" else "没有符合的日志"
+                gravity = Gravity.CENTER
+                setPadding(dp(16), dp(28), dp(16), dp(28))
+                setTextColor(color(R.color.text_sub))
+                textSize = 13f
+            })
+        } else {
+            end.visibility = View.VISIBLE
+            end.text = if (logLevelFilter == null && query.isEmpty()) "已显示全部日志" else "已显示筛选结果"
+            shown.forEachIndexed { position, (index, line) ->
+                if (position > 0) list.addView(logDivider())
+                list.addView(logRow(index, line))
+            }
+        }
+        findViewById<TextView>(R.id.logCount).text = "共 ${entries.size} 条 · 占用 ${logBytes(TtsLog.bytes())}"
+        scroll.post {
+            scroll.post {
+                val child = scroll.getChildAt(0)
+                if (follow && child != null) scroll.scrollTo(0, child.bottom)
+                else scroll.scrollTo(0, scrollY)
+            }
+        }
+    }
+
+    private fun paintLogChip(id: Int, level: LogLevel?, count: Int) {
+        val view = findViewById<TextView>(id)
+        val selected = logLevelFilter == level
+        val label = level?.name ?: "全部"
+        view.text = if (level == null || count > 0) "$label  $count" else label
+        view.setTextColor(if (selected) Color.WHITE else 0xFF475569.toInt())
+        view.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
+        view.background = GradientDrawable().apply {
+            cornerRadius = dp(16).toFloat()
+            setColor(if (selected) 0xFF0A4B56.toInt() else 0xFFF1F5F9.toInt())
+        }
+        val dotColor = when (level) {
+            LogLevel.INFO -> 0xFF06B6D4.toInt()
+            LogLevel.WARN -> 0xFFF59E0B.toInt()
+            LogLevel.ERROR -> 0xFFF43F5E.toInt()
+            LogLevel.DEBUG -> 0xFFA855F7.toInt()
+            null -> 0
+        }
+        if (dotColor == 0) {
+            view.setCompoundDrawables(null, null, null, null)
+        } else {
+            val size = dp(6).coerceAtLeast(1)
+            val dot = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(dotColor)
+                setBounds(0, 0, size, size)
+            }
+            view.setCompoundDrawables(dot, null, null, null)
+            view.compoundDrawablePadding = dp(4)
+        }
+    }
+
+    private fun logRow(index: Int, line: LogLine): View {
+        val level = logLevel(line.message)
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(10), dp(8), dp(10), dp(8))
+            setBackgroundColor(logRowColor(level))
+        }
+        val meta = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        meta.addView(TextView(this).apply {
+            text = line.time.ifBlank { "--:--:--.---" }
+            textSize = 10f
+            typeface = Typeface.MONOSPACE
+            setTextColor(0xFF94A3B8.toInt())
+        })
+        meta.addView(
+            logBadge(level),
+            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                marginStart = dp(6)
+            },
+        )
+        meta.addView(
+            TextView(this).apply {
+                text = "[${logTag(line.message)}]"
+                textSize = 11f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(0xFF334155.toInt())
+            },
+            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(6) },
+        )
+        meta.addView(TextView(this).apply {
+            text = "#%03d".format(Locale.US, index)
+            textSize = 10f
+            setTextColor(0xFF94A3B8.toInt())
+        })
+        row.addView(meta)
+        row.addView(TextView(this).apply {
+            text = line.message
+            textSize = 12f
+            setTextColor(0xFF334155.toInt())
+            setPadding(dp(2), dp(4), 0, 0)
+            setTextIsSelectable(true)
+        })
+        return row
+    }
+
+    private fun logBadge(level: LogLevel): TextView {
+        val (fill, ink, stroke) = when (level) {
+            LogLevel.INFO -> Triple(0xFFECFEFF.toInt(), 0xFF0E7490.toInt(), 0xFFA5F3FC.toInt())
+            LogLevel.WARN -> Triple(0xFFFFFBEB.toInt(), 0xFFB45309.toInt(), 0xFFFDE68A.toInt())
+            LogLevel.ERROR -> Triple(0xFFFFF1F2.toInt(), 0xFFBE123C.toInt(), 0xFFFECDD3.toInt())
+            LogLevel.DEBUG -> Triple(0xFFFAF5FF.toInt(), 0xFF7E22CE.toInt(), 0xFFE9D5FF.toInt())
+        }
+        return TextView(this).apply {
+            text = level.name
+            textSize = 10f
+            setTextColor(ink)
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(dp(6), dp(1), dp(6), dp(1))
+            background = GradientDrawable().apply {
+                cornerRadius = dp(4).toFloat()
+                setColor(fill)
+                setStroke(dp(1).coerceAtLeast(1), stroke)
+            }
+        }
+    }
+
+    private fun logRowColor(level: LogLevel): Int = when (level) {
+        LogLevel.INFO -> Color.WHITE
+        LogLevel.WARN -> 0xFFFFFBEB.toInt()
+        LogLevel.ERROR -> 0xFFFFF1F2.toInt()
+        LogLevel.DEBUG -> 0xFFFAF5FF.toInt()
+    }
+
+    private fun logDivider(): View {
+        return View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(1).coerceAtLeast(1),
+            )
+            setBackgroundColor(0xFFF1F5F9.toInt())
+        }
+    }
+
+    private fun logBytes(bytes: Long): String {
+        if (bytes < 1024) return "$bytes B"
+        return "${(bytes + 512) / 1024} KB"
     }
 
     private fun revealLog() {
