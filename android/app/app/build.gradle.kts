@@ -11,8 +11,8 @@ android {
         applicationId = "com.genie.tts"
         minSdk = 26
         targetSdk = 35
-        versionCode = 17
-        versionName = "0.0.17"
+        versionCode = 18
+        versionName = "0.0.18"
         ndk {
             abiFilters += "arm64-v8a"
         }
