@@ -1,0 +1,239 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>Genie - 通知栏常驻</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              primary: '#0d828a',
+              accent: '#0f766e',
+              light: '#f0fdfa',
+              dark: '#134e4a'
+            },
+            android: {
+              bg: '#f1f5f9',
+              card: '#ffffff',
+              cardBorder: '#e2e8f0',
+              tileActive: '#0d9488',
+              tileInactive: '#e2e8f0'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Noto Sans SC"', 'sans-serif'],
+            mono: ['"SF Mono"', 'Consolas', '"Liberation Mono"', 'Menlo', 'monospace']
+          },
+          boxShadow: {
+            'card-subtle': '0 2px 12px -2px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.05)',
+            'pill-glow': '0 0 10px rgba(13, 148, 136, 0.25)'
+          }
+        }
+      }
+    };
+  </script>
+<style data-purpose="custom-enhancements">
+    body {
+      touch-action: pan-y;
+      -webkit-font-smoothing: antialiased;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .blur-backdrop {
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+    }
+  </style>
+</head>
+<body class="bg-slate-200 text-slate-800 flex justify-center min-h-screen items-center p-0 sm:p-4">
+<div class="relative w-full max-w-md h-screen sm:h-[844px] bg-[#f1f5f9] sm:rounded-[44px] overflow-hidden flex flex-col shadow-2xl border border-slate-300" data-purpose="device-viewport">
+<header class="w-full pt-3 px-6 pb-2 flex justify-between items-center text-xs tracking-wide text-slate-700 select-none z-20" data-purpose="system-status-bar">
+<div class="font-medium text-[13px] flex items-center space-x-1.5 text-slate-800">
+<span class="font-semibold">15:38</span>
+<span class="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+</div>
+<div class="flex items-center space-x-2.5 text-slate-700">
+<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+<path d="M12 3c-4.97 0-9.47 2.01-12.73 5.27l1.41 1.41C3.35 7.01 7.37 5.2 12 5.2s8.65 1.81 11.32 4.48l1.41-1.41C21.47 5.01 16.97 3 12 3zm0 4.8c-3.66 0-6.97 1.48-9.38 3.89l1.41 1.41C5.81 11.32 8.71 10 12 10s6.19 1.32 7.97 3.1l1.41-1.41C18.97 9.28 15.66 7.8 12 7.8zm0 4.8c-2.34 0-4.46.95-6.01 2.49l1.41 1.41C8.44 15.45 10.11 14.8 12 14.8s3.56.65 4.6 1.7l1.41-1.41C16.46 13.55 14.34 12.6 12 12.6zm0 4.8c-1.03 0-1.95.42-2.63 1.1l2.63 2.63 2.63-2.63c-.68-.68-1.6-1.1-2.63-1.1z"></path>
+</svg>
+<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24">
+<path d="M2 22h20V2L2 22z"></path>
+</svg>
+<div class="flex items-center space-x-0.5">
+<span class="text-[11px] font-semibold text-slate-800">88%</span>
+<svg class="w-4 h-4 fill-current rotate-90" viewBox="0 0 24 24">
+<path d="M17 5v14c0 .55-.45 1-1 1H8c-.55 0-1-.45-1-1V5c0-.55.45-1 1-1h1V2h6v2h1c.55 0 1 .45 1 1zm-2 1H9v12h6V6z"></path>
+</svg>
+</div>
+</div>
+</header>
+<section class="px-5 pt-1 pb-3 text-slate-800" data-purpose="quick-settings">
+<div class="flex justify-between items-center py-1">
+<div>
+<h2 class="text-sm font-semibold tracking-wide text-slate-800">5月28日 周三</h2>
+</div>
+<div class="flex items-center space-x-3 text-slate-600">
+<button aria-label="服务编辑" class="w-8 h-8 rounded-full bg-slate-200/90 hover:bg-slate-300 text-slate-700 flex items-center justify-center transition">
+<svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"></path></svg>
+</button>
+<button aria-label="设置" class="w-8 h-8 rounded-full bg-slate-200/90 hover:bg-slate-300 text-slate-700 flex items-center justify-center transition">
+<svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"></path></svg>
+</button>
+</div>
+</div>
+<div class="grid grid-cols-4 gap-2.5 mt-2">
+<div class="flex flex-col items-center">
+<div class="w-full h-11 bg-teal-600 rounded-2xl flex items-center justify-center text-white shadow-sm border border-teal-500">
+<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 3c-4.97 0-9.47 2.01-12.73 5.27l1.41 1.41C3.35 7.01 7.37 5.2 12 5.2s8.65 1.81 11.32 4.48l1.41-1.41C21.47 5.01 16.97 3 12 3zm0 4.8c-3.66 0-6.97 1.48-9.38 3.89l1.41 1.41C5.81 11.32 8.71 10 12 10s6.19 1.32 7.97 3.1l1.41-1.41C18.97 9.28 15.66 7.8 12 7.8zm0 4.8c-2.34 0-4.46.95-6.01 2.49l1.41 1.41C8.44 15.45 10.11 14.8 12 14.8s3.56.65 4.6 1.7l1.41-1.41C16.46 13.55 14.34 12.6 12 12.6zm0 4.8c-1.03 0-1.95.42-2.63 1.1l2.63 2.63 2.63-2.63c-.68-.68-1.6-1.1-2.63-1.1z"></path></svg>
+</div>
+<span class="text-[11px] text-slate-700 font-medium mt-1">办公 WLAN</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-full h-11 bg-teal-600 rounded-2xl flex items-center justify-center text-white shadow-sm border border-teal-500">
+<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M17.71 7.71L12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 12.34L13 20.05v-3.76l1.88 1.88z"></path></svg>
+</div>
+<span class="text-[11px] text-slate-700 font-medium mt-1">蓝牙</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-full h-11 bg-slate-200/90 hover:bg-slate-300 rounded-2xl flex items-center justify-center text-slate-600 border border-slate-300/80 transition">
+<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M6 2h12v3l-4 4v11c0 1.1-.9 2-2 2s-2-.9-2-2V9L6 5V2zm2 2v.59l4 4 4-4V4H8z"></path></svg>
+</div>
+<span class="text-[11px] text-slate-600 mt-1">手电筒</span>
+</div>
+<div class="flex flex-col items-center">
+<div class="w-full h-11 bg-slate-200/90 hover:bg-slate-300 rounded-2xl flex items-center justify-center text-slate-600 border border-slate-300/80 transition">
+<svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z"></path></svg>
+</div>
+<span class="text-[11px] text-slate-600 mt-1">勿扰模式</span>
+</div>
+</div>
+</section>
+<main class="flex-1 overflow-y-auto px-4 py-2 space-y-4 custom-scrollbar" data-purpose="notification-center-list">
+<div class="flex items-center justify-between px-1 text-xs text-slate-500 font-medium">
+<span class="">正在运行的前台通知</span>
+<button class="text-teal-700 text-[11px] font-medium hover:underline">管理规则</button>
+</div>
+<article class="bg-white border border-slate-200 rounded-3xl p-3.5 shadow-card-subtle transition-all duration-200" data-purpose="notification-collapsed-state">
+<header class="flex items-center justify-between mb-2.5">
+<div class="flex items-center space-x-2 min-w-0">
+<span class="w-5 h-5 rounded-md overflow-hidden ring-1 ring-slate-200 shrink-0" style="background: linear-gradient(45deg, #E6F4F6, #FFFFFF);">
+<img alt="Genie" class="w-full h-full object-contain" src="../app/src/main/res/drawable-xxxhdpi/ic_logo.png">
+</span>
+<span class="text-xs font-semibold text-slate-800">Genie</span>
+<span class="text-[11px] text-slate-500 truncate">· 朗读接口 · 刚刚</span>
+</div>
+<div class="flex items-center space-x-1 shrink-0">
+<span class="text-[10px] text-teal-700 font-medium bg-teal-50 border border-teal-200 px-1.5 py-0.5 rounded">折叠</span>
+<button aria-label="展开通知详情" class="w-6 h-6 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100">
+<svg class="w-4 h-4 fill-current transform" viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"></path></svg>
+</button>
+</div>
+</header>
+<div class="flex items-center justify-between gap-3 bg-slate-50 rounded-2xl p-2.5 border border-slate-200/80">
+<div class="min-w-0 flex-1">
+<div class="flex items-center space-x-2">
+<span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+<h3 class="text-sm font-bold text-slate-900 truncate">朗读接口开着</h3>
+</div>
+<p class="text-[12px] text-slate-600 font-mono mt-0.5 truncate tracking-tight">
+              http://127.0.0.1:8001/tts <span class="text-teal-700 font-sans font-medium">· 端口 8001</span>
+</p>
+</div>
+<button aria-label="停止服务" class="shrink-0 w-8 h-8 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 flex items-center justify-center shadow-sm transition active:scale-95" data-purpose="stop-service-collapsed-action" title="停止服务" type="button"><svg class="w-3.5 h-3.5 fill-red-600" viewBox="0 0 24 24"><rect height="14" rx="2" width="14" x="5" y="5"></rect></svg></button>
+</div>
+</article>
+<article class="bg-white border-2 border-teal-500/50 rounded-3xl p-4 shadow-card-subtle relative overflow-hidden" data-purpose="notification-expanded-state">
+<div class="absolute -right-10 -top-10 w-36 h-36 bg-teal-400/10 rounded-full blur-2xl pointer-events-none"></div>
+<header class="flex items-center justify-between mb-3 relative z-10">
+<div class="flex items-center space-x-2 min-w-0">
+<span class="w-5 h-5 rounded-md overflow-hidden ring-1 ring-slate-200 shrink-0" style="background: linear-gradient(45deg, #E6F4F6, #FFFFFF);">
+<img alt="Genie" class="w-full h-full object-contain" src="../app/src/main/res/drawable-xxxhdpi/ic_logo.png">
+</span>
+<span class="text-xs font-semibold text-slate-800 truncate">Genie · 朗读接口</span>
+</div>
+<div class="flex items-center space-x-2 shrink-0">
+<span class="flex items-center space-x-1 text-[11px] font-mono text-teal-800 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full font-medium" title="运行时间">
+<svg class="w-3 h-3 fill-current text-teal-600" viewBox="0 0 24 24"><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"></path></svg>
+<span class="">02:45:18</span>
+</span>
+<button aria-label="收起通知详情" class="w-6 h-6 rounded-full flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100">
+<svg class="w-4 h-4 fill-current transform" viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6 1.41 1.41z"></path></svg>
+</button>
+</div>
+</header>
+<div class="space-y-3 relative z-10">
+<div class="bg-slate-50 rounded-xl p-2.5 border border-slate-200 flex items-center justify-between">
+<div class="flex items-center space-x-2 min-w-0">
+<span class="text-[11px] text-teal-700 font-semibold px-1.5 py-0.5 bg-teal-100/70 border border-teal-200 rounded shrink-0">局域网</span>
+<p class="text-xs text-slate-800 font-mono font-medium truncate select-all">
+                http://192.168.1.8:8001/tts
+              </p>
+</div>
+<button class="shrink-0 p-1.5 rounded-lg bg-white hover:bg-teal-50 text-slate-600 hover:text-teal-700 transition border border-slate-200 active:scale-95 shadow-xs" data-purpose="copy-ip-button" title="复制局域网地址">
+<svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 24 24"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"></path></svg>
+</button>
+</div>
+<div class="grid grid-cols-3 gap-2">
+<div class="bg-slate-50 p-2 rounded-xl border border-slate-200 text-center">
+<span class="text-[10px] text-slate-500 block mb-0.5 font-medium">运行状态</span>
+<div class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-700 text-[11px] font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+<span class="">已开启</span>
+</div>
+</div>
+<div class="bg-slate-50 p-2 rounded-xl border border-slate-200 text-center">
+<span class="text-[10px] text-slate-500 block mb-0.5 font-medium">端口</span>
+<span class="text-xs font-bold text-slate-800 font-mono">8001</span>
+</div>
+<div class="bg-slate-50 p-2 rounded-xl border border-slate-200 text-center">
+<span class="text-[10px] text-slate-500 block mb-0.5 font-medium">接口</span>
+<span class="text-xs font-bold text-teal-700 font-mono">POST /tts</span>
+</div>
+</div>
+<div class="bg-slate-50 rounded-xl px-3 py-2 border border-slate-200 flex items-center justify-between text-[11px]">
+<span class="text-slate-500 font-medium">本机</span>
+<span class="bg-white border border-slate-200 text-teal-700 font-medium px-1.5 py-0.5 rounded text-[10px] font-mono">http://127.0.0.1:8001/tts</span>
+</div>
+<div class="pt-1 flex items-center justify-between gap-1.5 border-t border-slate-200" data-purpose="notification-actions-row">
+<div class="flex items-center space-x-1.5 flex-1 min-w-0">
+<button class="flex items-center space-x-1 px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-medium transition active:scale-95" data-purpose="copy-ip-button" type="button">
+<span class="">复制</span>
+</button>
+<button class="flex items-center space-x-1 px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-medium transition active:scale-95" type="button">
+<span class="">服务管理</span>
+</button>
+</div>
+<button aria-label="停止服务" class="shrink-0 w-8 h-8 rounded-xl bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 flex items-center justify-center shadow-sm transition active:scale-95 ml-1" data-purpose="stop-service-expanded-action" title="停止服务" type="button"><svg class="w-3.5 h-3.5 fill-red-600" viewBox="0 0 24 24"><rect height="14" rx="2" width="14" x="5" y="5"></rect></svg></button>
+</div>
+</div>
+</article>
+<aside class="text-center px-4 pt-2" data-purpose="demo-note">
+<p class="text-[11px] text-slate-500 leading-relaxed">
+          前台通知把朗读接口留在前台。锁屏或切到别的应用时，接口仍可调用。不要关掉这个通知，否则系统可能会把接口收掉。
+        </p>
+</aside>
+</main>
+<footer class="w-full pb-2 pt-1 flex justify-center items-center select-none" data-purpose="gesture-navigation-bar">
+<div class="w-32 h-1 bg-slate-400 rounded-full"></div>
+</footer>
+</div>
+<script data-purpose="action-feedback">
+    document.querySelectorAll('[data-purpose*="stop-service"]').forEach(button => {
+      button.addEventListener('click', () => {
+        if (confirm('确认停止朗读接口？停止后客户端将无法调用。')) {
+          alert('朗读接口已停止，通知已移除。');
+        }
+      });
+    });
+
+    document.querySelectorAll('[data-purpose="copy-ip-button"]').forEach(button => {
+      button.addEventListener('click', () => {
+        navigator.clipboard?.writeText('http://192.168.1.8:8001/tts');
+        alert('已复制地址: http://192.168.1.8:8001/tts');
+      });
+    });
+  </script>
+</body></html>
