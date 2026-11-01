@@ -75,16 +75,14 @@ class TtsProtocolTest {
     fun segmentLineShowsPlaybackGap() {
         assertEquals(
             "第 1 段 首段等待 3.6 秒，音频 1.1 秒",
-            segmentLine(1, 3600.0, 1100.0, null),
+            segmentLine(1, 3600.0, 1100.0, null).text,
         )
-        assertEquals(
-            "第 2 段 合成 2.4 秒，音频 1.1 秒，播放会空等 1.3 秒",
-            segmentLine(2, 2400.0, 1100.0, 1100.0),
-        )
-        assertEquals(
-            "第 2 段 合成 0.8 秒，音频 1.1 秒",
-            segmentLine(2, 800.0, 1100.0, 2000.0),
-        )
+        val stalled = segmentLine(2, 2400.0, 1100.0, 1100.0)
+        assertEquals("第 2 段 合成 2.4 秒，音频 1.1 秒，播放会空等 1.3 秒", stalled.text)
+        assertEquals(LogLevel.WARN, stalled.level)
+        val steady = segmentLine(2, 800.0, 1100.0, 2000.0)
+        assertEquals("第 2 段 合成 0.8 秒，音频 1.1 秒", steady.text)
+        assertEquals(LogLevel.INFO, steady.level)
     }
 
     @Test
@@ -122,7 +120,7 @@ class TtsProtocolTest {
                 seen.add(request)
                 emit(floatArrayOf(0.25f, 0.25f))
             },
-            log = { logs.add(it) },
+            log = { _, _, message -> logs.add(message) },
         )
         server.start()
         try {

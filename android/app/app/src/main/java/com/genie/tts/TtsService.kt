@@ -87,7 +87,7 @@ class TtsService : Service() {
         TtsRuntime.running = false
         TtsRuntime.switching = false
         TtsRuntime.startedAt = 0L
-        TtsLog.add("接口已关闭")
+        TtsLog.add(LogLevel.INFO, LogModule.SERVICE, "接口已关闭")
         TtsRuntime.publish()
         thread(name = "genie-http-stop", isDaemon = true) {
             current?.stop()
@@ -108,7 +108,9 @@ class TtsService : Service() {
             previous?.stop()
             if (stale(ticket)) return@thread
             try {
-                val created = TtsServer(port, ::roster, ::speak) { TtsLog.add(it) }
+                val created = TtsServer(port, ::roster, ::speak) { level, module, message ->
+                    TtsLog.add(level, module, message)
+                }
                 created.start()
                 val keep = synchronized(gate) {
                     if (ticket != generation || stopping) {
@@ -128,7 +130,7 @@ class TtsService : Service() {
                 TtsRuntime.running = true
                 TtsRuntime.switching = false
                 TtsRuntime.error = null
-                TtsLog.add("接口已打开 端口 $port")
+                TtsLog.add(LogLevel.INFO, LogModule.SERVICE, "接口已打开 端口 $port")
                 logMachine("开机", "此前")
                 getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
             } catch (error: Exception) {
@@ -141,7 +143,7 @@ class TtsService : Service() {
                 } else {
                     "接口没有打开"
                 }
-                TtsLog.add(TtsRuntime.error ?: "接口没有打开")
+                TtsLog.add(LogLevel.ERROR, LogModule.SERVICE, TtsRuntime.error ?: "接口没有打开")
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
@@ -150,8 +152,10 @@ class TtsService : Service() {
     }
 
     private fun logMachine(label: String, cpuPrefix: String) {
-        val line = runCatching { machine.snapshot(label, cpuPrefix) }.getOrElse { "$label 机器读不到" }
-        TtsLog.add(line)
+        val read = runCatching { machine.snapshot(label, cpuPrefix) }
+        val line = read.getOrElse { "$label 机器读不到" }
+        val level = if (read.isSuccess) LogLevel.INFO else LogLevel.WARN
+        TtsLog.add(level, LogModule.MONITOR, line)
     }
 
     private fun stale(ticket: Int): Boolean {
@@ -191,7 +195,11 @@ class TtsService : Service() {
                 throw TtsException(503, "failed to load character '${request.characterName}': ${error.message}")
             }
             val prepareMs = (System.nanoTime() - prepareStarted) / 1_000_000.0
-            TtsLog.add("模型就绪 ${secondsText(prepareMs)} 秒 ${request.characterName} ${pieces.size}句 ${threads}线程")
+            TtsLog.add(
+                LogLevel.INFO,
+                LogModule.SPEECH,
+                "模型就绪 ${secondsText(prepareMs)} 秒 ${request.characterName} ${pieces.size}句 ${threads}线程",
+            )
             speech.synthesize(
                 character,
                 pieces,

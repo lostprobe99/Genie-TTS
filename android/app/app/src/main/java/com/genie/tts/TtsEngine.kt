@@ -146,7 +146,7 @@ class TtsEngine(
 ) : AutoCloseable {
     private val sessions = HashMap<String, OrtSession>()
 
-    fun load(log: (String) -> Unit): Long {
+    internal fun load(log: (LogLevel, String) -> Unit): Long {
         val started = SystemClock.elapsedRealtime()
         val optionsDir = File(caseDir, "optimized").apply { mkdirs() }
         for (name in GenieCase.MODEL_NAMES) {
@@ -156,17 +156,17 @@ class TtsEngine(
         return SystemClock.elapsedRealtime() - started
     }
 
-    private fun openSession(name: String, optionsDir: File, useXnnpack: Boolean, log: (String) -> Unit): OrtSession {
+    private fun openSession(name: String, optionsDir: File, useXnnpack: Boolean, log: (LogLevel, String) -> Unit): OrtSession {
         val model = File(caseDir, "models/$name").absolutePath
         if (useXnnpack) {
             val options = sessionOptions(optFile(optionsDir, "$name.t$threads.xnnpack.opt"))
             try {
                 options.addXnnpack(mapOf("intra_op_num_threads" to threads.toString()))
                 val session = env.createSession(model, options)
-                log("已加载 $name（XNNPACK）")
+                log(LogLevel.INFO, "已加载 $name（XNNPACK）")
                 return session
             } catch (error: Exception) {
-                log("声码器 XNNPACK 不可用，改用 CPU：${error.message}")
+                log(LogLevel.WARN, "声码器 XNNPACK 不可用，改用 CPU：${error.message}")
             } finally {
                 options.close()
             }
@@ -174,7 +174,7 @@ class TtsEngine(
         val options = sessionOptions(optFile(optionsDir, "$name.t$threads.opt"))
         try {
             val session = env.createSession(model, options)
-            log("已加载 $name（CPU）")
+            log(LogLevel.INFO, "已加载 $name（CPU）")
             return session
         } finally {
             options.close()
@@ -197,11 +197,11 @@ class TtsEngine(
         }
     }
 
-    fun synthesize(
+    internal fun synthesize(
         case: GenieCase,
         textSeq: OwnedTensor,
         textBert: OwnedTensor,
-        log: (String) -> Unit,
+        log: (LogLevel, String) -> Unit,
         refBert: OwnedTensor? = null,
         speed: Double = 1.0,
         cancelled: () -> Boolean = { false },
@@ -256,7 +256,7 @@ class TtsEngine(
                 yEmbTensor = result.get(1) as OnnxTensor
                 val stop = readBool(result.get(2) as OnnxTensor)
                 cacheTensors = List(result.size() - 3) { result.get(it + 3) as OnnxTensor }
-                if (idx % 20 == 0) log("decoder $idx")
+                if (idx % 20 == 0) log(LogLevel.DEBUG, "decoder $idx")
                 if (stop) break
             }
             if (cancelled()) throw SynthesisCancelled()

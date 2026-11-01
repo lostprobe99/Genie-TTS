@@ -92,7 +92,7 @@ internal class Speech(
             LongArray(length) { phones.ids[it].toLong() },
         )
         val bert = textBert(phones, threads, ready)
-        val report = loaded.synthesize(GenieCase(character.root), textSeq, bert, {}, ref, speed, stop)
+        val report = loaded.synthesize(GenieCase(character.root), textSeq, bert, ::engineLog, ref, speed, stop)
         return Clip(piece, report.samples, report.sampleRate, null)
     }
 
@@ -137,7 +137,7 @@ internal class Speech(
         if (engine != null && engineKey == key) return engine!!
         dropEngine()
         val created = TtsEngine(OrtEnvironment.getEnvironment(), character.root, threads)
-        created.load { }
+        created.load(::engineLog)
         engine = created
         engineKey = key
         return created
@@ -186,6 +186,10 @@ internal class Speech(
 
     private fun characterSampleRate(character: CharacterInfo): Int {
         return runCatching { GenieCase(character.root).sampleRate }.getOrDefault(32000)
+    }
+
+    private fun engineLog(level: LogLevel, message: String) {
+        TtsLog.add(level, LogModule.SPEECH, message)
     }
 
     private fun sentenceError(error: Exception): String {

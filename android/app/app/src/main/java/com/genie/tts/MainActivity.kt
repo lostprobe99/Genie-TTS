@@ -791,8 +791,13 @@ class MainActivity : AppCompatActivity() {
         val rate = speedOf(speed.progress)
         val threads = threads()
         worker.execute {
+            TtsLog.add(
+                LogLevel.INFO,
+                LogModule.SPEECH,
+                "主屏开始 ${character.id} ${pieces.size}句 语速 ${"%.2f".format(Locale.US, rate)}",
+            )
             try {
-                speech.synthesize(
+                val made = speech.synthesize(
                     character,
                     pieces,
                     rate,
@@ -823,6 +828,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     },
                 )
+                logHomeSynth(character.id, made)
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
                     if (synthStartedAt > 0L) synthElapsedMs = SystemClock.elapsedRealtime() - synthStartedAt
@@ -835,6 +841,10 @@ class MainActivity : AppCompatActivity() {
                     updateControls()
                 }
             } catch (error: Exception) {
+                if (error !is SynthesisCancelled) {
+                    val detail = error.message?.trim().orEmpty().ifBlank { "失败" }
+                    TtsLog.add(LogLevel.ERROR, LogModule.SPEECH, "主屏合成失败 ${character.id} $detail")
+                }
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
                     clearAudio()
@@ -865,6 +875,7 @@ class MainActivity : AppCompatActivity() {
             marker.writeText(versionLabel())
             val gen = playGen.incrementAndGet()
             worker.execute {
+                TtsLog.add(LogLevel.INFO, LogModule.SPEECH, "试听 ${character.id}")
                 try {
                     val clip = speech.preview(character, threads()) { loading, _ ->
                         runOnUiThread {
@@ -875,7 +886,9 @@ class MainActivity : AppCompatActivity() {
                     }
                     val samples = clip.samples
                     if (samples == null) {
-                        runOnUiThread { if (!isDestroyed) alert(clip.error ?: "这句没有读出来") }
+                        val detail = clip.error ?: "这句没有读出来"
+                        TtsLog.add(LogLevel.WARN, LogModule.SPEECH, "试听没有声音 ${character.id} $detail")
+                        runOnUiThread { if (!isDestroyed) alert(detail) }
                         return@execute
                     }
                     val quiet = isQuiet(samples)
@@ -906,6 +919,10 @@ class MainActivity : AppCompatActivity() {
                         },
                     )
                 } catch (error: Exception) {
+                    if (error !is SynthesisCancelled) {
+                        val detail = error.message?.trim().orEmpty().ifBlank { "失败" }
+                        TtsLog.add(LogLevel.ERROR, LogModule.SPEECH, "试听失败 ${character.id} $detail")
+                    }
                     runOnUiThread { if (!isDestroyed) alert(human(error)) }
                 } finally {
                     marker.delete()
@@ -1216,14 +1233,17 @@ class MainActivity : AppCompatActivity() {
         setBusy(true)
         worker.execute {
             try {
-                contentResolver.openInputStream(uri)?.use { CharacterPack.importZip(filesDir, it, name) }
+                val result = contentResolver.openInputStream(uri)?.use { CharacterPack.importZip(filesDir, it, name) }
                     ?: error("打不开这个文件")
+                val action = if (result.replaced) "已替换" else "已导入"
+                TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "$action ${result.info.id}")
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
                     setBusy(false)
                     refreshCharacters()
                 }
             } catch (error: Exception) {
+                TtsLog.add(LogLevel.ERROR, LogModule.CHARACTER, "导入失败 ${logDetail(error)}")
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
                     setBusy(false)
@@ -1250,6 +1270,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 if (dropsSelection) speech.dropEngine()
                 targets.forEach { it.root.deleteRecursively() }
+                TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "已删除 ${targets.joinToString("、") { it.id }}")
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
                     if (dropsSelection) {
@@ -1263,6 +1284,7 @@ class MainActivity : AppCompatActivity() {
                     if (batching && roster.isEmpty()) exitBatch()
                 }
             } catch (error: Exception) {
+                TtsLog.add(LogLevel.ERROR, LogModule.CHARACTER, "删除失败 ${logDetail(error)}")
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
                     setBusy(false)
@@ -1307,7 +1329,9 @@ class MainActivity : AppCompatActivity() {
                         showProsodyProgress(done, total)
                     }
                 }
+                TtsLog.add(LogLevel.INFO, LogModule.PROSODY, "已下载韵律模型")
             } catch (error: Exception) {
+                TtsLog.add(LogLevel.ERROR, LogModule.PROSODY, "下载失败 ${logDetail(error)}")
                 runOnUiThread { if (!isDestroyed) alert(human(error)) }
             } finally {
                 runOnUiThread {
@@ -1341,7 +1365,9 @@ class MainActivity : AppCompatActivity() {
                 speech.dropProsody()
                 contentResolver.openInputStream(uri)?.use { ProsodyPack.importFile(filesDir, it, name) }
                     ?: error("打不开这个文件")
+                TtsLog.add(LogLevel.INFO, LogModule.PROSODY, "已导入韵律模型")
             } catch (error: Exception) {
+                TtsLog.add(LogLevel.ERROR, LogModule.PROSODY, "导入失败 ${logDetail(error)}")
                 runOnUiThread { if (!isDestroyed) alert(human(error)) }
             } finally {
                 runOnUiThread {
@@ -1369,7 +1395,9 @@ class MainActivity : AppCompatActivity() {
             try {
                 speech.dropProsody()
                 ProsodyPack.delete(filesDir)
+                TtsLog.add(LogLevel.INFO, LogModule.PROSODY, "已删除韵律模型")
             } catch (error: Exception) {
+                TtsLog.add(LogLevel.ERROR, LogModule.PROSODY, "删除失败 ${logDetail(error)}")
                 runOnUiThread { if (!isDestroyed) alert(human(error)) }
             } finally {
                 runOnUiThread {
@@ -1778,7 +1806,10 @@ class MainActivity : AppCompatActivity() {
         setBusy(true)
         worker.execute {
             try {
-                if (nameChanged) CharacterPack.rename(info, name)
+                if (nameChanged) {
+                    CharacterPack.rename(info, name)
+                    TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "${info.id} 显示名改为 $name")
+                }
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
                     if (selectionChanged) {
@@ -1796,6 +1827,7 @@ class MainActivity : AppCompatActivity() {
                     if (selectionChanged) worker.execute { speech.dropEngine() }
                 }
             } catch (error: Exception) {
+                TtsLog.add(LogLevel.ERROR, LogModule.CHARACTER, "改名失败 ${info.id} ${logDetail(error)}")
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
                     setBusy(false)
@@ -2188,15 +2220,16 @@ class MainActivity : AppCompatActivity() {
         val entries = TtsLog.entries()
         val query = findViewById<EditText>(R.id.logQuery).text.toString().trim()
         val shown = entries.mapIndexed { index, line -> (index + 1) to line }.filter { (_, line) ->
-            val levelOk = logLevelFilter == null || logLevel(line.message) == logLevelFilter
-            val queryOk = query.isEmpty() || line.message.contains(query, ignoreCase = true)
+            val levelOk = logLevelFilter == null || line.level == logLevelFilter
+            val haystack = "${line.module} ${line.message}"
+            val queryOk = query.isEmpty() || haystack.contains(query, ignoreCase = true)
             levelOk && queryOk
         }
         paintLogChip(R.id.logFilterAll, null, entries.size)
-        paintLogChip(R.id.logFilterInfo, LogLevel.INFO, entries.count { logLevel(it.message) == LogLevel.INFO })
-        paintLogChip(R.id.logFilterWarn, LogLevel.WARN, entries.count { logLevel(it.message) == LogLevel.WARN })
-        paintLogChip(R.id.logFilterError, LogLevel.ERROR, entries.count { logLevel(it.message) == LogLevel.ERROR })
-        paintLogChip(R.id.logFilterDebug, LogLevel.DEBUG, entries.count { logLevel(it.message) == LogLevel.DEBUG })
+        paintLogChip(R.id.logFilterInfo, LogLevel.INFO, entries.count { it.level == LogLevel.INFO })
+        paintLogChip(R.id.logFilterWarn, LogLevel.WARN, entries.count { it.level == LogLevel.WARN })
+        paintLogChip(R.id.logFilterError, LogLevel.ERROR, entries.count { it.level == LogLevel.ERROR })
+        paintLogChip(R.id.logFilterDebug, LogLevel.DEBUG, entries.count { it.level == LogLevel.DEBUG })
         val running = TtsRuntime.running
         val tone = if (running) 0xFF0F766E.toInt() else 0xFF64748B.toInt()
         val bannerText = findViewById<TextView>(R.id.logBannerText)
@@ -2274,31 +2307,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun logRow(index: Int, line: LogLine): View {
-        val level = logLevel(line.message)
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(10), dp(8), dp(10), dp(8))
-            setBackgroundColor(logRowColor(level))
+            setBackgroundColor(logRowColor(line.level))
         }
         val meta = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        meta.addView(TextView(this).apply {
-            text = line.time.ifBlank { "--:--:--.---" }
-            textSize = 10f
-            typeface = Typeface.MONOSPACE
-            setTextColor(0xFF94A3B8.toInt())
-        })
+        val stamp = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        if (line.date.isNotBlank()) {
+            stamp.addView(logStamp(line.date))
+        }
+        stamp.addView(logStamp(line.time.ifBlank { "--:--:--.---" }))
+        meta.addView(stamp)
         meta.addView(
-            logBadge(level),
+            logBadge(line.level),
             LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
                 marginStart = dp(6)
             },
         )
         meta.addView(
             TextView(this).apply {
-                text = "[${logTag(line.message)}]"
+                text = if (line.module.isBlank()) "" else "[${line.module}]"
                 textSize = 11f
                 setTypeface(typeface, Typeface.BOLD)
                 setTextColor(0xFF334155.toInt())
@@ -2319,6 +2351,31 @@ class MainActivity : AppCompatActivity() {
             setTextIsSelectable(true)
         })
         return row
+    }
+
+    private fun logStamp(text: String): TextView {
+        return TextView(this).apply {
+            this.text = text
+            textSize = 10f
+            typeface = Typeface.MONOSPACE
+            setTextColor(0xFF94A3B8.toInt())
+        }
+    }
+
+    private fun logHomeSynth(id: String, made: List<Clip>) {
+        val playable = made.count { it.samples != null }
+        val quiet = made.count { clip -> clip.samples?.let(::isQuiet) == true }
+        val broken = made.count { it.error != null }
+        val level = if (playable == 0 || broken > 0 || (playable > 0 && quiet == playable)) {
+            LogLevel.WARN
+        } else {
+            LogLevel.INFO
+        }
+        TtsLog.add(level, LogModule.SPEECH, "主屏完成 $id ${playable}/${made.size}句可播放")
+    }
+
+    private fun logDetail(error: Exception): String {
+        return error.message?.trim().orEmpty().ifBlank { "失败" }
     }
 
     private fun logBadge(level: LogLevel): TextView {

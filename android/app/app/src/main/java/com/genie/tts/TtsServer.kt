@@ -19,7 +19,7 @@ internal class TtsServer(
     private val port: Int,
     private val characters: () -> Map<String, Int>,
     private val speaker: TtsSpeaker,
-    private val log: (String) -> Unit = {},
+    private val log: (LogLevel, LogModule, String) -> Unit = { _, _, _ -> },
 ) {
     private var socket: ServerSocket? = null
     private var loop: Thread? = null
@@ -82,18 +82,18 @@ internal class TtsServer(
         val method = requestLine.getOrNull(0).orEmpty()
         val path = requestLine.getOrNull(1).orEmpty().substringBefore("?")
         if (method != "POST") {
-            log("$host ${method.ifBlank { "请求" }} $path 405")
+            log(LogLevel.ERROR, LogModule.WEB, "$host ${method.ifBlank { "请求" }} $path 405")
             writeText(output, 405, "Method Not Allowed")
             return
         }
         if (path != "/tts") {
-            log("$host $method $path 404")
+            log(LogLevel.ERROR, LogModule.WEB, "$host $method $path 404")
             writeText(output, 404, "Not Found")
             return
         }
         val length = contentLength(lines)
         if (length < 0 || length > MAX_BODY) {
-            log("$host 正文长度不对")
+            log(LogLevel.ERROR, LogModule.WEB, "$host 正文长度不对")
             writeText(output, 400, "Text is required")
             return
         }
@@ -107,18 +107,20 @@ internal class TtsServer(
         val request = try {
             TtsProtocol.parseBody(String(body, 0, read, Charsets.UTF_8))
         } catch (error: TtsException) {
-            log("$host ${error.status} ${error.message}")
+            log(LogLevel.ERROR, LogModule.WEB, "$host ${error.status} ${error.message}")
             writeText(output, error.status, error.message ?: "Text is required")
             return
         }
         val sampleRate = characters()[request.characterName]
         if (sampleRate == null) {
-            log("$host 404 character '${request.characterName}' not found")
+            log(LogLevel.ERROR, LogModule.WEB, "$host 404 character '${request.characterName}' not found")
             writeText(output, 404, "character '${request.characterName}' not found")
             return
         }
         val begun = System.nanoTime()
         log(
+            LogLevel.INFO,
+            LogModule.WEB,
             "$host 请求 ${request.characterName} split=${request.splitSentence} " +
                 "${request.text.length}字 ${preview(request.text)}",
         )
@@ -150,7 +152,8 @@ internal class TtsServer(
                 val audioMs = if (sampleRate <= 0) 0.0 else samples.size * 1000.0 / sampleRate
                 count += 1
                 totalAudioMs += audioMs
-                log(segmentLine(count, synthMs, audioMs, previousAudioMs))
+                val note = segmentLine(count, synthMs, audioMs, previousAudioMs)
+                log(note.level, LogModule.SPEECH, note.text)
                 previousAudioMs = audioMs
                 output.write(TtsProtocol.pcm16(samples))
                 output.flush()
@@ -169,7 +172,14 @@ internal class TtsServer(
         } finally {
             val wallMs = (System.nanoTime() - begun) / 1_000_000.0
             val ending = failed ?: "完成"
+            val level = when {
+                failed == null -> LogLevel.INFO
+                failed == "客户端断开" -> LogLevel.WARN
+                else -> LogLevel.ERROR
+            }
             log(
+                level,
+                LogModule.WEB,
                 "$host $ending ${count}段 音频 ${secondsText(totalAudioMs)} 秒 用时 ${secondsText(wallMs)} 秒",
             )
             try {
