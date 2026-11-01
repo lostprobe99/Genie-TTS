@@ -272,7 +272,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         Engines.activityOpen = true
         speech = Engines.get(filesDir) { assets.open(it) }
-        CharacterPack.migrateLegacy(filesDir)
+        CharacterCatalog.attach(filesDir)
         bindViews()
         restoreDraft()
         showInterrupted()
@@ -1269,7 +1269,10 @@ class MainActivity : AppCompatActivity() {
         worker.execute {
             try {
                 if (dropsSelection) speech.dropEngine()
-                targets.forEach { it.root.deleteRecursively() }
+                targets.forEach {
+                    val gone = it.root.deleteRecursively() || !it.root.exists()
+                    if (gone) CharacterCatalog.remove(it.id)
+                }
                 TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "已删除 ${targets.joinToString("、") { it.id }}")
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
@@ -1579,11 +1582,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun avatarIndex(info: CharacterInfo): Int {
-        val file = File(info.root, CharacterPack.AVATAR_ICON)
-        val saved = file.takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull()
+        val saved = CharacterCatalog.find(info.id)?.avatarIndex
         if (saved != null && saved in avatarIcons.indices) return saved
         val pick = kotlin.random.Random.nextInt(avatarIcons.size)
-        runCatching { file.writeText(pick.toString()) }
+        CharacterCatalog.setAvatar(info.id, pick)
         return pick
     }
 

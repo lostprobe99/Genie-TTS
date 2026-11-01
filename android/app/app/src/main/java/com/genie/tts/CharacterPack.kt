@@ -16,6 +16,8 @@ data class CharacterInfo(
     val name: String,
     val root: File,
     val refText: String,
+    val sampleRate: Int = 32000,
+    val avatarIndex: Int? = null,
 )
 
 data class ImportResult(
@@ -63,23 +65,18 @@ object CharacterPack {
             .minWithOrNull(compareBy<File>({ audioRank(it.name) }, { it.path }))
     }
 
-    /** 新包带了头像就用新的。没有的话，留下上次抽中的扁平图标。 */
-    fun rememberAvatarChoice(root: File, previous: String?) {
-        if (avatarImage(root) != null) {
-            File(root, AVATAR_ICON).delete()
-            return
-        }
-        val file = File(root, AVATAR_ICON)
-        if (!file.isFile && !previous.isNullOrBlank()) file.writeText(previous)
-    }
-
     fun rename(info: CharacterInfo, name: String) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) error("名字不能是空的")
-        File(info.root, NAME_FILE).writeText(trimmed)
+        CharacterCatalog.rename(info.id, trimmed)
     }
 
     fun list(filesDir: File): List<CharacterInfo> {
+        CharacterCatalog.attach(filesDir)
+        return CharacterCatalog.list()
+    }
+
+    internal fun scanDisk(filesDir: File): List<CharacterInfo> {
         val root = directory(filesDir)
         if (!root.isDirectory) return emptyList()
         return root.listFiles().orEmpty()
@@ -170,8 +167,7 @@ object CharacterPack {
             val info = read(packedRoot)
             val dest = File(directory(filesDir), info.id)
             val replaced = dest.isDirectory
-            val keptName = File(dest, NAME_FILE).takeIf { it.isFile }?.readText()
-            val keptIcon = File(dest, AVATAR_ICON).takeIf { it.isFile }?.readText()
+            val previous = CharacterCatalog.find(info.id)
             val backup = File(filesDir, "import-backup-${info.id}")
             if (replaced) {
                 backup.deleteRecursively()
@@ -183,12 +179,16 @@ object CharacterPack {
                 if (replaced) backup.renameTo(dest)
                 error("无法保存角色 ${info.id}")
             }
-            val chosen = displayName?.trim()?.takeIf { it.isNotEmpty() } ?: keptName?.trim()?.takeIf { it.isNotEmpty() }
-            if (chosen != null) File(dest, NAME_FILE).writeText(chosen)
-            rememberAvatarChoice(dest, keptIcon)
+            val chosen = displayName?.trim()?.takeIf { it.isNotEmpty() } ?: previous?.name?.trim()?.takeIf { it.isNotEmpty() }
+            val base = read(dest)
+            val avatar = if (avatarImage(dest) != null) null else previous?.avatarIndex ?: base.avatarIndex
+            val stored = base.copy(name = chosen ?: base.name, avatarIndex = avatar)
+            File(dest, NAME_FILE).delete()
+            File(dest, AVATAR_ICON).delete()
+            CharacterCatalog.upsert(filesDir, stored)
             backup.deleteRecursively()
             staging.deleteRecursively()
-            return ImportResult(read(dest), replaced)
+            return ImportResult(stored, replaced)
         } catch (error: Exception) {
             staging.deleteRecursively()
             throw error
@@ -299,7 +299,9 @@ object CharacterPack {
         val saved = File(root, NAME_FILE).takeIf { it.isFile }?.readText()?.trim()
         val name = saved?.takeIf { it.isNotEmpty() } ?: manifest.optString("name").ifBlank { displayName(id) }
         val refText = manifest.optString("ref_text")
-        return CharacterInfo(id, name, root, refText)
+        val rate = manifest.optInt("sample_rate", 32000).coerceAtLeast(1)
+        val avatar = File(root, AVATAR_ICON).takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull()
+        return CharacterInfo(id, name, root, refText, rate, avatar)
     }
 
     private fun expectedBytes(dtype: String, shape: LongArray): Long {

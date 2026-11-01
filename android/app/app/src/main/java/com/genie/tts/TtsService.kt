@@ -13,8 +13,6 @@ import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
-import org.json.JSONObject
-import java.io.File
 import kotlin.concurrent.thread
 import kotlin.math.max
 import kotlin.math.min
@@ -59,6 +57,7 @@ class TtsService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val port = TtsPorts.read(filesDir)
         TtsRuntime.port = port
+        CharacterCatalog.attach(filesDir)
         TtsLog.attach(filesDir)
         val same = synchronized(gate) {
             TtsRuntime.running && server != null && listeningPort == port && !stopping
@@ -163,16 +162,11 @@ class TtsService : Service() {
     }
 
     private fun roster(): Map<String, Int> {
-        return CharacterPack.list(filesDir).associate { info ->
-            val rate = runCatching {
-                JSONObject(File(info.root, "manifest.json").readText()).optInt("sample_rate", 32000)
-            }.getOrDefault(32000)
-            info.id to rate.coerceAtLeast(1)
-        }
+        return CharacterCatalog.list().associate { it.id to it.sampleRate.coerceAtLeast(1) }
     }
 
     private fun speak(request: TtsRequest, stop: () -> Boolean, emit: (FloatArray) -> Unit) {
-        val character = CharacterPack.list(filesDir).find { it.id == request.characterName }
+        val character = CharacterCatalog.find(request.characterName)
             ?: throw TtsException(404, "character '${request.characterName}' not found")
         val pieces = if (request.splitSentence) {
             TextSplitter().split(request.text)
