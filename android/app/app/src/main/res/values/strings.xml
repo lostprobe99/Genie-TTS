@@ -17,13 +17,8 @@
     <string name="service_stopped">未开启</string>
     <string name="service_switching">正在切换端口</string>
     <string name="service_notice">通知没打开，系统可能会把接口收掉。</string>
-    <string name="service_stats">本次</string>
-    <string name="service_stat_requests">请求</string>
-    <string name="service_stat_failures">失败</string>
-    <string name="service_stat_busy">正在合成</string>
-    <string name="service_stat_yes">是</string>
-    <string name="service_stat_no">否</string>
-    <string name="service_stat_note">从这次开启算起，关掉后清零。客户端断开算进请求，不算失败。同一时间只合成一路。</string>
+    <string name="service_stats">总调用</string>
+    <string name="service_stat_note">这次开启后结束的 POST /tts。成功、失败和客户端断开都算一次。关掉后清零，改端口接着计。主屏合成不算。</string>
     <string name="service_net">网络与端口</string>
     <string name="service_port_range">1 到 65535，默认 8001</string>
     <string name="service_local">本机</string>

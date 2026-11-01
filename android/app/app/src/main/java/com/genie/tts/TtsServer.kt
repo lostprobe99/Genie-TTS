@@ -20,8 +20,7 @@ internal class TtsServer(
     private val characters: () -> Map<String, Int>,
     private val speaker: TtsSpeaker,
     private val log: (LogLevel, LogModule, String) -> Unit = { _, _, _ -> },
-    private val onBusy: (Boolean) -> Unit = {},
-    private val onFinished: (Boolean) -> Unit = {},
+    private val onCall: () -> Unit = {},
 ) {
     private var socket: ServerSocket? = null
     private var loop: Thread? = null
@@ -97,7 +96,7 @@ internal class TtsServer(
         if (length < 0 || length > MAX_BODY) {
             log(LogLevel.ERROR, LogModule.WEB, "$host 正文长度不对")
             writeText(output, 400, "Text is required")
-            onFinished(true)
+            onCall()
             return
         }
         val body = ByteArray(length)
@@ -112,14 +111,14 @@ internal class TtsServer(
         } catch (error: TtsException) {
             log(LogLevel.ERROR, LogModule.WEB, "$host ${error.status} ${error.message}")
             writeText(output, error.status, error.message ?: "Text is required")
-            onFinished(true)
+            onCall()
             return
         }
         val sampleRate = characters()[request.characterName]
         if (sampleRate == null) {
             log(LogLevel.ERROR, LogModule.WEB, "$host 404 character '${request.characterName}' not found")
             writeText(output, 404, "character '${request.characterName}' not found")
-            onFinished(true)
+            onCall()
             return
         }
         val begun = System.nanoTime()
@@ -144,7 +143,6 @@ internal class TtsServer(
         var totalAudioMs = 0.0
         var mark = begun
         var failed: String? = null
-        onBusy(true)
         try {
             speaker.speak(request, { cancelled.get() || stopRequested }) { samples ->
                 val now = System.nanoTime()
@@ -188,7 +186,7 @@ internal class TtsServer(
                 LogModule.WEB,
                 "$host $ending ${count}段 音频 ${secondsText(totalAudioMs)} 秒 用时 ${secondsText(wallMs)} 秒",
             )
-            onFinished(failed != null && failed != "客户端断开")
+            onCall()
             try {
                 client.close()
             } catch (_: Exception) {

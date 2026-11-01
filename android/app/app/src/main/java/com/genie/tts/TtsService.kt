@@ -42,36 +42,17 @@ internal object TtsRuntime {
     @Volatile
     var requests = 0
 
-    @Volatile
-    var failures = 0
-
-    @Volatile
-    var busy = false
-
     private val statsLock = Any()
 
     var listener: (() -> Unit)? = null
 
-    fun noteBusy(active: Boolean) {
-        synchronized(statsLock) { busy = active }
-        publish()
-    }
-
-    fun noteFinished(failed: Boolean) {
-        synchronized(statsLock) {
-            requests += 1
-            if (failed) failures += 1
-            busy = false
-        }
+    fun noteCall() {
+        synchronized(statsLock) { requests += 1 }
         publish()
     }
 
     fun resetStats() {
-        synchronized(statsLock) {
-            requests = 0
-            failures = 0
-            busy = false
-        }
+        synchronized(statsLock) { requests = 0 }
     }
 
     fun publish() {
@@ -155,8 +136,7 @@ class TtsService : Service() {
                     ::roster,
                     ::speak,
                     log = { level, module, message -> TtsLog.add(level, module, message) },
-                    onBusy = TtsRuntime::noteBusy,
-                    onFinished = TtsRuntime::noteFinished,
+                    onCall = TtsRuntime::noteCall,
                 )
                 created.start()
                 val keep = synchronized(gate) {
