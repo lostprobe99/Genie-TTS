@@ -1,0 +1,353 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>GenieTTS - 查看日志</title>
+<!-- Tailwind CSS v3 with forms and container queries -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              900: '#062d34',
+              850: '#083a43',
+              800: '#0a4b56',
+              700: '#0f6877',
+              600: '#148598',
+              500: '#199eb5',
+              400: '#26c0dc',
+              100: '#e0f4f7',
+              50: '#f0f9fa',
+            },
+            tealSurface: '#083c46',
+            appBg: '#edf3f5',
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"PingFang SC"', '"Hiragino Sans GB"', '"Microsoft YaHei"', 'Roboto', 'sans-serif'],
+            mono: ['"JetBrains Mono"', '"Fira Code"', 'SFMono-Regular', 'Consolas', 'Menlo', 'monospace'],
+          }
+        }
+      }
+    }
+  </script>
+<!-- BEGIN: Custom Styles -->
+<style data-purpose="custom-scrollbars">
+    /* Subtle custom scrollbar for terminal readability */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(10, 75, 86, 0.2);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(10, 75, 86, 0.4);
+    }
+  </style>
+<style data-purpose="status-bar-indicators">
+    .android-notch-fix {
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+  </style>
+<!-- END: Custom Styles -->
+</head>
+<body class="bg-slate-900 min-h-screen flex items-center justify-center p-0 sm:p-4 select-none font-sans antialiased text-slate-800">
+<!-- BEGIN: Mobile Device Frame -->
+<div class="w-full max-w-[430px] h-[100dvh] sm:h-[884px] bg-appBg flex flex-col overflow-hidden sm:rounded-[36px] sm:shadow-2xl sm:ring-8 sm:ring-slate-800/60 relative" data-purpose="mobile-frame">
+<!-- BEGIN: Android System Status Bar -->
+
+<!-- END: Android System Status Bar -->
+<!-- BEGIN: App Navigation Header -->
+<section class="bg-brand-800 text-white px-4 pt-2 pb-3.5 shadow-md z-20" data-purpose="app-top-bar">
+<div class="flex items-center justify-between">
+<!-- Left: Back Button & Title -->
+<div class="flex items-center space-x-3">
+<button aria-label="返回上一页" class="w-9 h-9 rounded-full flex items-center justify-center text-teal-100 hover:bg-teal-900/50 active:scale-95 transition-all" type="button">
+<svg class="w-5 h-5 stroke-current" fill="none" stroke-width="2.2" viewBox="0 0 24 24">
+<path d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<div>
+<div class="flex items-center space-x-2">
+<h1 class="text-lg font-bold tracking-wide text-white leading-none">查看日志</h1>
+<span class="text-[10px] font-mono bg-teal-900/80 text-teal-300 border border-teal-600/50 px-1.5 py-0.5 rounded">v1.7.5(76)</span>
+</div>
+<p class="text-[11px] text-teal-200/75 mt-0.5">本地合成引擎与服务实时监控</p>
+</div>
+</div>
+<!-- Right Action Icons -->
+<div class="flex items-center space-x-1">
+<!-- Refresh logs button -->
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-teal-100 hover:bg-teal-900/50 active:scale-90 transition" title="刷新日志" type="button">
+<svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- Share / Export Icon -->
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-teal-100 hover:bg-teal-900/50 active:scale-90 transition" title="导出日志" type="button">
+<svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- More options button (three dots) -->
+<button class="w-8 h-8 rounded-full flex items-center justify-center text-teal-100 hover:bg-teal-900/50 active:scale-90 transition" title="更多选项" type="button">
+<svg class="w-4.5 h-4.5" fill="currentColor" viewBox="0 0 20 20">
+<path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"></path>
+</svg>
+</button>
+</div>
+</div>
+</section>
+<!-- END: App Navigation Header -->
+<!-- BEGIN: Quick Filter Toolbar & Search -->
+<section class="bg-white border-b border-slate-200/80 px-3.5 py-2.5 shadow-xs space-y-2 z-10 flex-shrink-0" data-purpose="log-control-bar">
+<!-- Horizontal Level Filter Pills -->
+<div class="flex items-center justify-between space-x-1.5 overflow-x-auto no-scrollbar py-0.5">
+<button class="flex-1 py-1.5 px-2.5 rounded-full text-xs font-semibold bg-brand-800 text-white shadow-xs text-center transition flex items-center justify-center space-x-1" type="button">
+<span class="">全部</span>
+<span class="text-[10px] bg-brand-900/60 px-1 rounded-full text-teal-200">128</span>
+</button>
+<button class="py-1.5 px-2.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 active:scale-95 text-center transition flex items-center space-x-1" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+<span class="">INFO</span>
+</button>
+<button class="py-1.5 px-2.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 active:scale-95 text-center transition flex items-center space-x-1" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+<span class="">WARN</span>
+<span class="text-[10px] text-amber-700 bg-amber-100 px-1 rounded-full font-bold">1</span>
+</button>
+<button class="py-1.5 px-2.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 active:scale-95 text-center transition flex items-center space-x-1" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+<span class="">ERROR</span>
+</button>
+<button class="py-1.5 px-2.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 active:scale-95 text-center transition flex items-center space-x-1" type="button">
+<span class="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+<span class="">DEBUG</span>
+</button>
+</div>
+<!-- Search Input + Auto-scroll toggle -->
+<div class="flex items-center space-x-2 pt-0.5">
+<div class="relative flex-1">
+<div class="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-400">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</div>
+<input class="w-full pl-8 pr-7 py-1 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1.5 focus:ring-brand-700 focus:bg-white transition" placeholder="搜索日志 (如 WebTTS, prosody, 耗时)..." type="text">
+<button class="absolute inset-y-0 right-0 pr-2 flex items-center text-slate-300 hover:text-slate-500" type="button">
+<svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+<path clip-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" fill-rule="evenodd"></path>
+</svg>
+</button>
+</div>
+<!-- Auto-scroll Switch Badge -->
+<label class="flex items-center space-x-1.5 cursor-pointer select-none bg-slate-50 px-2 py-1 border border-slate-200 rounded-lg shrink-0">
+<span class="text-[11px] text-slate-600 font-medium">自动滚动</span>
+<div class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox">
+<div class="w-7 h-4 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-brand-700"></div>
+</div>
+</label>
+</div>
+</section>
+<!-- END: Quick Filter Toolbar & Search -->
+<!-- BEGIN: Main Log Content Stream -->
+<main class="flex-1 overflow-y-auto p-3 space-y-2.5" data-purpose="log-stream-container">
+<!-- Status banner summarizing session -->
+<div class="flex items-center justify-between px-3 py-1.5 bg-teal-50 border border-teal-200/70 rounded-xl text-teal-800 text-[11px]">
+<div class="flex items-center space-x-1.5">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-teal-600"></span>
+</span>
+<span class="font-medium">日志管道活动中</span>
+<span class="text-teal-600/70">· PID: 18422</span>
+</div>
+<div class="font-mono text-[10px] text-teal-700 bg-white/70 px-1.5 py-0.5 rounded border border-teal-200/50">
+          RAM: 86.4 MB
+        </div>
+</div>
+<!-- Log Terminal Card -->
+<div class="bg-white rounded-2xl shadow-xs border border-slate-200/90 divide-y divide-slate-100 overflow-hidden font-mono text-[11px]" data-purpose="terminal-card">
+<!-- Log Item 1: App Lifecycle -->
+<article class="p-2.5 hover:bg-slate-50/80 transition-colors">
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center space-x-1.5">
+<span class="text-slate-400 select-none">12:34:20.105</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200">INFO</span>
+<span class="text-slate-700 font-semibold">[AppLifecycle]</span>
+</div>
+<span class="text-[10px] text-slate-400 font-sans">#001</span>
+</div>
+<p class="text-slate-700 font-sans leading-relaxed pl-1 select-text">
+            GenieTTS v1.7.5(76) 服务初始化完成，环境就绪。<span class="text-teal-700 font-mono text-[10.5px]">CPU: ARM64-v8a</span>
+</p>
+</article>
+<!-- Log Item 2: Prosody Model -->
+<article class="p-2.5 hover:bg-slate-50/80 transition-colors">
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center space-x-1.5">
+<span class="text-slate-400 select-none">12:34:21.312</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200">INFO</span>
+<span class="text-slate-700 font-semibold">[ProsodyModel]</span>
+</div>
+<span class="text-[10px] text-slate-400 font-sans">#002</span>
+</div>
+<p class="text-slate-700 font-sans leading-relaxed pl-1 select-text">
+            加载韵律预测模型 <code class="bg-slate-100 px-1 py-0.5 rounded text-teal-800 font-mono text-[10.5px]">prosody_v2.bin</code> 成功 (常驻内存占用 <span class="text-slate-900 font-medium">48.2MB</span>)
+          </p>
+</article>
+<!-- Log Item 3: WebTTS Server -->
+<article class="p-2.5 hover:bg-slate-50/80 transition-colors">
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center space-x-1.5">
+<span class="text-slate-400 select-none">12:34:25.802</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200">INFO</span>
+<span class="text-slate-700 font-semibold">[WebTTS]</span>
+</div>
+<span class="text-[10px] text-slate-400 font-sans">#003</span>
+</div>
+<p class="text-slate-700 font-sans leading-relaxed pl-1 select-text">
+            本地 WebTTS 端口绑定完成，服务已就绪: <a class="text-brand-600 underline font-mono text-[11px] hover:text-brand-800" href="#">http://127.0.0.1:2020</a>
+</p>
+</article>
+<!-- Log Item 4: Character Manager -->
+<article class="p-2.5 hover:bg-slate-50/80 transition-colors bg-purple-50/30">
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center space-x-1.5">
+<span class="text-slate-400 select-none">12:34:32.410</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">DEBUG</span>
+<span class="text-purple-900 font-semibold">[CharacterManager]</span>
+</div>
+<span class="text-[10px] text-purple-400 font-sans">#004</span>
+</div>
+<p class="text-slate-700 font-sans leading-relaxed pl-1 select-text">
+            加载发音人音色权重配置: <span class="font-mono bg-purple-100/70 text-purple-900 px-1 py-0.5 rounded text-[10.5px]">march_7th_v2</span> (当前角色: 三月七，采样率: 24kHz)
+          </p>
+</article>
+<!-- Log Item 5: Synthesizer Request -->
+<article class="p-2.5 hover:bg-slate-50/80 transition-colors">
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center space-x-1.5">
+<span class="text-slate-400 select-none">12:34:45.118</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200">INFO</span>
+<span class="text-slate-700 font-semibold">[TtsSynthesizer]</span>
+</div>
+<span class="text-[10px] text-slate-400 font-sans">#005</span>
+</div>
+<p class="text-slate-700 font-sans leading-relaxed pl-1 select-text">
+            接收到前端合成请求: 文本长度 <span class="font-semibold text-slate-900">128</span> 字，智能断句分拆为 <span class="font-semibold text-brand-700">3</span> 句。
+          </p>
+</article>
+<!-- Log Item 6: Synthesizer Completed (Highlights Real-time factor RTF) -->
+<article class="p-2.5 hover:bg-slate-50/80 transition-colors bg-teal-50/20">
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center space-x-1.5">
+<span class="text-slate-400 select-none">12:34:45.500</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-cyan-50 text-cyan-700 border border-cyan-200">INFO</span>
+<span class="text-slate-700 font-semibold">[TtsSynthesizer]</span>
+</div>
+<span class="text-[10px] text-teal-600 font-sans font-medium">✓ 成功</span>
+</div>
+<p class="text-slate-700 font-sans leading-relaxed pl-1 select-text">
+            分句合成已完成:
+            <span class="inline-flex items-center space-x-1 font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 mt-1">
+<span class="">耗时: 382ms</span>
+<span class="text-slate-300">|</span>
+<span class="">音频: 4.8s</span>
+<span class="text-slate-300">|</span>
+<span class="text-brand-800 font-bold">RTF: 0.08x</span>
+</span>
+</p>
+</article>
+<!-- Log Item 7: Audio Buffer Warning -->
+<article class="p-2.5 hover:bg-slate-50/80 transition-colors bg-amber-50/40">
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center space-x-1.5">
+<span class="text-slate-400 select-none">12:34:46.012</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">WARN</span>
+<span class="text-amber-900 font-semibold">[AudioQueue]</span>
+</div>
+<span class="text-[10px] text-amber-600 font-sans">#007</span>
+</div>
+<p class="text-amber-900/90 font-sans leading-relaxed pl-1 select-text">
+            音频播放缓冲区队列达到警戒线 (65%)，已动态启用低延迟PCM流式分块播放机制。
+          </p>
+</article>
+<!-- Log Item 8: HTTP Status Debug -->
+<article class="p-2.5 hover:bg-slate-50/80 transition-colors">
+<div class="flex items-center justify-between mb-1">
+<div class="flex items-center space-x-1.5">
+<span class="text-slate-400 select-none">12:34:50.220</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-purple-50 text-purple-700 border border-purple-200">DEBUG</span>
+<span class="text-slate-700 font-semibold">[HttpServer]</span>
+</div>
+<span class="text-[10px] text-emerald-600 font-mono">200 OK</span>
+</div>
+<p class="text-slate-600 font-mono text-[10.5px] leading-relaxed pl-1 select-text">
+            GET /api/v1/status - HTTP/1.1 - 200 OK (响应耗时: 8ms)
+          </p>
+</article>
+</div>
+<!-- Bottom Log End Indicator -->
+<div class="flex items-center justify-center space-x-2 py-2 text-slate-400 text-[10px]">
+<span class="w-8 h-px bg-slate-200"></span>
+<span class="">已加载全部最新实时日志</span>
+<span class="w-8 h-px bg-slate-200"></span>
+</div>
+</main>
+<!-- END: Main Log Content Stream -->
+<!-- BEGIN: Pinned Bottom Actions & Status Footer -->
+<footer class="bg-white border-t border-slate-200 px-4 py-3 shrink-0 shadow-lg space-y-2.5" data-purpose="bottom-status-footer">
+<!-- Status Meta Bar -->
+<div class="flex items-center justify-between text-xs text-slate-500 font-medium px-0.5">
+<div class="flex items-center space-x-1.5">
+<svg class="w-3.5 h-3.5 text-teal-600" fill="currentColor" viewBox="0 0 20 20">
+<path clip-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" fill-rule="evenodd"></path>
+</svg>
+<span class="">共 <strong class="text-slate-800">128</strong> 条日志 · 占用 <span class="font-mono text-slate-800">142 KB</span></span>
+</div>
+<div class="flex items-center space-x-1 text-[11px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200/50">
+<span class="">格式: 标准文本 (.log)</span>
+</div>
+</div>
+<!-- Action Buttons Row matching Screen 26's teal accent styling -->
+<div class="grid grid-cols-3 gap-2.5 pt-0.5">
+<!-- Clear logs button -->
+<button class="flex items-center justify-center space-x-1 py-2.5 px-2 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200 transition" type="button">
+<svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">清空日志</span>
+</button>
+<!-- Copy all button -->
+<button class="flex items-center justify-center space-x-1 py-2.5 px-2 bg-white hover:bg-slate-50 active:bg-slate-100 text-brand-800 rounded-xl text-xs font-semibold border border-brand-800/30 transition shadow-2xs" type="button">
+<svg class="w-3.5 h-3.5 text-brand-700" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">复制全部</span>
+</button>
+<!-- Export button (Filled teal brand color matching screen 26 "合成" button) -->
+<button class="flex items-center justify-center space-x-1 py-2.5 px-2 bg-brand-800 hover:bg-brand-850 active:bg-brand-900 text-white rounded-xl text-xs font-semibold shadow-xs transition" type="button">
+<svg class="w-3.5 h-3.5 text-teal-200" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+<path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+<span class="">导出为文本</span>
+</button>
+</div>
+<!-- Android Home Indicator / Navigation Bar Pill -->
+<div class="w-full flex justify-center pt-1 pb-0.5">
+<div class="w-28 h-1 bg-slate-300 rounded-full"></div>
+</div>
+</footer>
+<!-- END: Pinned Bottom Actions & Status Footer -->
+</div>
+<!-- END: Mobile Device Frame -->
+
+
+</body></html>
