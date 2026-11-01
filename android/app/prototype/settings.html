@@ -1,0 +1,402 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport">
+<title>软件设置 - GenieTTS</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#084c58',
+              deeper: '#053943',
+              primary: '#0d7384',
+              accent: '#14b8a6',
+              soft: '#e6f4f6',
+              bg: '#f0f7f8',
+              card: '#ffffff',
+              subtle: '#64748b'
+            }
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', '"PingFang SC"', '"Hiragino Sans GB"', '"Microsoft YaHei"', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="base-enhancements">
+    /* 优化轻微滚动和点击体验 */
+    * {
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background-color: #f0f7f8;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+    /* 平滑阴影 */
+    .card-shadow {
+      box-shadow: 0 4px 20px -2px rgba(8, 76, 88, 0.06), 0 2px 6px -1px rgba(8, 76, 88, 0.03);
+    }
+  </style>
+<meta content="mobile_stack" name="shell-type">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-800 flex justify-center selection:bg-teal-500 selection:text-white">
+<!-- 主移动端视口容器 (Max-width 440px 还原手机效果) -->
+<div class="w-full max-w-[440px] min-h-screen bg-brand-bg flex flex-col relative pb-10">
+<!-- BEGIN: TopBar -->
+<!-- 延续参考图中的深青色顶栏背景 #084c58 -->
+<header class="sticky top-0 z-50 bg-[#084c58] text-white pt-3 pb-4 px-4 shadow-md transition-colors" data-purpose="app-header">
+<div class="flex items-center justify-between">
+<!-- 左侧：返回箭头与主标题 -->
+<div class="flex items-center space-x-3">
+<button aria-label="返回上一页" class="p-1 -ml-1 text-teal-100 hover:text-white active:opacity-75 transition-opacity" type="button">
+<svg class="w-6 h-6 stroke-[2.2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<div class="flex items-center space-x-2">
+<h1 class="text-lg font-bold tracking-wide">设置</h1>
+<!-- 状态胶囊标签 -->
+</div>
+</div>
+<!-- 右侧：快捷操作按钮 -->
+<div class="flex items-center space-x-2">
+<!-- 刷新检测 -->
+<button aria-label="检测更新" class="p-1.5 text-teal-100 hover:text-white hover:bg-white/10 rounded-full transition" type="button">
+<svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+<!-- 帮助问号/文档 -->
+<button aria-label="帮助文档" class="p-1.5 text-teal-100 hover:text-white hover:bg-white/10 rounded-full transition" type="button">
+<svg class="w-5 h-5 stroke-[2]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M12 18h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round"></path>
+</svg>
+</button>
+</div>
+</div>
+</header>
+<!-- END: TopBar -->
+<!-- 主要内容流区域 -->
+<main class="flex-1 px-3.5 pt-3.5 space-y-3.5" data-purpose="content-area"><div class="flex flex-col w-full pb-4 space-y-4">
+<!-- Toast 提示容器 (用于微交互反馈) -->
+<div class="fixed top-16 left-1/2 -translate-x-1/2 z-50 bg-[#084c58] text-white text-xs px-4 py-2 rounded-full shadow-lg opacity-0 pointer-events-none transition-all duration-300 transform -translate-y-2 flex items-center space-x-1.5" id="toast-msg">
+<span class="material-symbols-outlined text-sm text-teal-300">check_circle</span>
+<span id="toast-text" class="">设置已保存</span>
+</div>
+<!-- 分组一：核心引擎与合成设置 -->
+<section class="space-y-1.5">
+<div class="flex items-center justify-between px-1">
+<span class="text-xs font-semibold text-slate-500 tracking-wider">核心引擎与合成设置</span>
+<span class="text-[10px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full font-medium">高性能端侧引擎</span>
+</div>
+<div class="bg-white rounded-xl shadow-sm p-4 space-y-4">
+<!-- 推理线程数调节 -->
+<div class="space-y-2.5">
+<div class="flex items-start justify-between">
+<div class="space-y-0.5 pr-2">
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-teal-700 text-lg">memory</span>
+<span class="text-sm font-semibold text-slate-800">推理线程数</span>
+</div>
+<p class="text-xs text-slate-400 pl-6 leading-relaxed">针对本地模型推理优化，推荐设为设备 CPU 核心数</p>
+</div>
+<!-- 数值徽标 -->
+<div class="bg-teal-50 px-2.5 py-1 rounded-lg shrink-0">
+<span class="text-sm font-bold font-mono text-teal-700" id="thread-value-display">4 线程</span>
+</div>
+</div>
+<!-- 步进调节控制器 -->
+<div class="flex items-center justify-between bg-slate-50 p-1.5 rounded-lg pl-3">
+<span class="text-xs text-slate-500">快速微调 (建议 2-8)</span>
+<div class="flex items-center space-x-1">
+<button aria-label="减少线程" class="w-8 h-8 rounded-lg bg-white shadow-xs text-slate-600 flex items-center justify-center active:scale-95 active:bg-slate-100 transition" id="thread-dec" type="button">
+<span class="material-symbols-outlined text-base">remove</span>
+</button>
+<span class="w-8 text-center text-sm font-bold font-mono text-slate-800 select-none" id="thread-counter">4</span>
+<button aria-label="增加线程" class="w-8 h-8 rounded-lg bg-[#084c58] text-white shadow-xs flex items-center justify-center active:scale-95 active:bg-teal-800 transition" id="thread-inc" type="button">
+<span class="material-symbols-outlined text-base">add</span>
+</button>
+</div>
+</div>
+</div>
+<!-- 分割轻量背景线 -->
+<div class="h-px bg-slate-100"></div>
+<!-- 长句自动分句开关 -->
+<div class="flex items-center justify-between">
+<div class="space-y-0.5 pr-3">
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-teal-700 text-lg">format_quote</span>
+<span class="text-sm font-semibold text-slate-800">长句自动分句</span>
+</div>
+<p class="text-xs text-slate-400 pl-6 leading-relaxed">根据标点自动切割长文本，降低端侧合成与首字延迟</p>
+</div>
+<button aria-checked="true" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full bg-teal-600 p-0.5 transition-colors duration-200 ease-in-out focus:outline-none" id="toggle-split" role="switch" type="button">
+<span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out translate-x-5" id="toggle-split-ball"></span>
+</button>
+</div>
+</div>
+</section>
+<!-- 分组二：界面与外观 -->
+<section class="space-y-1.5">
+<div class="flex items-center justify-between px-1">
+<span class="text-xs font-semibold text-slate-500 tracking-wider">界面与外观</span>
+</div>
+<div class="bg-white rounded-xl shadow-sm p-4 space-y-3">
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-teal-700 text-lg">palette</span>
+<span class="text-sm font-semibold text-slate-800">页面主题</span>
+</div>
+<!-- 主题多选预览卡片网格 -->
+<div class="grid grid-cols-3 gap-2.5 pt-1">
+<!-- 浅色 -->
+<button class="theme-option relative flex flex-col items-center p-2 rounded-xl bg-teal-50/70 shadow-sm transition active:scale-98 text-left" id="theme-light" type="button">
+<div class="w-full h-12 rounded-lg bg-white shadow-xs p-1.5 flex flex-col justify-between overflow-hidden">
+<div class="w-3/5 h-2 bg-[#084c58] rounded-full"></div>
+<div class="space-y-1">
+<div class="w-full h-1.5 bg-slate-100 rounded-full"></div>
+<div class="w-4/5 h-1.5 bg-slate-100 rounded-full"></div>
+</div>
+</div>
+<div class="mt-2 flex items-center justify-between w-full px-0.5">
+<span class="text-xs font-medium text-teal-900">清新浅色</span>
+<span class="material-symbols-outlined text-teal-700 text-sm theme-check" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+</button>
+<!-- 深色 -->
+<button class="theme-option relative flex flex-col items-center p-2 rounded-xl bg-slate-50 shadow-xs transition active:scale-98 text-left opacity-80" id="theme-dark" type="button">
+<div class="w-full h-12 rounded-lg bg-slate-800 p-1.5 flex flex-col justify-between overflow-hidden">
+<div class="w-3/5 h-2 bg-teal-400 rounded-full"></div>
+<div class="space-y-1">
+<div class="w-full h-1.5 bg-slate-700 rounded-full"></div>
+<div class="w-4/5 h-1.5 bg-slate-700 rounded-full"></div>
+</div>
+</div>
+<div class="mt-2 flex items-center justify-between w-full px-0.5">
+<span class="text-xs font-medium text-slate-600">深色夜间</span>
+<span class="material-symbols-outlined text-transparent text-sm theme-check">check_circle</span>
+</div>
+</button>
+<!-- 跟随系统 -->
+<button class="theme-option relative flex flex-col items-center p-2 rounded-xl bg-slate-50 shadow-xs transition active:scale-98 text-left opacity-80" id="theme-system" type="button">
+<div class="w-full h-12 rounded-lg bg-gradient-to-r from-white to-slate-800 p-1.5 flex flex-col justify-between overflow-hidden">
+<div class="w-3/5 h-2 bg-teal-600 rounded-full"></div>
+<div class="space-y-1">
+<div class="w-full h-1.5 bg-slate-300/60 rounded-full"></div>
+<div class="w-4/5 h-1.5 bg-slate-400/40 rounded-full"></div>
+</div>
+</div>
+<div class="mt-2 flex items-center justify-between w-full px-0.5">
+<span class="text-xs font-medium text-slate-600">跟随系统</span>
+<span class="material-symbols-outlined text-transparent text-sm theme-check">check_circle</span>
+</div>
+</button>
+</div>
+</div>
+</section>
+<!-- 分组三：系统与通用 -->
+<section class="space-y-1.5">
+<div class="flex items-center justify-between px-1">
+<span class="text-xs font-semibold text-slate-500 tracking-wider">系统与通用</span>
+</div>
+<div class="bg-white rounded-xl shadow-sm overflow-hidden">
+<!-- 开机自启动服务 -->
+<div class="flex items-center justify-between p-4">
+<div class="space-y-0.5 pr-3">
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-teal-700 text-lg">power_settings_new</span>
+<span class="text-sm font-semibold text-slate-800">开机自启动服务</span>
+</div>
+<p class="text-xs text-slate-400 pl-6 leading-relaxed">设备启动后在后台自动拉起 WebTTS 服务</p>
+</div>
+<button aria-checked="false" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full bg-slate-200 p-0.5 transition-colors duration-200 ease-in-out focus:outline-none" id="toggle-autostart" role="switch" type="button">
+<span class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md transition duration-200 ease-in-out translate-x-0" id="toggle-autostart-ball"></span>
+</button>
+</div>
+<div class="h-px bg-slate-100 mx-4"></div>
+<!-- 备份与恢复配置 -->
+<button class="w-full flex items-center justify-between p-4 hover:bg-slate-50 active:bg-slate-100 transition text-left" id="btn-backup" type="button">
+<div class="space-y-0.5 pr-3">
+<div class="flex items-center space-x-1.5">
+<span class="material-symbols-outlined text-teal-700 text-lg">cloud_sync</span>
+<span class="text-sm font-semibold text-slate-800">备份与恢复配置</span>
+</div>
+<p class="text-xs text-slate-400 pl-6 leading-relaxed">导出或恢复角色列表与个性化参数</p>
+</div>
+<span class="material-symbols-outlined text-slate-400 text-lg shrink-0">chevron_right</span>
+</button>
+</div>
+</section>
+<!-- 底部状态说明与快速恢复 -->
+<div class="pt-2 flex flex-col items-center justify-center space-y-2">
+<p class="text-[11px] text-slate-400 text-center leading-tight">GenieTTS v1.7.5 · 更改部分引擎设置需重新合成生效</p>
+<button class="text-xs font-medium text-teal-700 hover:text-teal-800 active:opacity-70 px-3 py-1 rounded-full bg-teal-50/60 transition flex items-center space-x-1" id="btn-reset" type="button">
+<span class="material-symbols-outlined text-sm">restart_alt</span>
+<span class="">恢复默认设置</span>
+</button>
+</div>
+</div>
+<script>
+  (function() {
+    // Toast 提示
+    const toast = document.getElementById('toast-msg');
+    const toastText = document.getElementById('toast-text');
+    let toastTimer = null;
+    function showToast(msg) {
+      if (toastTimer) clearTimeout(toastTimer);
+      toastText.textContent = msg;
+      toast.classList.remove('opacity-0', '-translate-y-2', 'pointer-events-none');
+      toast.classList.add('opacity-100', 'translate-y-0');
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', '-translate-y-2', 'pointer-events-none');
+      }, 1600);
+    }
+
+    // 线程计数
+    let threads = 4;
+    const threadDisplay = document.getElementById('thread-value-display');
+    const threadCounter = document.getElementById('thread-counter');
+    const threadDec = document.getElementById('thread-dec');
+    const threadInc = document.getElementById('thread-inc');
+
+    function updateThreadUI() {
+      threadDisplay.textContent = `${threads} 线程`;
+      threadCounter.textContent = threads;
+      showToast(`推理线程已设为 ${threads}`);
+    }
+
+    threadDec.addEventListener('click', () => {
+      if (threads > 1) {
+        threads--;
+        updateThreadUI();
+      }
+    });
+
+    threadInc.addEventListener('click', () => {
+      if (threads < 16) {
+        threads++;
+        updateThreadUI();
+      }
+    });
+
+    // 开关微交互通用绑定
+    function setupSwitch(buttonId, ballId, initialChecked, onName, offName) {
+      const btn = document.getElementById(buttonId);
+      const ball = document.getElementById(ballId);
+      let checked = initialChecked;
+
+      btn.addEventListener('click', () => {
+        checked = !checked;
+        btn.setAttribute('aria-checked', String(checked));
+        if (checked) {
+          btn.classList.remove('bg-slate-200');
+          btn.classList.add('bg-teal-600');
+          ball.classList.remove('translate-x-0');
+          ball.classList.add('translate-x-5');
+          showToast(onName);
+        } else {
+          btn.classList.remove('bg-teal-600');
+          btn.classList.add('bg-slate-200');
+          ball.classList.remove('translate-x-5');
+          ball.classList.add('translate-x-0');
+          showToast(offName);
+        }
+      });
+    }
+
+    setupSwitch('toggle-split', 'toggle-split-ball', true, '已开启长句自动分句', '已关闭长句自动分句');
+    setupSwitch('toggle-autostart', 'toggle-autostart-ball', false, '已开启自启动服务', '已关闭自启动服务');
+
+    // 主题切换卡片
+    const themeCards = {
+      'light': document.getElementById('theme-light'),
+      'dark': document.getElementById('theme-dark'),
+      'system': document.getElementById('theme-system')
+    };
+
+    const themeLabels = {
+      'light': '已切换至清新浅色主题',
+      'dark': '已切换至深色夜间主题',
+      'system': '已设置为跟随系统主题'
+    };
+
+    function setTheme(activeKey) {
+      Object.entries(themeCards).forEach(([key, el]) => {
+        const check = el.querySelector('.theme-check');
+        const text = el.querySelector('span:first-child');
+        if (key === activeKey) {
+          el.className = 'theme-option relative flex flex-col items-center p-2 rounded-xl bg-teal-50/70 shadow-sm transition active:scale-98 text-left';
+          check.className = 'material-symbols-outlined text-teal-700 text-sm theme-check';
+          check.style.fontVariationSettings = "'FILL' 1";
+          text.className = 'text-xs font-medium text-teal-900';
+        } else {
+          el.className = 'theme-option relative flex flex-col items-center p-2 rounded-xl bg-slate-50 shadow-xs transition active:scale-98 text-left opacity-80';
+          check.className = 'material-symbols-outlined text-transparent text-sm theme-check';
+          check.style.fontVariationSettings = "normal";
+          text.className = 'text-xs font-medium text-slate-600';
+        }
+      });
+      showToast(themeLabels[activeKey]);
+    }
+
+    Object.keys(themeCards).forEach(key => {
+      themeCards[key].addEventListener('click', () => setTheme(key));
+    });
+
+    // 备份提示
+    document.getElementById('btn-backup').addEventListener('click', () => {
+      showToast('正在打开配置备份与还原...');
+    });
+
+    // 重置配置
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      threads = 4;
+      threadDisplay.textContent = '4 线程';
+      threadCounter.textContent = '4';
+
+      // 重置开关1
+      const splitBtn = document.getElementById('toggle-split');
+      const splitBall = document.getElementById('toggle-split-ball');
+      splitBtn.setAttribute('aria-checked', 'true');
+      splitBtn.classList.remove('bg-slate-200');
+      splitBtn.classList.add('bg-teal-600');
+      splitBall.classList.remove('translate-x-0');
+      splitBall.classList.add('translate-x-5');
+
+      // 重置开关2
+      const autoBtn = document.getElementById('toggle-autostart');
+      const autoBall = document.getElementById('toggle-autostart-ball');
+      autoBtn.setAttribute('aria-checked', 'false');
+      autoBtn.classList.remove('bg-teal-600');
+      autoBtn.classList.add('bg-slate-200');
+      autoBall.classList.remove('translate-x-5');
+      autoBall.classList.add('translate-x-0');
+
+      setTheme('light');
+      showToast('已重置为默认推荐设置');
+    });
+  })();
+</script></main>
+<!-- BEGIN: QuickBottomStatus -->
+<!-- 延续图2底部的简洁信息条提示 -->
+<div class="mt-4 px-6 flex items-center justify-center space-x-2 text-xs text-slate-400" data-purpose="footer-meta">
+<span class="inline-block w-2 h-2 rounded-full bg-teal-600"></span>
+<span class="">当前引擎环境：ONNX Runtime 1.16 · ARM64-v8a</span>
+</div>
+<!-- END: QuickBottomStatus -->
+</div>
+
+
+</body></html>
