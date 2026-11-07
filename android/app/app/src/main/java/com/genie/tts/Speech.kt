@@ -9,7 +9,11 @@ import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.SystemClock
 import com.genie.tts.g2p.ChineseFrontend
+import com.genie.tts.g2p.EnglishLexicon
 import com.genie.tts.g2p.G2pFiles
+import com.genie.tts.g2p.MixedSpeech
+import com.genie.tts.g2p.SpeechSegment
+import com.genie.tts.g2p.SpokenText
 import java.io.File
 import java.io.InputStream
 import kotlin.math.max
@@ -32,6 +36,7 @@ internal class Speech(
     private var engineKey: String? = null
     private var prosody: Prosody? = null
     private var frontend: ChineseFrontend? = null
+    private var mixed: MixedSpeech? = null
     private var refBert: OwnedTensor? = null
     private var refKey: String? = null
 
@@ -82,7 +87,7 @@ internal class Speech(
         ref: OwnedTensor?,
         stop: () -> Boolean = { false },
     ): Clip {
-        val phones = frontend().infer(piece)
+        val phones = mixed().speak(piece)
         if (phones.ids.isEmpty()) {
             return Clip(piece, null, characterSampleRate(character), "这句没有读出来")
         }
@@ -150,6 +155,14 @@ internal class Speech(
         return loaded
     }
 
+    private fun mixed(): MixedSpeech {
+        mixed?.let { return it }
+        val files = G2pFiles { name -> openAsset("g2p/$name") }
+        val loaded = MixedSpeech(frontend(), EnglishLexicon(files))
+        mixed = loaded
+        return loaded
+    }
+
     private fun prosodySession(threads: Int): Prosody {
         prosody?.let { return it }
         val loaded = Prosody(
@@ -162,11 +175,25 @@ internal class Speech(
         return loaded
     }
 
-    private fun textBert(phones: com.genie.tts.g2p.PhoneResult, threads: Int, ready: Boolean): OwnedTensor {
-        val length = phones.ids.size
-        fun zeros() = OwnedTensor.fromFloats(longArrayOf(length.toLong(), 1024), FloatArray(length * 1024))
-        if (!ready) return zeros()
-        val values = prosodySession(threads).features(phones) ?: return zeros()
+    private fun textBert(spoken: SpokenText, threads: Int, ready: Boolean): OwnedTensor {
+        val length = spoken.ids.size
+        val values = FloatArray(length * 1024)
+        if (ready) {
+            var offset = 0
+            for (segment in spoken.segments) {
+                when (segment) {
+                    is SpeechSegment.Chinese -> {
+                        val count = segment.result.ids.size
+                        val features = prosodySession(threads).features(segment.result)
+                        if (features != null && features.size == count * 1024) {
+                            features.copyInto(values, offset * 1024)
+                        }
+                        offset += count
+                    }
+                    is SpeechSegment.English -> offset += segment.count
+                }
+            }
+        }
         return OwnedTensor.fromFloats(longArrayOf(length.toLong(), 1024), values)
     }
 
