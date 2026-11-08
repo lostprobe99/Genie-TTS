@@ -16,6 +16,7 @@ internal enum class LogModule(val label: String) {
     MONITOR("性能监控"),
     CHARACTER("角色管理"),
     PROSODY("韵律"),
+    APP("应用"),
 }
 
 internal data class LogLine(

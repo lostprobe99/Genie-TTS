@@ -7,7 +7,10 @@ import com.genie.tts.character.PackPreview
 import com.genie.tts.core.LogLevel
 import com.genie.tts.core.LogModule
 import com.genie.tts.core.TtsLog
+import com.genie.tts.core.appBuildBanner
+import com.genie.tts.core.noteInstalledBuild
 import com.genie.tts.service.TtsPorts
+import com.genie.tts.speech.AudioPlayer
 import com.genie.tts.speech.Clip
 import com.genie.tts.speech.Engines
 import com.genie.tts.speech.inferenceThreads
@@ -95,7 +98,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -105,7 +107,7 @@ class MainActivity : AppCompatActivity() {
     private val worker = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "genie").apply { isDaemon = true }
     }
-    private val playGen = AtomicInteger(0)
+    private val player = AudioPlayer()
     private val splitter = TextSplitter()
 
     private lateinit var speech: Speech
@@ -265,6 +267,10 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         TtsRuntime.port = TtsPorts.read(filesDir)
         TtsLog.attach(filesDir)
+        val installed = currentAppBuild()
+        noteInstalledBuild(filesDir, installed) { line ->
+            TtsLog.add(LogLevel.INFO, LogModule.APP, line)
+        }
         setContentView(R.layout.activity_main)
         Engines.activityOpen = true
         speech = Engines.get(filesDir) { assets.open(it) }
@@ -285,6 +291,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.drawerVersion).text = version
         findViewById<TextView>(R.id.homeVersion).text = version
         findViewById<TextView>(R.id.logsVersion).text = version
+        findViewById<TextView>(R.id.logsBuild).text = appBuildBanner(installed)
         renderProsody()
     }
 
@@ -317,7 +324,7 @@ class MainActivity : AppCompatActivity() {
         stopImportAudio()
         importAudioFile?.delete()
         importAudioFile = null
-        playGen.incrementAndGet()
+        player.stop()
         if (isFinishing) {
             Engines.activityOpen = false
             worker.execute { Engines.closeIfIdle() }
@@ -696,7 +703,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onSynthesize() {
-        if (busy || playing) return
+        if (busy) return
+        quietStop()
         val character = currentCharacter() ?: return
         val text = sentence.text.toString()
         if (text.isBlank()) return
@@ -709,7 +717,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun synthesize(character: CharacterInfo, pieces: List<String>) {
-        stopPlaying()
+        quietStop()
         clips = pieces.map { Clip(it, null, 32000, null) }.toMutableList()
         active = 0
         synthStartedAt = SystemClock.elapsedRealtime()
@@ -799,7 +807,7 @@ class MainActivity : AppCompatActivity() {
     private fun preview(character: CharacterInfo) {
         if (busy) return
         confirmProsody(preview = true) {
-            stopPlaying()
+            quietStop()
             previewId = character.id
             if (page == Page.Characters) renderCards()
             setBusy(true)
@@ -807,90 +815,122 @@ class MainActivity : AppCompatActivity() {
             banner.visibility = View.VISIBLE
             val marker = markerFile()
             marker.writeText(aboutController.versionLabel())
-            val gen = playGen.incrementAndGet()
             worker.execute {
                 TtsLog.add(LogLevel.INFO, LogModule.SPEECH, "试听 ${character.id}")
-                try {
-                    val clip = onSpeech { speech.preview(character, threads()) { loading, _ ->
+                val clip = try {
+                    onSpeech { speech.preview(character, threads()) { loading, _ ->
                         runOnUiThread {
                             if (isDestroyed) return@runOnUiThread
                             banner.text = if (loading) "正在加载模型" else "正在生成试听"
                             banner.visibility = View.VISIBLE
                         }
                     } }
-                    val samples = clip.samples
-                    if (samples == null) {
-                        val detail = clip.error ?: "这句没有读出来"
-                        TtsLog.add(LogLevel.WARN, LogModule.SPEECH, "试听没有声音 ${character.id} $detail")
-                        runOnUiThread { if (!isDestroyed) alert(detail) }
-                        return@execute
-                    }
-                    val quiet = isQuiet(samples)
-                    runOnUiThread {
-                        if (isDestroyed || gen != playGen.get()) return@runOnUiThread
-                        playing = true
-                        banner.text = if (quiet) "这句几乎没有声音" else "正在打开试听"
-                        banner.visibility = View.VISIBLE
-                        updateControls()
-                    }
-                    playSamples(
-                        this,
-                        samples,
-                        clip.sampleRate,
-                        { gen != playGen.get() },
-                        onStarted = { granted ->
-                            runOnUiThread {
-                                if (isDestroyed || gen != playGen.get()) return@runOnUiThread
-                                playFocusGranted = granted
-                                banner.text = previewLine(0, samples.size, clip.sampleRate, quiet, granted)
-                            }
-                        },
-                        onProgress = { played, total ->
-                            runOnUiThread {
-                                if (isDestroyed || gen != playGen.get()) return@runOnUiThread
-                                banner.text = previewLine(played, total, clip.sampleRate, quiet, playFocusGranted)
-                            }
-                        },
-                    )
                 } catch (error: Exception) {
+                    marker.delete()
                     if (error !is SynthesisCancelled) {
                         val detail = error.message?.trim().orEmpty().ifBlank { "失败" }
                         TtsLog.add(LogLevel.ERROR, LogModule.SPEECH, "试听失败 ${character.id} $detail")
+                        runOnUiThread { if (!isDestroyed) alert(human(error)) }
                     }
-                    runOnUiThread { if (!isDestroyed) alert(human(error)) }
-                } finally {
-                    marker.delete()
                     runOnUiThread {
                         if (isDestroyed) return@runOnUiThread
-                        if (gen == playGen.get()) {
-                            playing = false
-                            previewId = null
-                        }
+                        previewId = null
                         banner.visibility = View.GONE
                         setBusy(false)
                         if (page == Page.Characters) renderCards()
                     }
+                    return@execute
                 }
+                marker.delete()
+                val samples = clip.samples
+                if (samples == null) {
+                    val detail = clip.error ?: "这句没有读出来"
+                    TtsLog.add(LogLevel.WARN, LogModule.SPEECH, "试听没有声音 ${character.id} $detail")
+                    runOnUiThread {
+                        if (isDestroyed) return@runOnUiThread
+                        alert(detail)
+                        previewId = null
+                        banner.visibility = View.GONE
+                        setBusy(false)
+                        if (page == Page.Characters) renderCards()
+                    }
+                    return@execute
+                }
+                val quiet = isQuiet(samples)
+                runOnUiThread {
+                    if (isDestroyed) return@runOnUiThread
+                    setBusy(false)
+                    playing = true
+                    banner.text = if (quiet) "这句几乎没有声音" else "正在打开试听"
+                    banner.visibility = View.VISIBLE
+                    updateControls()
+                    if (page == Page.Characters) renderCards()
+                }
+                if (isDestroyed) return@execute
+                player.start(
+                    block = { stop ->
+                        playSamples(
+                            this,
+                            samples,
+                            clip.sampleRate,
+                            stop,
+                            onStarted = { granted ->
+                                runOnUiThread {
+                                    if (isDestroyed || stop()) return@runOnUiThread
+                                    playFocusGranted = granted
+                                    banner.text = previewLine(0, samples.size, clip.sampleRate, quiet, granted)
+                                }
+                            },
+                            onProgress = { played, total ->
+                                runOnUiThread {
+                                    if (isDestroyed || stop()) return@runOnUiThread
+                                    banner.text = previewLine(played, total, clip.sampleRate, quiet, playFocusGranted)
+                                }
+                            },
+                        )
+                    },
+                    onComplete = {
+                        runOnUiThread {
+                            if (isDestroyed) return@runOnUiThread
+                            playing = false
+                            previewId = null
+                            banner.visibility = View.GONE
+                            if (page == Page.Characters) renderCards()
+                            updateControls()
+                        }
+                    },
+                    onError = { error ->
+                        runOnUiThread {
+                            if (isDestroyed) return@runOnUiThread
+                            alert(human(error))
+                            playing = false
+                            previewId = null
+                            banner.visibility = View.GONE
+                            if (page == Page.Characters) renderCards()
+                            updateControls()
+                        }
+                    },
+                )
             }
         }
     }
 
     private fun play(indexes: List<Int>) {
         if (busy || indexes.isEmpty()) return
-        val gen = playGen.incrementAndGet()
+        quietStop()
         playing = true
         playFocusGranted = true
         showWork("正在打开播放")
         updateControls()
-        worker.execute {
-            try {
+        player.start(
+            block = { stop ->
                 for (index in indexes) {
-                    if (gen != playGen.get()) return@execute
+                    if (stop()) return@start
                     val clip = clips.getOrNull(index) ?: continue
                     val samples = clip.samples ?: continue
                     val quiet = isQuiet(samples)
                     runOnUiThread {
-                        if (isDestroyed || gen != playGen.get()) return@runOnUiThread
+                        if (isDestroyed || stop()) return@runOnUiThread
                         active = index
                         renderSentences()
                         scrollToActive()
@@ -899,51 +939,62 @@ class MainActivity : AppCompatActivity() {
                         this,
                         samples,
                         clip.sampleRate,
-                        { gen != playGen.get() },
+                        stop,
                         onStarted = { granted ->
                             runOnUiThread {
-                                if (isDestroyed || gen != playGen.get()) return@runOnUiThread
+                                if (isDestroyed || stop()) return@runOnUiThread
                                 playFocusGranted = granted
                                 showWork(playLine(index, 0, samples.size, clip.sampleRate, quiet))
                             }
                         },
                         onProgress = { played, total ->
                             runOnUiThread {
-                                if (isDestroyed || gen != playGen.get()) return@runOnUiThread
+                                if (isDestroyed || stop()) return@runOnUiThread
                                 showWork(playLine(index, played, total, clip.sampleRate, quiet))
                             }
                         },
                     )
                 }
-                runOnUiThread {
-                    if (!isDestroyed && gen == playGen.get()) showWork("播放结束")
-                }
-            } catch (error: Exception) {
-                runOnUiThread {
-                    if (!isDestroyed && gen == playGen.get()) showWork(human(error))
-                }
-            } finally {
+            },
+            onComplete = {
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
-                    if (gen == playGen.get()) {
-                        playing = false
-                        active = -1
-                        renderSentences()
-                        updateControls()
-                    }
+                    showWork("播放结束")
+                    playing = false
+                    active = -1
+                    renderSentences()
+                    updateControls()
                 }
-            }
-        }
+            },
+            onError = { error ->
+                runOnUiThread {
+                    if (isDestroyed) return@runOnUiThread
+                    showWork(human(error))
+                    playing = false
+                    active = -1
+                    renderSentences()
+                    updateControls()
+                }
+            },
+        )
+    }
+
+    private fun quietStop() {
+        val hadAudio = playing || previewId != null || active >= 0
+        player.stop()
+        previewId = null
+        playing = false
+        active = -1
+        if (!hadAudio) return
+        banner.visibility = View.GONE
+        renderSentences()
+        if (page == Page.Characters) renderCards()
+        updateControls()
     }
 
     private fun stopPlaying() {
         val wasPlaying = playing
-        playGen.incrementAndGet()
-        if (!wasPlaying && active < 0) return
-        playing = false
-        active = -1
-        renderSentences()
-        updateControls()
+        quietStop()
         if (wasPlaying) showWork("已停止")
     }
 
@@ -1474,7 +1525,9 @@ class MainActivity : AppCompatActivity() {
             contentDescription = if (playingThis) "正在试听${info.name}" else "试听${info.name}"
             isEnabled = !busy || playingThis
             alpha = if (isEnabled) 1f else 0.4f
-            setOnClickListener { preview(info) }
+            setOnClickListener {
+                if (playing && previewId == info.id) stopPlaying() else preview(info)
+            }
         })
         val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         params.topMargin = dp(10)
@@ -2127,7 +2180,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateControls() {
-        val canSpeak = !busy && !playing && !synthesizing && currentCharacter() != null && sentence.text.toString().isNotBlank()
+        val canSpeak = !busy && !synthesizing && currentCharacter() != null && sentence.text.toString().isNotBlank()
         sentence.isEnabled = !busy
         speed.isEnabled = !busy
         characters.isEnabled = !busy
@@ -2379,6 +2432,22 @@ class MainActivity : AppCompatActivity() {
     private fun currentRoleName(): String = currentCharacter()?.name ?: getString(R.string.unselected)
 
     private fun threads(): Int = inferenceThreads()
+
+    private fun currentAppBuild(): com.genie.tts.core.AppBuild {
+        val info = packageManager.getPackageInfo(packageName, 0)
+        val code = if (Build.VERSION.SDK_INT >= 28) {
+            info.longVersionCode
+        } else {
+            @Suppress("DEPRECATION")
+            info.versionCode.toLong()
+        }
+        return com.genie.tts.core.AppBuild(
+            info.versionName ?: "0.0.19",
+            code,
+            BuildConfig.BUILT_AT,
+            info.lastUpdateTime,
+        )
+    }
 
     private fun <T> onSpeech(block: () -> T): T = Engines.scheduler.call(block)
 

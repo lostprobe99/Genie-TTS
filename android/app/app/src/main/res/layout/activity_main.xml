@@ -450,10 +450,11 @@
                     </LinearLayout>
 
                     <TextView
+                        android:id="@+id/logsBuild"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="本地合成引擎与服务实时监控"
+                        android:maxLines="2"
                         android:textColor="#99CCFBF1"
                         android:textSize="11sp" />
                 </LinearLayout>
