@@ -10,6 +10,7 @@ import com.genie.tts.service.TtsPorts
 import com.genie.tts.service.TtsRequest
 import com.genie.tts.service.TtsServer
 import com.genie.tts.service.secondsText
+import com.genie.tts.speech.CancelHandle
 import com.genie.tts.speech.Engines
 import com.genie.tts.speech.TextSplitter
 import com.genie.tts.speech.inferenceThreads
@@ -237,32 +238,34 @@ class TtsService : Service() {
         val lock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "genie:tts")
         lock.setReferenceCounted(false)
         lock.acquire(15 * 60 * 1000L)
-        val prepareStarted = System.nanoTime()
         logMachine("请求前", "此前")
         try {
-            try {
-                speech.prepare(character, threads)
-            } catch (error: Exception) {
-                throw TtsException(503, "failed to load character '${request.characterName}': ${error.message}")
+            Engines.scheduler.call(CancelHandle(stop)) { stopNow ->
+                val prepareStarted = System.nanoTime()
+                try {
+                    speech.prepare(character, threads)
+                } catch (error: Exception) {
+                    throw TtsException(503, "failed to load character '${request.characterName}': ${error.message}")
+                }
+                val prepareMs = (System.nanoTime() - prepareStarted) / 1_000_000.0
+                TtsLog.add(
+                    LogLevel.INFO,
+                    LogModule.SPEECH,
+                    "模型就绪 ${secondsText(prepareMs)} 秒 ${request.characterName} ${pieces.size}句 ${threads}线程",
+                )
+                speech.synthesize(
+                    character,
+                    pieces,
+                    speed = 1.0,
+                    threads = threads,
+                    onPiece = { _, clip ->
+                        val samples = clip.samples ?: return@synthesize
+                        emit(samples)
+                    },
+                    stop = stopNow,
+                    failFast = true,
+                )
             }
-            val prepareMs = (System.nanoTime() - prepareStarted) / 1_000_000.0
-            TtsLog.add(
-                LogLevel.INFO,
-                LogModule.SPEECH,
-                "模型就绪 ${secondsText(prepareMs)} 秒 ${request.characterName} ${pieces.size}句 ${threads}线程",
-            )
-            speech.synthesize(
-                character,
-                pieces,
-                speed = 1.0,
-                threads = threads,
-                onPiece = { _, clip ->
-                    val samples = clip.samples ?: return@synthesize
-                    emit(samples)
-                },
-                stop = stop,
-                failFast = true,
-            )
         } finally {
             logMachine("请求后", "本段")
             if (lock.isHeld) lock.release()

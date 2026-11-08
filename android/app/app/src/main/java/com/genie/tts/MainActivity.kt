@@ -581,7 +581,7 @@ class MainActivity : AppCompatActivity() {
                 selectedId = next
                 if (next == null) selectionFile().delete() else selectionFile().writeText(next)
                 invalidateAudio()
-                worker.execute { speech.dropEngine() }
+                worker.execute { onSpeech { speech.dropEngine() } }
                 if (page == Page.About) aboutController.render(currentRoleName())
                 updateControls()
             }
@@ -731,7 +731,7 @@ class MainActivity : AppCompatActivity() {
                 "主屏开始 ${character.id} ${pieces.size}句 语速 ${"%.2f".format(Locale.US, rate)}",
             )
             try {
-                val made = speech.synthesize(
+                val made = onSpeech { speech.synthesize(
                     character,
                     pieces,
                     rate,
@@ -761,7 +761,7 @@ class MainActivity : AppCompatActivity() {
                             updateControls()
                         }
                     },
-                )
+                ) }
                 logHomeSynth(character.id, made)
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
@@ -811,13 +811,13 @@ class MainActivity : AppCompatActivity() {
             worker.execute {
                 TtsLog.add(LogLevel.INFO, LogModule.SPEECH, "试听 ${character.id}")
                 try {
-                    val clip = speech.preview(character, threads()) { loading, _ ->
+                    val clip = onSpeech { speech.preview(character, threads()) { loading, _ ->
                         runOnUiThread {
                             if (isDestroyed) return@runOnUiThread
                             banner.text = if (loading) "正在加载模型" else "正在生成试听"
                             banner.visibility = View.VISIBLE
                         }
-                    }
+                    } }
                     val samples = clip.samples
                     if (samples == null) {
                         val detail = clip.error ?: "这句没有读出来"
@@ -1174,7 +1174,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 val result = contentResolver.openInputStream(uri)?.use { repository.importZip(filesDir, it, name) }
                     ?: error("打不开这个文件")
-                speech.dropIfLoaded(result.info.id)
+                onSpeech { speech.dropIfLoaded(result.info.id) }
                 val action = if (result.replaced) "已更新" else "已导入"
                 TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "$action ${result.info.id}")
                 runOnUiThread {
@@ -1208,7 +1208,7 @@ class MainActivity : AppCompatActivity() {
         }
         worker.execute {
             try {
-                if (dropsSelection) speech.dropEngine()
+                if (dropsSelection) onSpeech { speech.dropEngine() }
                 repository.remove(targets)
                 TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "已删除 ${targets.joinToString("、") { it.id }}")
                 runOnUiThread {
@@ -1256,7 +1256,7 @@ class MainActivity : AppCompatActivity() {
         showProsodyProgress(0, 0)
         worker.execute {
             try {
-                speech.dropProsody()
+                onSpeech { speech.dropProsody() }
                 ProsodyPack.download(filesDir) { done, total ->
                     val line = if (total > 0) {
                         "已下载 ${bytesLabel(done)} / ${bytesLabel(total)}"
@@ -1302,7 +1302,7 @@ class MainActivity : AppCompatActivity() {
         setBusy(true)
         worker.execute {
             try {
-                speech.dropProsody()
+                onSpeech { speech.dropProsody() }
                 contentResolver.openInputStream(uri)?.use { ProsodyPack.importFile(filesDir, it, name) }
                     ?: error("打不开这个文件")
                 TtsLog.add(LogLevel.INFO, LogModule.PROSODY, "已导入韵律模型")
@@ -1333,7 +1333,7 @@ class MainActivity : AppCompatActivity() {
         setBusy(true)
         worker.execute {
             try {
-                speech.dropProsody()
+                onSpeech { speech.dropProsody() }
                 ProsodyPack.delete(filesDir)
                 TtsLog.add(LogLevel.INFO, LogModule.PROSODY, "已删除韵律模型")
             } catch (error: Exception) {
@@ -1757,7 +1757,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     setBusy(false)
                     refreshCharacters()
-                    if (selectionChanged) worker.execute { speech.dropEngine() }
+                    if (selectionChanged) worker.execute { onSpeech { speech.dropEngine() } }
                 }
             } catch (error: Exception) {
                 TtsLog.add(LogLevel.ERROR, LogModule.CHARACTER, "改名失败 ${info.id} ${logDetail(error)}")
@@ -2379,6 +2379,8 @@ class MainActivity : AppCompatActivity() {
     private fun currentRoleName(): String = currentCharacter()?.name ?: getString(R.string.unselected)
 
     private fun threads(): Int = inferenceThreads()
+
+    private fun <T> onSpeech(block: () -> T): T = Engines.scheduler.call(block)
 
     private fun setBusy(value: Boolean) {
         busy = value

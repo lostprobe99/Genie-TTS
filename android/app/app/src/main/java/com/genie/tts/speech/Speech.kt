@@ -44,13 +44,12 @@ internal class Speech(
     private var refKey: String? = null
     private var loadedCharacter: LoadedCharacter? = null
 
-    @Synchronized
     fun prepare(character: CharacterInfo, threads: Int) {
+        requireInferenceLane()
         if (Prosody.isReady(filesDir)) referenceBert(character, threads)
         engineFor(character, threads)
     }
 
-    @Synchronized
     fun synthesize(
         character: CharacterInfo,
         pieces: List<String>,
@@ -61,6 +60,7 @@ internal class Speech(
         stop: () -> Boolean = { false },
         failFast: Boolean = false,
     ): List<Clip> {
+        requireInferenceLane()
         onMark(true, -1)
         val ready = Prosody.isReady(filesDir)
         val ref = if (ready) referenceBert(character, threads) else null
@@ -105,18 +105,18 @@ internal class Speech(
         return Clip(piece, report.samples, report.sampleRate, null)
     }
 
-    @Synchronized
     fun preview(
         character: CharacterInfo,
         threads: Int,
         onMark: (loading: Boolean, index: Int) -> Unit = { _, _ -> },
     ): Clip {
+        requireInferenceLane()
         val text = ReferenceLine.text(character.root)
         return synthesize(character, listOf(text), 1.0, threads, onMark).single()
     }
 
-    @Synchronized
     override fun close() {
+        requireInferenceLane()
         engine?.close()
         engine = null
         engineKey = null
@@ -127,8 +127,8 @@ internal class Speech(
         refKey = null
     }
 
-    @Synchronized
     fun dropEngine() {
+        requireInferenceLane()
         engine?.close()
         engine = null
         engineKey = null
@@ -138,13 +138,13 @@ internal class Speech(
     }
 
     /** 覆盖导入的是当前已加载的角色时，丢掉旧引擎。下一次合成按新文件重新加载。 */
-    @Synchronized
     fun dropIfLoaded(id: String) {
+        requireInferenceLane()
         if (loadedCharacterId(engineKey) == id) dropEngine()
     }
 
-    @Synchronized
     fun dropProsody() {
+        requireInferenceLane()
         prosody?.close()
         prosody = null
         refBert = null

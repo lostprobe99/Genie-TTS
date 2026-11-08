@@ -5,6 +5,7 @@ import java.io.File
 import java.io.InputStream
 
 internal object Engines {
+    val scheduler = InferenceScheduler()
     private val gate = Any()
     private var speech: Speech? = null
 
@@ -25,6 +26,6 @@ internal object Engines {
             speech = null
             current
         }
-        closing?.close()
+        if (closing != null) scheduler.call { closing.close() }
     }
 }
