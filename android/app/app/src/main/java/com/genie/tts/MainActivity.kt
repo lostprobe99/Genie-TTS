@@ -5,6 +5,7 @@ import com.genie.tts.character.CharacterPack
 import com.genie.tts.character.CharacterRepository
 import com.genie.tts.character.PackPreview
 import com.genie.tts.core.LogLevel
+import com.genie.tts.core.uiText
 import com.genie.tts.core.LogModule
 import com.genie.tts.core.TtsLog
 import com.genie.tts.core.appBuildBanner
@@ -17,16 +18,16 @@ import com.genie.tts.speech.Engines
 import com.genie.tts.speech.inferenceThreads
 import com.genie.tts.speech.Prosody
 import com.genie.tts.speech.ProsodyPack
-import com.genie.tts.speech.RefMismatch
 import com.genie.tts.speech.Release
 import com.genie.tts.speech.Speech
 import com.genie.tts.speech.SynthesisCancelled
 import com.genie.tts.speech.TextSplitter
 import com.genie.tts.speech.isQuiet
 import com.genie.tts.speech.playSamples
-import com.genie.tts.speech.secondsOf
 import com.genie.tts.speech.speedOf
 import com.genie.tts.ui.AboutPageController
+import com.genie.tts.ui.SpeakController
+import com.genie.tts.ui.SpeakSnapshot
 import com.genie.tts.ui.HelpPageController
 import com.genie.tts.ui.LogPageController
 import com.genie.tts.ui.ServicePageController
@@ -189,6 +190,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var helpController: HelpPageController
     private lateinit var aboutController: AboutPageController
     private lateinit var serviceController: ServicePageController
+    private lateinit var speakController: SpeakController
 
     private var page = Page.Speak
     private var roster: List<CharacterInfo> = emptyList()
@@ -281,6 +283,7 @@ class MainActivity : AppCompatActivity() {
         logController = LogPageController(this) { page == Page.Logs }
         helpController = HelpPageController(this, { page == Page.Help }) { aboutController.versionName() }
         serviceController = ServicePageController(this, { page == Page.Service }, ::notificationsAllowed)
+        speakController = SpeakController(this)
         bindViews()
         restoreDraft()
         showInterrupted()
@@ -599,13 +602,13 @@ class MainActivity : AppCompatActivity() {
 
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
         }
-        synthesizeButton.setOnClickListener {
-            if (!synthesizing && !busy) onSynthesize()
-        }
-        playButton.setOnClickListener {
-            if (playing) stopPlaying()
-            else play(clips.indices.filter { clips[it]?.samples != null })
-        }
+        speakController.bind(
+            onSynthesize = { if (!synthesizing && !busy) onSynthesize() },
+            onTogglePlay = {
+                if (playing) stopPlaying()
+                else play(clips.indices.filter { clips[it]?.samples != null })
+            },
+        )
         importCharacter.setOnClickListener {
             if (busy) return@setOnClickListener
             pickCharacter.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
@@ -1889,99 +1892,25 @@ class MainActivity : AppCompatActivity() {
         roleMenu = popup
     }
 
-    private fun renderSentences() {
-        sentenceCard.visibility = View.VISIBLE
-        sentenceHeading.text = "分句列表（共 ${clips.size} 句）"
-        sentenceBadge.text = when {
-            synthesizing && loadingModel -> "正在加载模型"
-            synthesizing -> "正在合成"
-            playing -> "正在播放"
-            clips.any { it?.samples != null } -> "合成完毕 · 点击单句播放"
-            else -> ""
-        }
-        sentenceBadge.visibility = if (sentenceBadge.text.isNullOrBlank()) View.GONE else View.VISIBLE
-        val rowHeight = dp(40)
-        val scrollHeight = rowHeight * 3
-        if (sentenceScroll.layoutParams.height != scrollHeight) {
-            sentenceScroll.layoutParams.height = scrollHeight
-            sentenceScroll.requestLayout()
-        }
-        sentenceList.removeAllViews()
-        clips.forEachIndexed { index, clip ->
-            val hot = index == active && (playing || synthesizing)
-            val samples = clip?.samples
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(4), dp(8), dp(4), dp(8))
-                if (hot) background = rounded(Color.parseColor("#F0FDFA"), 6f)
-            }
-            row.addView(TextView(this).apply {
-                text = "%02d".format(Locale.US, index + 1)
-                gravity = Gravity.CENTER
-                textSize = 11f
-                typeface = Typeface.MONOSPACE
-                setTextColor(if (hot) Color.WHITE else color(R.color.text_sub))
-                background = rounded(if (hot) color(R.color.primary) else Color.parseColor("#F1F5F9"), 4f)
-                minWidth = dp(20)
-                minHeight = dp(20)
-            })
-            row.addView(TextView(this).apply {
-                text = clip?.text.orEmpty()
-                textSize = 12f
-                typeface = Typeface.SERIF
-                maxLines = 1
-                ellipsize = android.text.TextUtils.TruncateAt.END
-                setTextColor(color(if (hot) R.color.text_main else R.color.text_sub))
-                setPadding(dp(8), 0, dp(8), 0)
-            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            val detail = when {
-                samples != null -> "${formatSec(secondsOf(samples, clip.sampleRate))}s"
-                !clip?.error.isNullOrBlank() -> clip?.error
-                synthesizing && index == active -> "合成中"
-                else -> ""
-            }
-            row.addView(TextView(this).apply {
-                text = detail
-                textSize = 11f
-                typeface = Typeface.MONOSPACE
-                setTextColor(
-                    when {
-                        !clip?.error.isNullOrBlank() -> color(R.color.amber)
-                        hot -> color(R.color.primary)
-                        else -> color(R.color.text_sub)
-                    },
-                )
-            })
-            if (samples != null) {
-                val button = ImageButton(this).apply {
-                    setImageResource(R.drawable.ic_role_play)
-                    imageTintList = ColorStateList.valueOf(if (hot) Color.WHITE else color(R.color.text_sub))
-                    background = rounded(if (hot) color(R.color.primary) else Color.parseColor("#F1F5F9"), 99f)
-                    contentDescription = "播放这一句"
-                    scaleType = ImageView.ScaleType.CENTER
-                    minimumWidth = 0
-                    minimumHeight = 0
-                    setPadding(dp(4), dp(4), dp(4), dp(4))
-                    val side = dp(24)
-                    layoutParams = LinearLayout.LayoutParams(side, side).apply { marginStart = dp(8) }
-                }
-                if (!busy) {
-                    val playThis = {
-                        if (!busy) play(listOf(index))
-                    }
-                    button.setOnClickListener { playThis() }
-                    row.setOnClickListener { playThis() }
-                }
-                row.addView(button)
-            }
-            sentenceList.addView(
-                row,
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, rowHeight),
-            )
-        }
-        paintWork()
+    private fun speakState(): SpeakSnapshot {
+        val canSpeak = !busy && !synthesizing && currentCharacter() != null && sentence.text.toString().isNotBlank()
+        return SpeakSnapshot(
+            clips = clips,
+            synthesizing = synthesizing,
+            loadingModel = loadingModel,
+            playing = playing,
+            busy = busy,
+            active = active,
+            workNote = workNote,
+            elapsedMs = currentElapsed(),
+            canSpeak = canSpeak,
+        )
     }
+
+    private fun renderSentences() {
+        speakController.renderSentences(speakState()) { index -> if (!busy) play(listOf(index)) }
+    }
+
 
     private fun renderProsody() {
         val file = Prosody.modelFile(filesDir)
@@ -2160,33 +2089,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderSpeed() {
-        val rate = "%.2f".format(Locale.US, speedOf(speed.progress))
-        speedLabel.text = labeled(getString(R.string.speed_adjust), rate, "  ")
-    }
-
-    private fun labeled(label: String, value: String, gap: String): CharSequence {
-        val text = "$label$gap$value"
-        val start = text.length - value.length
-        return android.text.SpannableString(text).apply {
-            setSpan(
-                android.text.style.ForegroundColorSpan(color(R.color.primary)),
-                start,
-                text.length,
-                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-            )
-            setSpan(
-                android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
-                start,
-                text.length,
-                android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
-            )
-        }
+        speakController.renderSpeed("%.2f".format(Locale.US, speedOf(speed.progress)))
     }
 
     private fun updateControls() {
-        val canSpeak = !busy && !synthesizing && currentCharacter() != null && sentence.text.toString().isNotBlank()
-        sentence.isEnabled = !busy
-        speed.isEnabled = !busy
+        speakController.updateControls(speakState())
         characters.isEnabled = !busy
         importCharacter.isEnabled = !busy
         importCharacter.alpha = if (importCharacter.isEnabled) 1f else 0.4f
@@ -2197,42 +2104,6 @@ class MainActivity : AppCompatActivity() {
         downloadProsody.alpha = prosodyAlpha
         importProsody.alpha = prosodyAlpha
         deleteProsody.alpha = prosodyAlpha
-        when {
-            synthesizing && loadingModel -> {
-                synthesizeButton.isEnabled = true
-                synthesizeButton.text = "加载中"
-            }
-            synthesizing -> {
-                synthesizeButton.isEnabled = true
-                val shown = (active + 1).coerceAtLeast(1)
-                synthesizeButton.text = "$shown/${clips.size.coerceAtLeast(1)}"
-            }
-            else -> {
-                synthesizeButton.isEnabled = canSpeak
-                synthesizeButton.setText(R.string.synthesize)
-            }
-        }
-        synthesizeButton.backgroundTintList = null
-        synthesizeButton.setTextColor(color(android.R.color.white))
-        synthesizeButton.alpha = if (synthesizeButton.isEnabled) 1f else 0.4f
-        val ready = clips.any { it?.samples != null }
-        when {
-            playing -> {
-                playButton.isEnabled = true
-                playButton.setText(R.string.stop)
-            }
-            ready && !busy && !synthesizing -> {
-                playButton.isEnabled = true
-                playButton.setText(R.string.play)
-            }
-            else -> {
-                playButton.isEnabled = false
-                playButton.setText(R.string.play)
-            }
-        }
-        playButton.backgroundTintList = null
-        playButton.setTextColor(color(R.color.primary))
-        playButton.alpha = if (playButton.isEnabled) 1f else 0.4f
     }
 
     private fun invalidateAudio() {
@@ -2256,99 +2127,16 @@ class MainActivity : AppCompatActivity() {
         paintWork()
     }
 
-    private fun paintWork() {
-        val warn = workNote.contains("没有声音") || workNote.contains("占用") || workNote.contains("没有可以播放")
-        workStatus.text = when {
-            synthesizing && loadingModel -> "加载中"
-            synthesizing -> "合成中"
-            playing -> "播放中"
-            clips.any { it?.samples != null } -> "完成"
-            clips.isNotEmpty() -> "完成"
-            else -> "未合成"
-        }
-        val metrics = metricsLine()
-        val playingLine = workNote.startsWith("正在播放")
-        workMetrics.text = when {
-            playingLine -> workNote
-            metrics.isNotBlank() -> metrics
-            else -> if (isProgressNote(workNote)) "" else workNote
-        }
-        val extra = workNote.isNotBlank() && !isProgressNote(workNote) && workMetrics.text != workNote
-        workNoteLine.text = workNote
-        workNoteLine.visibility = if (extra) View.VISIBLE else View.GONE
-        workDot.backgroundTintList = ColorStateList.valueOf(
-            when {
-                warn -> color(R.color.amber)
-                playing || synthesizing -> color(R.color.primary)
-                clips.any { it?.samples != null } -> Color.parseColor("#10B981")
-                else -> Color.parseColor("#CBD5E1")
-            },
-        )
-    }
-
-    private fun isProgressNote(note: String): Boolean {
-        return note.isBlank() ||
-            note.startsWith("正在加载") ||
-            note.startsWith("正在合成") ||
-            note.startsWith("正在打开") ||
-            note.startsWith("正在播放") ||
-            note.startsWith("合成完成") ||
-            note == "播放结束" ||
-            note == "已停止"
-    }
-
-    private fun metricsLine(): String {
-        if (clips.isEmpty()) return "分句: -/-  耗时: -  时长: -  实时率: -"
-        val total = clips.size
-        val finished = clips.count { it?.samples != null || !it?.error.isNullOrBlank() }
-        val shown = if (synthesizing) (active + 1).coerceIn(0, total) else finished
-        val parts = mutableListOf("分句: $shown/$total")
-        val elapsed = currentElapsed()
-        if (elapsed > 0) parts += "耗时: ${formatElapsed(elapsed)}"
-        val audio = clips.sumOf { clip ->
-            val samples = clip?.samples ?: return@sumOf 0.0
-            secondsOf(samples, clip.sampleRate)
-        }
-        if (audio > 0) {
-            parts += "时长: ${formatSec(audio)}s"
-            if (elapsed > 0) parts += "实时率: ${"%.2f".format(Locale.US, (elapsed / 1000.0) / audio)}x"
-        }
-        return parts.joinToString("  ")
-    }
+    private fun paintWork() = speakController.paint(speakState())
 
     private fun currentElapsed(): Long {
         if (synthesizing && synthStartedAt > 0L) return SystemClock.elapsedRealtime() - synthStartedAt
         return synthElapsedMs
     }
 
-    private fun formatElapsed(ms: Long): String {
-        return if (ms < 1000) "${ms}ms" else "${"%.1f".format(Locale.US, ms / 1000.0)}s"
-    }
+    private fun scrollToActive() = speakController.scrollToActive(active)
 
-    private fun rounded(fill: Int, radiusDp: Float): GradientDrawable {
-        return GradientDrawable().apply {
-            setColor(fill)
-            cornerRadius = radiusDp * resources.displayMetrics.density
-        }
-    }
-
-    private fun scrollToActive() {
-        if (active < 0) return
-        val child = sentenceList.getChildAt(active) ?: return
-        sentenceScroll.post {
-            (sentenceScroll as android.widget.ScrollView).smoothScrollTo(0, child.top)
-        }
-    }
-
-    private fun synthSummary(): String {
-        val playable = clips.count { it?.samples != null }
-        val quiet = clips.count { clip -> clip?.samples?.let(::isQuiet) == true }
-        return when {
-            playable == 0 -> "没有可以播放的句子"
-            quiet == playable -> "合成完成，但是几乎没有声音"
-            else -> "合成完成，$playable 句可播放"
-        }
-    }
+    private fun synthSummary(): String = speakController.summary(clips)
 
     private fun playLine(index: Int, played: Int, total: Int, sampleRate: Int, quiet: Boolean): String {
         val clock = "${formatCount(played, sampleRate)}/${formatCount(total, sampleRate)} 秒"
@@ -2393,23 +2181,7 @@ class MainActivity : AppCompatActivity() {
         marker.delete()
     }
 
-    private fun human(error: Throwable): String {
-        if (error is RefMismatch) {
-            return error.message ?: "参考音素和角色包里的原文对不上，请重新导入这个角色"
-        }
-        val message = error.message?.trim().orEmpty()
-        if (
-            message.contains("缺少") ||
-            message.contains("不完整") ||
-            message.contains("太小") ||
-            message.contains("Git LFS") ||
-            message.contains("不是模型")
-        ) {
-            return "角色包不完整，请重新导入"
-        }
-        if (message.any { it.code > 0x3000 }) return message
-        return "合成没有完成"
-    }
+    private fun human(error: Throwable): String = uiText(error)
 
     private fun alert(message: String) {
         AlertDialog.Builder(this)
