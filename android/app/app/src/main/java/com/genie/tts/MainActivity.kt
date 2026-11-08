@@ -26,6 +26,8 @@ import com.genie.tts.speech.isQuiet
 import com.genie.tts.speech.playSamples
 import com.genie.tts.speech.speedOf
 import com.genie.tts.ui.AboutPageController
+import com.genie.tts.ui.CharacterController
+import com.genie.tts.ui.CharacterSnapshot
 import com.genie.tts.ui.SpeakController
 import com.genie.tts.ui.SpeakSnapshot
 import com.genie.tts.ui.HelpPageController
@@ -39,12 +41,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
 import android.content.res.ColorStateList
-import android.graphics.BitmapFactory
 import android.graphics.Color
-import android.graphics.Outline
-import android.graphics.Typeface
 import android.graphics.drawable.ColorDrawable
-import android.graphics.drawable.GradientDrawable
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
@@ -58,22 +56,16 @@ import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.text.Editable
 import android.text.InputFilter
-import android.text.SpannableString
 import android.text.TextWatcher
-import android.text.style.ForegroundColorSpan
-import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewOutlineProvider
 import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.AdapterView
 import android.widget.Button
 import android.widget.EditText
-import android.widget.FrameLayout
 import android.widget.ImageButton
-import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.ProgressBar
@@ -157,19 +149,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var synthesizeButton: Button
     private lateinit var playButton: Button
     private lateinit var workStatus: TextView
-    private lateinit var characterCards: LinearLayout
-    private lateinit var rolesTitle: TextView
-    private lateinit var rolesBack: ImageButton
-    private lateinit var roleCount: TextView
-    private lateinit var roleQuery: EditText
-    private lateinit var roleSearchButton: View
-    private lateinit var roleMore: View
-    private lateinit var roleEmpty: View
-    private lateinit var roleFoot: TextView
-    private lateinit var roleBatchBar: View
-    private lateinit var roleSelectAll: TextView
-    private lateinit var roleDeletePicked: TextView
-    private lateinit var importCharacter: View
     private var pendingLogText: String? = null
     private lateinit var prosodyStatus: TextView
     private lateinit var prosodyDetail: TextView
@@ -191,6 +170,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var aboutController: AboutPageController
     private lateinit var serviceController: ServicePageController
     private lateinit var speakController: SpeakController
+    private lateinit var characterController: CharacterController
 
     private var page = Page.Speak
     private var roster: List<CharacterInfo> = emptyList()
@@ -222,27 +202,6 @@ class MainActivity : AppCompatActivity() {
     private var importAudioFile: File? = null
     private var importListen: TextView? = null
     private var onImportAudioStopped: (() -> Unit)? = null
-
-    private val avatarIcons = intArrayOf(
-        R.drawable.ic_avatar_wave,
-        R.drawable.ic_avatar_plus,
-        R.drawable.ic_avatar_mic,
-        R.drawable.ic_avatar_sparkles,
-        R.drawable.ic_avatar_note,
-        R.drawable.ic_avatar_microphone,
-        R.drawable.ic_avatar_heart,
-        R.drawable.ic_avatar_book,
-    )
-    private val avatarColors = arrayOf(
-        intArrayOf(0xFF005461.toInt(), 0xFF14B8A6.toInt()),
-        intArrayOf(0xFF059669.toInt(), 0xFF2DD4BF.toInt()),
-        intArrayOf(0xFFD97706.toInt(), 0xFF0F766E.toInt()),
-        intArrayOf(0xFF14B8A6.toInt(), 0xFF22D3EE.toInt()),
-        intArrayOf(0xFF0EA5E9.toInt(), 0xFF818CF8.toInt()),
-        intArrayOf(0xFF475569.toInt(), 0xFF005461.toInt()),
-        intArrayOf(0xFFFB7185.toInt(), 0xFF14B8A6.toInt()),
-        intArrayOf(0xFF115E59.toInt(), 0xFF10B981.toInt()),
-    )
 
     private val pickCharacter = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onCharacterPicked(uri)
@@ -284,6 +243,7 @@ class MainActivity : AppCompatActivity() {
         helpController = HelpPageController(this, { page == Page.Help }) { aboutController.versionName() }
         serviceController = ServicePageController(this, { page == Page.Service }, ::notificationsAllowed)
         speakController = SpeakController(this)
+        characterController = CharacterController(this) { id, choices -> repository.avatarIndex(id, choices) }
         bindViews()
         restoreDraft()
         showInterrupted()
@@ -382,19 +342,6 @@ class MainActivity : AppCompatActivity() {
         synthesizeButton = findViewById(R.id.synthesize)
         playButton = findViewById(R.id.play)
         workStatus = findViewById(R.id.workStatus)
-        characterCards = findViewById(R.id.characterCards)
-        rolesTitle = findViewById(R.id.rolesTitle)
-        rolesBack = findViewById(R.id.rolesBack)
-        roleCount = findViewById(R.id.roleCount)
-        roleQuery = findViewById(R.id.roleQuery)
-        roleSearchButton = findViewById(R.id.roleSearchButton)
-        roleMore = findViewById(R.id.roleMore)
-        roleEmpty = findViewById(R.id.roleEmpty)
-        roleFoot = findViewById(R.id.roleFoot)
-        roleBatchBar = findViewById(R.id.roleBatchBar)
-        roleSelectAll = findViewById(R.id.roleSelectAll)
-        roleDeletePicked = findViewById(R.id.roleDeletePicked)
-        importCharacter = findViewById(R.id.importCharacter)
         prosodyStatus = findViewById(R.id.prosodyStatus)
         prosodyDetail = findViewById(R.id.prosodyDetail)
         prosodyProgress = findViewById(R.id.prosodyProgress)
@@ -475,9 +422,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.homeMore).setOnClickListener {
             toast(getString(R.string.not_ready))
         }
-        rolesBack.setOnClickListener {
-            if (batching) exitBatch() else drawer.openDrawer(drawerPanel)
-        }
         findViewById<View>(R.id.prosodyBack).setOnClickListener { drawer.openDrawer(drawerPanel) }
         findViewById<View>(R.id.aboutBack).setOnClickListener { showPage(Page.Speak) }
         helpController.bind(
@@ -498,17 +442,17 @@ class MainActivity : AppCompatActivity() {
         )
         findViewById<View>(R.id.serviceBack).setOnClickListener { drawer.openDrawer(drawerPanel) }
         findViewById<View>(R.id.serviceLogJump).setOnClickListener { showPage(Page.Logs) }
-        findViewById<View>(R.id.roleSearchButton).setOnClickListener { toggleRoleSearch() }
-        findViewById<View>(R.id.roleMore).setOnClickListener { showRoleMenu(it) }
-        roleQuery.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-            override fun afterTextChanged(s: Editable?) {
-                if (page == Page.Characters) renderCards()
-            }
-        })
-        roleSelectAll.setOnClickListener { toggleSelectShown() }
-        roleDeletePicked.setOnClickListener { confirmDeletePicked() }
+        characterController.bind(
+            onQuery = { if (page == Page.Characters) renderCards() },
+            onBack = { if (batching) exitBatch() else drawer.openDrawer(drawerPanel) },
+            onMore = { showRoleMenu(it) },
+            onSelectAll = { toggleSelectShown() },
+            onDeletePicked = { confirmDeletePicked() },
+            onImport = {
+                if (busy) return@bind
+                pickCharacter.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+            },
+        )
         findViewById<View>(R.id.drawerClose).setOnClickListener {
             drawer.closeDrawer(drawerPanel)
         }
@@ -609,10 +553,6 @@ class MainActivity : AppCompatActivity() {
                 else play(clips.indices.filter { clips[it]?.samples != null })
             },
         )
-        importCharacter.setOnClickListener {
-            if (busy) return@setOnClickListener
-            pickCharacter.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
-        }
         downloadProsody.setOnClickListener { confirmDownloadProsody() }
         importProsody.setOnClickListener {
             if (busy) return@setOnClickListener
@@ -1436,188 +1376,26 @@ class MainActivity : AppCompatActivity() {
         updateControls()
     }
 
+    private fun characterState() = CharacterSnapshot(
+        roster = roster,
+        selectedId = selectedId,
+        batching = batching,
+        onPage = page == Page.Characters,
+        picked = picked.toSet(),
+        busy = busy,
+        playing = playing,
+        previewId = previewId,
+    )
+
     private fun renderCards() {
-        val query = roleQuery.text?.toString()?.trim().orEmpty()
-        val shown = roster.filter { info ->
-            query.isEmpty() ||
-                info.name.contains(query, ignoreCase = true) ||
-                info.id.contains(query, ignoreCase = true)
-        }
-        roleFoot.text = roleFootText()
-        roleEmpty.visibility = if (query.isNotEmpty() && shown.isEmpty()) View.VISIBLE else View.GONE
-        val shownIds = shown.map { it.id }
-        val allShown = shownIds.isNotEmpty() && shownIds.all { it in picked }
-        roleSelectAll.setText(if (allShown) R.string.select_none else R.string.select_all)
-        roleSelectAll.tag = shownIds
-        characterCards.removeAllViews()
-        shown.forEach { info -> characterCards.addView(roleCard(info)) }
-        applyBatchChrome()
+        characterController.render(
+            characterState(),
+            onToggle = ::togglePicked,
+            onEdit = ::editCharacter,
+            onPreview = { info -> if (playing && previewId == info.id) stopPlaying() else preview(info) },
+        )
     }
 
-    private fun roleFootText(): CharSequence {
-        val total = "共 ${roster.size} 个模型"
-        val current = roster.find { it.id == selectedId } ?: return total
-        val text = "$total  |  当前：${current.name}"
-        val start = text.length - current.name.length
-        return SpannableString(text).apply {
-            setSpan(ForegroundColorSpan(color(R.color.header)), start, text.length, SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE)
-            setSpan(StyleSpan(Typeface.BOLD), start, text.length, SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE)
-        }
-    }
-
-    private fun roleCard(info: CharacterInfo): View {
-        val card = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            background = ContextCompat.getDrawable(this@MainActivity, R.drawable.bg_role_card)
-            elevation = dp(1).toFloat()
-            setPadding(dp(14), dp(14), dp(14), dp(14))
-            setOnClickListener { if (batching) togglePicked(info.id) }
-            setOnLongClickListener {
-                if (!batching) editCharacter(info)
-                true
-            }
-        }
-        if (batching && info.id in picked) {
-            card.background = GradientDrawable().apply {
-                cornerRadius = dp(16).toFloat()
-                setColor(Color.parseColor("#E6F4F6"))
-            }
-        }
-        card.addView(avatarView(info))
-        val text = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
-                marginStart = dp(12)
-            }
-        }
-        text.addView(TextView(this).apply {
-            this.text = info.name
-            textSize = 14f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(color(R.color.text_main))
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
-        })
-        text.addView(TextView(this).apply {
-            this.text = "ID: ${info.id}"
-            textSize = 12f
-            typeface = Typeface.MONOSPACE
-            setTextColor(Color.parseColor("#94A3B8"))
-            setPadding(0, dp(2), 0, 0)
-            maxLines = 1
-            ellipsize = android.text.TextUtils.TruncateAt.END
-        })
-        card.addView(text)
-        if (batching) {
-            card.addView(batchMark(info.id in picked))
-            val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            params.topMargin = dp(10)
-            params.marginStart = dp(12)
-            params.marginEnd = dp(12)
-            card.layoutParams = params
-            return card
-        }
-        val playingThis = previewId == info.id
-        card.addView(ImageButton(this).apply {
-            val box = dp(40)
-            layoutParams = LinearLayout.LayoutParams(box, box).apply { marginStart = dp(8) }
-            background = ContextCompat.getDrawable(
-                this@MainActivity,
-                if (playingThis) R.drawable.bg_role_play_on else R.drawable.bg_role_play,
-            )
-            setImageResource(if (playingThis) R.drawable.ic_role_bars else R.drawable.ic_role_play)
-            imageTintList = ColorStateList.valueOf(color(if (playingThis) R.color.header else R.color.primary))
-            scaleType = ImageView.ScaleType.CENTER
-            contentDescription = if (playingThis) "正在试听${info.name}" else "试听${info.name}"
-            isEnabled = !busy || playingThis
-            alpha = if (isEnabled) 1f else 0.4f
-            setOnClickListener {
-                if (playing && previewId == info.id) stopPlaying() else preview(info)
-            }
-        })
-        val params = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        params.topMargin = dp(10)
-        params.marginStart = dp(12)
-        params.marginEnd = dp(12)
-        card.layoutParams = params
-        return card
-    }
-
-    private fun avatarView(info: CharacterInfo): View {
-        val size = dp(44)
-        val frame = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(size, size)
-            outlineProvider = object : ViewOutlineProvider() {
-                override fun getOutline(view: View, outline: Outline) {
-                    outline.setRoundRect(0, 0, size, size, dp(12).toFloat())
-                }
-            }
-            clipToOutline = true
-        }
-        val image = CharacterPack.avatarImage(info.root)
-        val bitmap = image?.let { decodeAvatar(it) }
-        if (bitmap != null) {
-            frame.addView(ImageView(this).apply {
-                layoutParams = FrameLayout.LayoutParams(size, size)
-                scaleType = ImageView.ScaleType.CENTER_CROP
-                setImageBitmap(bitmap)
-            })
-        } else {
-            val index = avatarIndex(info)
-            frame.background = GradientDrawable(GradientDrawable.Orientation.BL_TR, avatarColors[index]).apply {
-                cornerRadius = dp(12).toFloat()
-            }
-            frame.addView(ImageView(this).apply {
-                val icon = dp(24)
-                layoutParams = FrameLayout.LayoutParams(icon, icon, Gravity.CENTER)
-                setImageResource(avatarIcons[index])
-                imageTintList = ColorStateList.valueOf(Color.WHITE)
-            })
-        }
-        return frame
-    }
-
-    private fun avatarIndex(info: CharacterInfo): Int = repository.avatarIndex(info.id, avatarIcons.size)
-
-    private fun decodeAvatar(file: File): android.graphics.Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeFile(file.absolutePath, bounds)
-        if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-        var sample = 1
-        while (bounds.outWidth / sample > 256 || bounds.outHeight / sample > 256) sample *= 2
-        return BitmapFactory.decodeFile(file.absolutePath, BitmapFactory.Options().apply { inSampleSize = sample })
-    }
-
-    private fun batchMark(on: Boolean): View {
-        return ImageView(this).apply {
-            val box = dp(24)
-            layoutParams = LinearLayout.LayoutParams(box, box).apply { marginStart = dp(8) }
-            background = ContextCompat.getDrawable(
-                this@MainActivity,
-                if (on) R.drawable.bg_role_fab else R.drawable.bg_role_check_off,
-            )
-            if (on) {
-                setImageResource(R.drawable.ic_role_check)
-                imageTintList = ColorStateList.valueOf(Color.WHITE)
-            }
-            scaleType = ImageView.ScaleType.CENTER
-            isClickable = false
-        }
-    }
-
-    private fun applyBatchChrome() {
-        val batch = batching && page == Page.Characters
-        rolesTitle.setText(if (batch) R.string.batch_manage else R.string.characters)
-        rolesBack.setImageResource(if (batch) R.drawable.ic_close else R.drawable.ic_menu)
-        rolesBack.contentDescription = if (batch) "取消" else getString(R.string.menu)
-        roleCount.text = if (batch) "已选 ${picked.size}" else "${roster.size}个角色"
-        roleMore.visibility = if (batch) View.GONE else View.VISIBLE
-        roleFoot.visibility = if (batch) View.GONE else View.VISIBLE
-        importCharacter.visibility = if (batch) View.GONE else View.VISIBLE
-        roleBatchBar.visibility = if (batch) View.VISIBLE else View.GONE
-        roleDeletePicked.alpha = if (picked.isEmpty()) 0.4f else 1f
-    }
 
     private fun enterBatch() {
         if (busy) return
@@ -1643,8 +1421,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun toggleSelectShown() {
-        @Suppress("UNCHECKED_CAST")
-        val shownIds = roleSelectAll.tag as? List<String> ?: return
+        val shownIds = characterController.shownIds()
         if (shownIds.isNotEmpty() && shownIds.all { it in picked }) picked.removeAll(shownIds.toSet())
         else picked.addAll(shownIds)
         renderCards()
@@ -1855,16 +1632,6 @@ class MainActivity : AppCompatActivity() {
         return dialog
     }
 
-    private fun toggleRoleSearch() {
-        val open = roleQuery.visibility != View.VISIBLE
-        roleQuery.visibility = if (open) View.VISIBLE else View.GONE
-        if (open) {
-            roleQuery.requestFocus()
-        } else {
-            roleQuery.setText("")
-        }
-    }
-
     private fun showRoleMenu(anchor: View) {
         roleMenu?.dismiss()
         val menu = layoutInflater.inflate(R.layout.menu_roles, null)
@@ -1874,7 +1641,7 @@ class MainActivity : AppCompatActivity() {
         popup.elevation = dp(12).toFloat()
         menu.findViewById<View>(R.id.menuImport).setOnClickListener {
             popup.dismiss()
-            importCharacter.performClick()
+            characterController.clickImport()
         }
         menu.findViewById<View>(R.id.menuBatch).setOnClickListener {
             popup.dismiss()
@@ -2095,8 +1862,7 @@ class MainActivity : AppCompatActivity() {
     private fun updateControls() {
         speakController.updateControls(speakState())
         characters.isEnabled = !busy
-        importCharacter.isEnabled = !busy
-        importCharacter.alpha = if (importCharacter.isEnabled) 1f else 0.4f
+        characterController.setImportEnabled(!busy)
         downloadProsody.isEnabled = !busy
         importProsody.isEnabled = !busy
         deleteProsody.isEnabled = !busy
