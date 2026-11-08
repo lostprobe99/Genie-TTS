@@ -1,9 +1,9 @@
 package com.genie.tts
 
+import com.genie.tts.character.BatchStart
 import com.genie.tts.character.CharacterInfo
 import com.genie.tts.character.CharacterPack
-import com.genie.tts.character.CharacterRepository
-import com.genie.tts.character.PackPreview
+import com.genie.tts.character.ImportOffer
 import com.genie.tts.core.LogLevel
 import com.genie.tts.core.uiText
 import com.genie.tts.core.LogModule
@@ -15,12 +15,17 @@ import com.genie.tts.service.TtsPorts
 import com.genie.tts.speech.Engines
 import com.genie.tts.speech.PlaybackKind
 import com.genie.tts.speech.Prosody
+import com.genie.tts.speech.invalidateSpokenAudio
 import com.genie.tts.speech.ProsodyPack
 import com.genie.tts.speech.Release
 import com.genie.tts.speech.Speech
 import com.genie.tts.speech.TextSplitter
 import com.genie.tts.speech.speedOf
 import com.genie.tts.ui.AboutPageController
+import com.genie.tts.ui.EditRoleDialog
+import com.genie.tts.ui.HeldAudio
+import com.genie.tts.ui.ImportSheet
+import com.genie.tts.ui.LightDialogs
 import com.genie.tts.ui.CharacterController
 import com.genie.tts.ui.CharacterSnapshot
 import com.genie.tts.ui.ProsodyController
@@ -32,19 +37,12 @@ import com.genie.tts.ui.LogPageController
 import com.genie.tts.ui.ServicePageController
 import com.genie.tts.ui.helpCopyText
 import android.Manifest
-import android.app.Dialog
 import android.content.ActivityNotFoundException
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Intent
-import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
-import android.media.AudioAttributes
-import android.media.AudioFocusRequest
-import android.media.AudioManager
-import android.media.MediaMetadataRetriever
-import android.media.MediaPlayer
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
@@ -52,20 +50,16 @@ import android.os.Bundle
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.text.Editable
-import android.text.InputFilter
 import android.text.TextWatcher
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.WindowManager
 import android.widget.ArrayAdapter
 import android.widget.AdapterView
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.PopupWindow
-import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
@@ -98,7 +92,10 @@ class MainActivity : AppCompatActivity() {
     private val splitter = TextSplitter()
 
     private fun speech(): Speech = Engines.get(filesDir) { assets.open(it) }
-    private val repository = CharacterRepository.shared
+    private lateinit var heldAudio: HeldAudio
+    private lateinit var light: LightDialogs
+    private lateinit var importSheet: ImportSheet
+    private lateinit var editRole: EditRoleDialog
     private lateinit var drawer: DrawerLayout
     private lateinit var drawerPanel: View
     private lateinit var headerSlot: View
@@ -151,13 +148,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prosodyController: ProsodyController
 
     private var page = Page.Speak
-    private var roster: List<CharacterInfo> = emptyList()
-    private var selectedId: String? = null
     private var speedGestureKeepsAudio = false
     private var suppress = false
     private var pinnedBanner: String? = null
     private var seenSynthAlert = 0L
     private var seenPlayAlert = 0L
+    private var seenCharacterAlert = 0L
+    private var stopCharacterWatch: (() -> Unit)? = null
     private var drawnSpeak = SpeakSnapshot(
         clips = emptyList(),
         synthesizing = false,
@@ -178,16 +175,6 @@ class MainActivity : AppCompatActivity() {
     private var downloadTotal = 0L
     private var roleMenu: PopupWindow? = null
     private var stopWatchingService: (() -> Unit)? = null
-    private var batching = false
-    private val picked = mutableSetOf<String>()
-    private var importSheet: Dialog? = null
-    private var importInspecting = false
-    private var importToken = 0
-    private var importPlayer: MediaPlayer? = null
-    private var importFocus: AudioFocusRequest? = null
-    private var importAudioFile: File? = null
-    private var importListen: TextView? = null
-    private var onImportAudioStopped: (() -> Unit)? = null
 
     private val pickCharacter = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) onCharacterPicked(uri)
@@ -223,19 +210,23 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         Engines.activityOpen = true
         speech()
-        repository.attach(filesDir)
+        heldAudio = HeldAudio(this)
+        light = LightDialogs(this)
+        importSheet = ImportSheet(this, heldAudio) { session.playback.stop() }
+        editRole = EditRoleDialog(this, light, heldAudio) { session.playback.stop() }
         aboutController = AboutPageController(this)
         logController = LogPageController(this) { page == Page.Logs }
         helpController = HelpPageController(this, { page == Page.Help }) { aboutController.versionName() }
         serviceController = ServicePageController(this, { page == Page.Service }, ::notificationsAllowed)
         speakController = SpeakController(this)
-        characterController = CharacterController(this) { id, choices -> repository.avatarIndex(id, choices) }
+        characterController = CharacterController(this) { id, choices -> session.characters.avatarIndex(id, choices) }
         prosodyController = ProsodyController(this)
         bindViews()
         restoreDraft()
         showInterrupted()
         bindActions()
-        refreshCharacters()
+        session.characters.refresh()
+        renderCharacters()
         renderSpeed()
         showPage(Page.Speak)
         openRequestedPage(intent)
@@ -258,6 +249,9 @@ class MainActivity : AppCompatActivity() {
         stopWatchingService?.invoke()
         stopWatchingService = ServiceStates.store.listen { if (!isDestroyed) renderService() }
         watchSpeech()
+        stopCharacterWatch?.invoke()
+        stopCharacterWatch = session.characters.listen { if (!isDestroyed) renderCharacters() }
+        renderCharacters()
         TtsLog.listener = {
             if (!isDestroyed && page == Page.Logs) logController.render(logController.autoScroll.isChecked)
         }
@@ -268,6 +262,8 @@ class MainActivity : AppCompatActivity() {
         serviceController.stop()
         stopSpeechWatch?.invoke()
         stopSpeechWatch = null
+        stopCharacterWatch?.invoke()
+        stopCharacterWatch = null
         stopWatchingService?.invoke()
         stopWatchingService = null
         TtsLog.listener = null
@@ -275,12 +271,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        importSheet?.setOnDismissListener(null)
-        importSheet?.dismiss()
-        importSheet = null
-        stopImportAudio()
-        importAudioFile?.delete()
-        importAudioFile = null
+        if (::importSheet.isInitialized) importSheet.dismiss()
+        if (::editRole.isInitialized) editRole.dismiss()
         super.onDestroy()
     }
 
@@ -409,7 +401,9 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.serviceLogJump).setOnClickListener { showPage(Page.Logs) }
         characterController.bind(
             onQuery = { if (page == Page.Characters) renderCards() },
-            onBack = { if (batching) exitBatch() else drawer.openDrawer(drawerPanel) },
+            onBack = {
+                if (session.characters.current().batching) exitBatch() else drawer.openDrawer(drawerPanel)
+            },
             onMore = { showRoleMenu(it) },
             onSelectAll = { toggleSelectShown() },
             onDeletePicked = { confirmDeletePicked() },
@@ -426,7 +420,7 @@ class MainActivity : AppCompatActivity() {
             showPage(Page.Speak)
         }
         roleRow.setOnClickListener {
-            if (roster.isEmpty()) showPage(Page.Characters)
+            if (session.characters.current().roster.isEmpty()) showPage(Page.Characters)
             else characters.performClick()
         }
         findViewById<View>(R.id.openSettings).setOnClickListener {
@@ -461,7 +455,7 @@ class MainActivity : AppCompatActivity() {
             override fun handleOnBackPressed() {
                 when {
                     drawer.isDrawerOpen(GravityCompat.START) -> drawer.closeDrawer(GravityCompat.START)
-                    page == Page.Characters && batching -> exitBatch()
+                    page == Page.Characters && session.characters.current().batching -> exitBatch()
                     page != Page.Speak -> showPage(Page.Speak)
                     else -> {
                         isEnabled = false
@@ -499,12 +493,8 @@ class MainActivity : AppCompatActivity() {
         characters.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 if (suppress) return
-                val next = roster.getOrNull(position)?.id
-                if (next == selectedId) return
-                selectedId = next
-                if (next == null) selectionFile().delete() else selectionFile().writeText(next)
-                invalidateAudio()
-                worker.execute { onSpeech { speech().dropEngine() } }
+                val next = session.characters.current().roster.getOrNull(position)?.id
+                session.characters.select(next)
                 if (page == Page.About) aboutController.render(currentRoleName())
                 updateControls()
             }
@@ -565,8 +555,7 @@ class MainActivity : AppCompatActivity() {
         val onHelp = next == Page.Help
         if (!onRoles) {
             roleMenu?.dismiss()
-            batching = false
-            picked.clear()
+            session.characters.leaveBatch()
         }
         homeBar.visibility = if (onSpeak) View.VISIBLE else View.GONE
         rolesBar.visibility = if (onRoles) View.VISIBLE else View.GONE
@@ -660,276 +649,155 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onCharacterPicked(uri: Uri) {
-        if (isBusy() || importInspecting) return
-        importInspecting = true
-        worker.execute {
-            try {
-                val preview = contentResolver.openFileDescriptor(uri, "r")?.use { parcel ->
-                    FileInputStream(parcel.fileDescriptor).use { input -> CharacterPack.peek(input.channel) }
-                } ?: error("打不开这个文件")
-                val name = displayName(uri).ifBlank { "角色包.zip" }
-                val size = fileSize(uri)
-                runOnUiThread {
-                    importInspecting = false
-                    if (!isDestroyed) showImportSheet(uri, preview, name, size)
-                }
-            } catch (error: Exception) {
-                runOnUiThread {
-                    importInspecting = false
-                    if (!isDestroyed) alert(human(error))
-                }
-            }
+        val name = displayName(uri).ifBlank { "角色包.zip" }
+        val size = fileSize(uri)
+        session.characters.inspect(uri, name, size) {
+            contentResolver.openFileDescriptor(uri, "r")?.use { parcel ->
+                FileInputStream(parcel.fileDescriptor).use { input -> CharacterPack.peek(input.channel) }
+            } ?: error("打不开这个文件")
         }
     }
 
-    private fun showImportSheet(uri: Uri, preview: PackPreview, fileName: String, fileBytes: Long) {
-        importSheet?.setOnDismissListener(null)
-        importSheet?.dismiss()
-        stopImportAudio()
-        importAudioFile?.delete()
-        importAudioFile = null
-        val token = ++importToken
-        val dialog = Dialog(this, R.style.Theme_Genie_Sheet)
-        val root = layoutInflater.inflate(R.layout.dialog_import_role, null)
-        dialog.setContentView(root)
-        dialog.setCanceledOnTouchOutside(true)
-        dialog.window?.apply {
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setGravity(Gravity.BOTTOM)
-            setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        }
-        root.findViewById<TextView>(R.id.importFileName).text = fileName
-        val size = if (fileBytes >= 0) sizeLabel(fileBytes) else ""
-        root.findViewById<TextView>(R.id.importFileMeta).text =
-            if (size.isEmpty()) getString(R.string.import_full_pack) else "$size · ${getString(R.string.import_full_pack)}"
-        root.findViewById<TextView>(R.id.importRoleId).text = preview.id
-        val nameField = root.findViewById<EditText>(R.id.importRoleName)
-        val existing = roster.find { it.id == preview.id }?.name
-        if (existing != null) {
-            root.findViewById<TextView>(R.id.importTitle).setText(R.string.import_update)
-            root.findViewById<TextView>(R.id.importNameNote).setText(R.string.import_name_note_update)
-            root.findViewById<TextView>(R.id.importConfirmLabel).setText(R.string.import_confirm_update)
-        }
-        nameField.setText(existing ?: preview.name)
-        nameField.setSelection(nameField.text.length)
-        val audioLabel = root.findViewById<TextView>(R.id.importAudioLabel)
-        val listen = root.findViewById<TextView>(R.id.importPreview)
-        importListen = listen
-        val audioName = preview.audioName
-        if (audioName == null) {
-            audioLabel.setText(R.string.import_no_audio)
-            listen.alpha = 0.4f
-            listen.setOnClickListener { toast(getString(R.string.import_no_audio)) }
-        } else {
-            audioLabel.text = "参考音频: ${audioName.substringAfterLast('/')}（正在读取）"
-            listen.alpha = 0.4f
-            listen.isEnabled = false
-            worker.execute {
-                try {
-                    val bytes = contentResolver.openFileDescriptor(uri, "r")?.use { parcel ->
-                        FileInputStream(parcel.fileDescriptor).use { input ->
-                            CharacterPack.readNamed(input.channel, audioName)
-                        }
-                    } ?: error("打不开这个文件")
-                    val ext = audioName.substringAfterLast('.', "bin").lowercase()
-                    val file = File(cacheDir, "import-reference.$ext")
-                    file.writeBytes(bytes)
-                    val seconds = CharacterPack.wavSeconds(bytes) ?: mediaSeconds(file)
-                    runOnUiThread {
-                        if (isDestroyed || token != importToken) {
-                            file.delete()
-                            return@runOnUiThread
-                        }
-                        importAudioFile = file
-                        audioLabel.text = audioCaption(audioName, seconds)
-                        listen.alpha = 1f
-                        listen.isEnabled = true
-                        listen.setOnClickListener {
-                            val playing = runCatching { importPlayer?.isPlaying == true }.getOrDefault(false)
-                            if (playing) stopImportAudio() else playImportAudio(file, listen)
-                        }
-                    }
-                } catch (error: Exception) {
-                    runOnUiThread {
-                        if (isDestroyed || token != importToken) return@runOnUiThread
-                        audioLabel.setText(R.string.import_audio_failed)
-                        listen.alpha = 0.4f
-                        listen.setOnClickListener { toast(human(error)) }
-                    }
+    private fun showImportOffer(offer: ImportOffer) {
+        val uri = offer.key as? Uri ?: return
+        val existing = session.characters.current().roster.find { it.id == offer.preview.id }?.name
+        importSheet.show(
+            uri,
+            offer.preview,
+            offer.fileName,
+            offer.fileBytes,
+            existing,
+            ::isBusy,
+            onConfirm = { typed ->
+                session.characters.import(typed) {
+                    contentResolver.openInputStream(uri) ?: error("打不开这个文件")
                 }
-            }
-        }
-        root.findViewById<View>(R.id.importClose).setOnClickListener { dialog.dismiss() }
-        root.findViewById<View>(R.id.importCancel).setOnClickListener { dialog.dismiss() }
-        root.findViewById<View>(R.id.importReselect).setOnClickListener {
-            pickCharacter.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
-        }
-        root.findViewById<View>(R.id.importConfirm).setOnClickListener {
-            if (isBusy()) return@setOnClickListener
-            val typed = nameField.text.toString().trim()
-            dialog.dismiss()
-            importCharacter(uri, typed.ifEmpty { preview.id })
-        }
-        dialog.setOnDismissListener {
-            if (importSheet === dialog) importSheet = null
-            stopImportAudio()
-            importAudioFile?.delete()
-            importAudioFile = null
-            if (token == importToken) importToken++
-        }
-        val scroll = root.findViewById<android.widget.ScrollView>(R.id.importScroll)
-        scroll.post {
-            val max = (resources.displayMetrics.heightPixels * 0.58f).toInt()
-            if (scroll.height > max) scroll.layoutParams = scroll.layoutParams.apply { height = max }
-        }
-        importSheet = dialog
-        dialog.show()
-        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-    }
-
-    private fun playImportAudio(file: File, button: TextView) {
-        playHeldFile(
-            file,
-            onStarted = { button.text = "停止" },
-            onStopped = { button.text = getString(R.string.preview) },
+            },
+            onReselect = {
+                pickCharacter.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
+            },
         )
     }
 
-    private fun playHeldFile(file: File, onStarted: () -> Unit, onStopped: () -> Unit) {
-        session.playback.stop()
-        stopImportAudio()
-        onImportAudioStopped = onStopped
-        val attributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-            .build()
-        val focus = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-            .setAudioAttributes(attributes)
-            .build()
-        val granted = getSystemService(AudioManager::class.java)
-            .requestAudioFocus(focus) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
-        importFocus = focus
-        val player = MediaPlayer()
-        importPlayer = player
-        try {
-            player.setAudioAttributes(attributes)
-            player.setDataSource(file.absolutePath)
-            player.setOnCompletionListener { runOnUiThread { stopImportAudio() } }
-            player.prepare()
-            player.start()
-            onStarted()
-            if (!granted) toast("声音可能被其他应用占用")
-        } catch (_: Exception) {
-            stopImportAudio()
-            toast(getString(R.string.import_audio_failed))
+    private fun renderCharacters() {
+        if (isDestroyed || !::characters.isInitialized) return
+        val state = session.characters.current()
+        val offer = session.characters.consumeOffer()
+        if (offer != null) showImportOffer(offer)
+        if (state.alert != null && state.alertId != seenCharacterAlert && !isFinishing) {
+            seenCharacterAlert = state.alertId
+            if (state.alert.isNotEmpty()) alert(state.alert)
+        }
+        if (state.roster.isEmpty()) {
+            placeholder.visibility = View.VISIBLE
+            characters.visibility = View.GONE
+        } else {
+            placeholder.visibility = View.GONE
+            characters.visibility = View.VISIBLE
+            val labels = state.roster.map { it.name } + getString(R.string.unselected)
+            val generation = ++spinnerGen
+            suppress = true
+            val adapter = ArrayAdapter(this, R.layout.spinner_selected, labels)
+            adapter.setDropDownViewResource(R.layout.spinner_item)
+            characters.adapter = adapter
+            val index = state.roster.indexOfFirst { it.id == state.selectedId }
+            characters.setSelection(if (index >= 0) index else state.roster.size, false)
+            characters.post { if (generation == spinnerGen) suppress = false }
+        }
+        renderCards()
+        drawerRoleCount.text = "${state.roster.size}个角色"
+        if (page == Page.About) aboutController.render(currentRoleName())
+        updateControls()
+    }
+
+    private fun characterState(): CharacterSnapshot {
+        val state = session.characters.current()
+        val playback = session.playback.current()
+        return CharacterSnapshot(
+            roster = state.roster,
+            selectedId = state.selectedId,
+            batching = state.batching,
+            onPage = page == Page.Characters,
+            picked = state.picked,
+            busy = isBusy(),
+            playing = playback.playing,
+            previewId = playback.previewId,
+        )
+    }
+
+    private fun renderCards() {
+        characterController.render(
+            characterState(),
+            onToggle = { id -> session.characters.togglePicked(id) },
+            onEdit = ::editCharacter,
+            onPreview = { info ->
+                val playback = session.playback.current()
+                if (playback.playing && playback.previewId == info.id) session.playback.stop() else preview(info)
+            },
+        )
+    }
+
+    private fun enterBatch() {
+        when (session.characters.enterBatch()) {
+            BatchStart.Busy -> Unit
+            BatchStart.Empty -> toast(getString(R.string.no_roles))
+            BatchStart.Started -> Unit
         }
     }
 
-    private fun stopImportAudio() {
-        val player = importPlayer
-        importPlayer = null
-        player?.runCatching { stop() }
-        player?.runCatching { release() }
-        importFocus?.let { focus ->
-            getSystemService(AudioManager::class.java).abandonAudioFocusRequest(focus)
-        }
-        importFocus = null
-        importListen?.text = getString(R.string.preview)
-        val stopped = onImportAudioStopped
-        onImportAudioStopped = null
-        stopped?.invoke()
+    private fun exitBatch() {
+        session.characters.exitBatch()
     }
 
-    private fun mediaSeconds(file: File): Double? {
-        val retriever = MediaMetadataRetriever()
-        return try {
-            retriever.setDataSource(file.absolutePath)
-            val millis = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
-            if (millis == null || millis <= 0L) null else millis / 1000.0
-        } catch (_: Exception) {
-            null
-        } finally {
-            retriever.release()
+    private fun toggleSelectShown() {
+        session.characters.toggleShown(characterController.shownIds())
+    }
+
+    private fun confirmDeletePicked() {
+        val picked = session.characters.current().picked
+        if (picked.isEmpty()) {
+            toast(getString(R.string.pick_first))
+            return
+        }
+        showLightConfirm(
+            getString(R.string.batch_manage),
+            "要删除这 ${picked.size} 个角色。",
+            getString(R.string.delete),
+        ) {
+            val roster = session.characters.current().roster
+            session.characters.remove(roster.filter { it.id in picked })
         }
     }
 
-    private fun formatSec(seconds: Double): String = "%.1f".format(Locale.US, seconds)
-
-    private fun audioCaption(name: String, seconds: Double?): String {
-        val file = name.substringAfterLast('/')
-        val clock = seconds?.let { " (${formatSec(it)}s)" }.orEmpty()
-        return "参考音频: $file$clock"
-    }
-
-    private fun sizeLabel(bytes: Long): String {
-        val mb = bytes / (1024.0 * 1024.0)
-        return if (mb >= 0.1) "%.1f MB".format(Locale.US, mb) else "$bytes B"
-    }
-
-    private fun importCharacter(uri: Uri, name: String) {
+    private fun confirmClearRoles() {
+        val roster = session.characters.current().roster
         if (isBusy()) return
-        setBusy(true)
-        worker.execute {
-            try {
-                val result = contentResolver.openInputStream(uri)?.use { repository.importZip(filesDir, it, name) }
-                    ?: error("打不开这个文件")
-                onSpeech { speech().dropIfLoaded(result.info.id) }
-                val action = if (result.replaced) "已更新" else "已导入"
-                TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "$action ${result.info.id}")
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    setBusy(false)
-                    refreshCharacters()
-                }
-            } catch (error: Exception) {
-                TtsLog.add(LogLevel.ERROR, LogModule.CHARACTER, "导入失败 ${logDetail(error)}")
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    setBusy(false)
-                    alert(human(error))
-                }
-            }
+        if (roster.isEmpty()) {
+            toast(getString(R.string.no_roles))
+            return
+        }
+        showLightConfirm(
+            getString(R.string.clear_roles),
+            "已导入的角色都会删掉。首页正在用的角色会回到未选择。",
+            "清空",
+        ) {
+            session.characters.remove(session.characters.current().roster.toList())
         }
     }
 
-    private fun deleteCharacter(info: CharacterInfo) {
-        removeCharacters(listOf(info))
+    private fun editCharacter(info: CharacterInfo) {
+        val selected = session.characters.current().selectedId == info.id
+        editRole.show(
+            info,
+            selected,
+            ::isBusy,
+            onSave = { typed, makeCurrent -> session.characters.save(info, typed, makeCurrent) },
+            onDelete = { session.characters.remove(listOf(info)) },
+        )
     }
 
-    private fun removeCharacters(targets: List<CharacterInfo>) {
-        if (isBusy() || targets.isEmpty()) return
-        setBusy(true)
-        val ids = targets.map { it.id }.toSet()
-        val dropsSelection = selectedId in ids
-        if (session.playback.current().previewId in ids) {
-            session.playback.stop()
-        }
-        worker.execute {
-            try {
-                if (dropsSelection) onSpeech { speech().dropEngine() }
-                repository.remove(targets)
-                TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "已删除 ${targets.joinToString("、") { it.id }}")
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    if (dropsSelection) {
-                        selectedId = null
-                        selectionFile().delete()
-                        invalidateAudio()
-                    }
-                    picked.removeAll(ids)
-                    setBusy(false)
-                    refreshCharacters()
-                    if (batching && roster.isEmpty()) exitBatch()
-                }
-            } catch (error: Exception) {
-                TtsLog.add(LogLevel.ERROR, LogModule.CHARACTER, "删除失败 ${logDetail(error)}")
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    setBusy(false)
-                    alert(human(error))
-                }
-            }
-        }
+    private fun showLightConfirm(title: String, message: String, confirm: String, onConfirm: () -> Unit) {
+        light.confirm(title, message, confirm, onConfirm)
     }
 
     private fun confirmDownloadProsody() {
@@ -1031,294 +899,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-    }
-
-    private fun refreshCharacters() {
-        roster = repository.list(filesDir)
-        val saved = selectionFile().takeIf { it.isFile }?.readText()?.trim()
-        selectedId = roster.find { it.id == saved }?.id
-        if (selectedId == null) selectionFile().delete()
-        if (roster.isEmpty()) {
-            placeholder.visibility = View.VISIBLE
-            characters.visibility = View.GONE
-        } else {
-            placeholder.visibility = View.GONE
-            characters.visibility = View.VISIBLE
-            val labels = roster.map { it.name } + getString(R.string.unselected)
-            val generation = ++spinnerGen
-            suppress = true
-            val adapter = ArrayAdapter(this, R.layout.spinner_selected, labels)
-            adapter.setDropDownViewResource(R.layout.spinner_item)
-            characters.adapter = adapter
-            val index = roster.indexOfFirst { it.id == selectedId }
-            characters.setSelection(if (index >= 0) index else roster.size, false)
-            characters.post {
-                if (generation == spinnerGen) suppress = false
-            }
-        }
-        renderCards()
-        drawerRoleCount.text = "${roster.size}个角色"
-        if (page == Page.About) aboutController.render(currentRoleName())
-        updateControls()
-    }
-
-    private fun characterState() = CharacterSnapshot(
-        roster = roster,
-        selectedId = selectedId,
-        batching = batching,
-        onPage = page == Page.Characters,
-        picked = picked.toSet(),
-        busy = isBusy(),
-        playing = session.playback.current().playing,
-        previewId = session.playback.current().previewId,
-    )
-
-    private fun renderCards() {
-        characterController.render(
-            characterState(),
-            onToggle = ::togglePicked,
-            onEdit = ::editCharacter,
-            onPreview = { info ->
-                val playback = session.playback.current()
-                if (playback.playing && playback.previewId == info.id) session.playback.stop() else preview(info)
-            },
-        )
-    }
-
-
-    private fun enterBatch() {
-        if (isBusy()) return
-        if (roster.isEmpty()) {
-            toast(getString(R.string.no_roles))
-            return
-        }
-        batching = true
-        picked.clear()
-        renderCards()
-    }
-
-    private fun exitBatch() {
-        if (!batching) return
-        batching = false
-        picked.clear()
-        if (page == Page.Characters) renderCards()
-    }
-
-    private fun togglePicked(id: String) {
-        if (!picked.add(id)) picked.remove(id)
-        renderCards()
-    }
-
-    private fun toggleSelectShown() {
-        val shownIds = characterController.shownIds()
-        if (shownIds.isNotEmpty() && shownIds.all { it in picked }) picked.removeAll(shownIds.toSet())
-        else picked.addAll(shownIds)
-        renderCards()
-    }
-
-    private fun confirmDeletePicked() {
-        if (picked.isEmpty()) {
-            toast(getString(R.string.pick_first))
-            return
-        }
-        val count = picked.size
-        showLightConfirm(
-            getString(R.string.batch_manage),
-            "要删除这 $count 个角色。",
-            getString(R.string.delete),
-        ) {
-            removeCharacters(roster.filter { it.id in picked })
-        }
-    }
-
-    private fun confirmClearRoles() {
-        if (isBusy()) return
-        if (roster.isEmpty()) {
-            toast(getString(R.string.no_roles))
-            return
-        }
-        showLightConfirm(
-            getString(R.string.clear_roles),
-            "已导入的角色都会删掉。首页正在用的角色会回到未选择。",
-            "清空",
-        ) {
-            removeCharacters(roster.toList())
-        }
-    }
-
-    private fun editCharacter(info: CharacterInfo) {
-        val root = layoutInflater.inflate(R.layout.dialog_edit_role, null)
-        val dialog = showLightCard(root)
-        dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        val limit = maxOf(20, info.name.length)
-        val nameField = root.findViewById<EditText>(R.id.editRoleName)
-        val count = root.findViewById<TextView>(R.id.editRoleCount)
-        val currentPill = root.findViewById<View>(R.id.editRoleCurrent)
-        val switch = root.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.editRoleSwitch)
-        root.findViewById<TextView>(R.id.editRoleBannerName).text = info.name
-        root.findViewById<TextView>(R.id.editRoleBannerId).text = "ID: ${info.id}"
-        root.findViewById<TextView>(R.id.editRoleId).text = info.id
-        nameField.filters = arrayOf(InputFilter.LengthFilter(limit))
-        nameField.setText(info.name)
-        nameField.setSelection(nameField.text.length)
-        fun paintCount() {
-            count.text = "${nameField.text.length} / $limit"
-        }
-        paintCount()
-        nameField.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-            override fun afterTextChanged(s: Editable?) = paintCount()
-        })
-        val current = selectedId == info.id
-        currentPill.visibility = if (current) View.VISIBLE else View.GONE
-        switch.isChecked = current
-        switch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
-        switch.trackTintList = ColorStateList(
-            arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(Color.parseColor("#0F766E"), Color.parseColor("#E2E8F0")),
-        )
-        switch.setOnCheckedChangeListener { _, checked ->
-            currentPill.visibility = if (checked) View.VISIBLE else View.GONE
-        }
-        root.findViewById<View>(R.id.editRoleCopy).setOnClickListener {
-            val clipboard = getSystemService(ClipboardManager::class.java)
-            clipboard.setPrimaryClip(ClipData.newPlainText("character-id", info.id))
-            toast("已复制")
-        }
-        root.findViewById<View>(R.id.editRoleClear).setOnClickListener { nameField.setText("") }
-        root.findViewById<View>(R.id.editRoleClose).setOnClickListener { dialog.dismiss() }
-        root.findViewById<View>(R.id.editRoleCancel).setOnClickListener { dialog.dismiss() }
-        bindRoleAudio(root, info, dialog)
-        root.findViewById<View>(R.id.editRoleDelete).setOnClickListener {
-            if (isBusy()) return@setOnClickListener
-            dialog.dismiss()
-            showLightConfirm(
-                getString(R.string.edit_role_delete),
-                getString(R.string.edit_role_delete_message),
-                getString(R.string.delete),
-            ) { deleteCharacter(info) }
-        }
-        root.findViewById<View>(R.id.editRoleSave).setOnClickListener {
-            saveRoleEdits(info, nameField.text.toString(), switch.isChecked, dialog)
-        }
-        dialog.setOnDismissListener { stopImportAudio() }
-        root.post {
-            val max = (resources.displayMetrics.heightPixels * 0.78f).toInt()
-            if (root.height > max) root.layoutParams = root.layoutParams.apply { height = max }
-        }
-    }
-
-    private fun bindRoleAudio(root: View, info: CharacterInfo, dialog: Dialog) {
-        val play = root.findViewById<ImageButton>(R.id.editRolePlay)
-        val label = root.findViewById<TextView>(R.id.editRoleAudio)
-        val meta = root.findViewById<TextView>(R.id.editRoleAudioMeta)
-        val audio = CharacterPack.referenceAudio(info.root)
-        if (audio == null) {
-            label.setText(R.string.import_no_audio)
-            return
-        }
-        play.visibility = View.VISIBLE
-        label.text = audio.name
-        meta.visibility = View.VISIBLE
-        meta.text = "正在读取"
-        worker.execute {
-            val seconds = mediaSeconds(audio)
-            runOnUiThread {
-                if (isDestroyed || !dialog.isShowing) return@runOnUiThread
-                meta.text = seconds?.let { "${formatSec(it)}s" }.orEmpty()
-                if (meta.text.isEmpty()) meta.visibility = View.GONE
-            }
-        }
-        play.setOnClickListener {
-            val playing = runCatching { importPlayer?.isPlaying == true }.getOrDefault(false)
-            if (playing) {
-                stopImportAudio()
-                return@setOnClickListener
-            }
-            playHeldFile(
-                audio,
-                onStarted = {
-                    play.setImageResource(R.drawable.ic_role_bars)
-                    play.contentDescription = "停止"
-                },
-                onStopped = {
-                    play.setImageResource(R.drawable.ic_role_play)
-                    play.contentDescription = getString(R.string.preview)
-                },
-            )
-        }
-    }
-
-    private fun saveRoleEdits(info: CharacterInfo, typed: String, makeCurrent: Boolean, dialog: Dialog) {
-        val name = typed.trim()
-        if (name.isEmpty()) {
-            toast("名字不能是空的")
-            return
-        }
-        if (isBusy()) return
-        val nameChanged = name != info.name
-        val wasCurrent = selectedId == info.id
-        val selectionChanged = makeCurrent != wasCurrent
-        dialog.dismiss()
-        if (!nameChanged && !selectionChanged) return
-        setBusy(true)
-        worker.execute {
-            try {
-                if (nameChanged) {
-                    repository.rename(info, name)
-                    TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "${info.id} 显示名改为 $name")
-                }
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    if (selectionChanged) {
-                        if (makeCurrent) {
-                            selectedId = info.id
-                            selectionFile().writeText(info.id)
-                        } else if (wasCurrent) {
-                            selectedId = null
-                            selectionFile().delete()
-                        }
-                        invalidateAudio()
-                    }
-                    setBusy(false)
-                    refreshCharacters()
-                    if (selectionChanged) worker.execute { onSpeech { speech().dropEngine() } }
-                }
-            } catch (error: Exception) {
-                TtsLog.add(LogLevel.ERROR, LogModule.CHARACTER, "改名失败 ${info.id} ${logDetail(error)}")
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    setBusy(false)
-                    alert(human(error))
-                }
-            }
-        }
-    }
-
-    private fun showLightConfirm(title: String, message: String, confirm: String, onConfirm: () -> Unit) {
-        val root = layoutInflater.inflate(R.layout.dialog_light_confirm, null)
-        val dialog = showLightCard(root)
-        root.findViewById<TextView>(R.id.confirmTitle).text = title
-        root.findViewById<TextView>(R.id.confirmMessage).text = message
-        root.findViewById<TextView>(R.id.confirmOk).text = confirm
-        root.findViewById<View>(R.id.confirmCancel).setOnClickListener { dialog.dismiss() }
-        root.findViewById<View>(R.id.confirmOk).setOnClickListener {
-            dialog.dismiss()
-            onConfirm()
-        }
-    }
-
-    private fun showLightCard(content: View): Dialog {
-        val dialog = Dialog(this, R.style.Theme_Genie_Sheet)
-        dialog.setContentView(content)
-        dialog.setCanceledOnTouchOutside(true)
-        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-        dialog.show()
-        val width = (resources.displayMetrics.widthPixels * 0.86f).toInt()
-        dialog.window?.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
-        dialog.window?.setGravity(Gravity.CENTER)
-        return dialog
     }
 
     private fun showRoleMenu(anchor: View) {
@@ -1473,7 +1053,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderService() {
-        serviceController.render(roster)
+        serviceController.render(session.characters.current().roster)
     }
 
     private fun copyHelpEndpoint() {
@@ -1601,14 +1181,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun invalidateAudio() {
-        val hadClips = session.synthesis.current().clips.isNotEmpty()
-        val wasPlaying = session.playback.current().playing
-        session.playback.quietStop()
-        if (!hadClips) {
-            if (wasPlaying) session.playback.showStopped()
-            return
-        }
-        session.synthesis.clear()
+        invalidateSpokenAudio(session.playback, session.synthesis)
     }
 
     private fun restoreDraft() {
@@ -1648,7 +1221,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun currentCharacter(): CharacterInfo? = roster.find { it.id == selectedId }
+    private fun currentCharacter(): CharacterInfo? {
+        val state = session.characters.current()
+        return state.roster.find { it.id == state.selectedId }
+    }
 
     private fun currentRoleName(): String = currentCharacter()?.name ?: getString(R.string.unselected)
 
@@ -1707,5 +1283,4 @@ class MainActivity : AppCompatActivity() {
 
     private fun speedFile() = File(filesDir, "speech-speed.txt")
 
-    private fun selectionFile() = File(filesDir, "selected-character.txt")
 }

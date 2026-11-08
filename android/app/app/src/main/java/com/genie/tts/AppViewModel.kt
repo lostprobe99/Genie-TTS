@@ -1,11 +1,14 @@
 package com.genie.tts
 
+import com.genie.tts.character.CharacterActions
+import com.genie.tts.character.CharacterRepository
 import com.genie.tts.core.RunMarker
 import com.genie.tts.core.TaskLane
 import com.genie.tts.service.ServiceStates
 import com.genie.tts.speech.Engines
 import com.genie.tts.speech.PlaybackActions
 import com.genie.tts.speech.SynthesisActions
+import com.genie.tts.speech.invalidateSpokenAudio
 import com.genie.tts.speech.playSamples
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
@@ -38,6 +41,18 @@ internal class AppViewModel(app: Application) : AndroidViewModel(app) {
             Engines.scheduler.call {
                 speech().preview(character, threads, onMark, stop)
             }
+        },
+    )
+
+    val characters = CharacterActions(
+        filesDir = app.filesDir,
+        directory = CharacterRepository.shared,
+        lane = lane,
+        invalidateAudio = { invalidateSpokenAudio(playback, synthesis) },
+        dropEngine = { Engines.scheduler.call { speech().dropEngine() } },
+        dropIfLoaded = { id -> Engines.scheduler.call { speech().dropIfLoaded(id) } },
+        stopPreview = { ids ->
+            if (playback.current().previewId in ids) playback.stop()
         },
     )
 

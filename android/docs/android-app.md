@@ -12,14 +12,14 @@
 
 源码在 `com.genie.tts` 下按职责分包。`MainActivity` 和 `TtsService` 留在根包，`AppViewModel` 也在根包。`ui` 是页面，`character` 是角色包和清单，`speech` 是合成、韵律和 `g2p`，`service` 是朗读接口，`core` 是日志、机器状态，以及界面状态的存放。
 
-`MainActivity` 负责应用生命周期、页面切换、权限、选文件，以及把状态接到页面上。角色和韵律的导入、删除仍由它发起。合成和播放已经分开：
+`MainActivity` 负责应用生命周期、页面切换、权限、选文件，以及把状态接到页面上。韵律的下载、导入和删除仍由它发起。合成、播放和角色已经分开：
 
 - `SpeakController` 只画主屏的分句列表、语速、按钮和底下的状态。
 - `SynthesisActions` 管主屏合成和试听的进度、分句结果和「上次没有合成完」的标记。`PlaybackActions` 管播放和试听的声音。两者都由 `AppViewModel` 拿着。
 - `TaskLane` 表示界面上正在做一件耗时的事。这时候合成、试听、导入、删除和下载不能再开一个。播放不算在里面。
 - `StateStore` 保存一份状态并通知监听的界面。服务页的 `ServiceStateStore` 用的是同一套。
 - 界面因为系统设置被系统重建时，合成和播放接着进行。真正离开这个界面才停。
-- `CharacterController` 管角色卡片、搜索、批量条和导入按钮。导入、删除、改名仍由 `MainActivity` 发起。试听由 `SynthesisActions` 发起。
+- `CharacterActions` 管角色名单、当前角色、导入、删除和改名。`CharacterController` 只画卡片、搜索和批量条。导入确认页和改名页在 `ui`，看完包、保存和删除都回调 `CharacterActions`。试听由 `SynthesisActions` 发起。
 - `ProsodyController` 管韵律页的状态、进度、路径和下载导入删除按钮。下载、导入和删除仍由 `MainActivity` 发起。
 
 - `ServicePageController` 管服务状态、统计、地址和运行时间。

@@ -8,10 +8,18 @@ import kotlin.random.Random
  * 角色文件和角色清单的唯一入口。导入、改名、删除、头像和查询都从这里走,
  * 界面和服务不再各自去动目录或数据库。
  */
-internal class CharacterRepository(private val store: CharacterStore) {
+internal interface CharacterDirectory {
+    fun list(filesDir: File): List<CharacterInfo>
+    fun importZip(filesDir: File, input: InputStream, displayName: String? = null): ImportResult
+    fun rename(info: CharacterInfo, name: String)
+    fun remove(targets: List<CharacterInfo>)
+    fun avatarIndex(id: String, choices: Int): Int
+}
+
+internal class CharacterRepository(private val store: CharacterStore) : CharacterDirectory {
     fun attach(filesDir: File) = store.attach(filesDir)
 
-    fun list(filesDir: File): List<CharacterInfo> {
+    override fun list(filesDir: File): List<CharacterInfo> {
         store.attach(filesDir)
         return store.list()
     }
@@ -20,7 +28,7 @@ internal class CharacterRepository(private val store: CharacterStore) {
 
     fun find(id: String): CharacterInfo? = store.find(id)
 
-    fun importZip(filesDir: File, input: InputStream, displayName: String? = null): ImportResult {
+    override fun importZip(filesDir: File, input: InputStream, displayName: String?): ImportResult {
         val staging = File(filesDir, STAGING).apply {
             deleteRecursively()
             mkdirs()
@@ -71,14 +79,14 @@ internal class CharacterRepository(private val store: CharacterStore) {
         }
     }
 
-    fun rename(info: CharacterInfo, name: String) {
+    override fun rename(info: CharacterInfo, name: String) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) error("名字不能是空的")
         store.rename(info.id, trimmed)
     }
 
     /** 删除目录,目录确实没了才去掉清单里的记录。 */
-    fun remove(targets: List<CharacterInfo>) {
+    override fun remove(targets: List<CharacterInfo>) {
         targets.forEach {
             val gone = it.root.deleteRecursively() || !it.root.exists()
             if (gone) store.remove(it.id)
@@ -86,7 +94,9 @@ internal class CharacterRepository(private val store: CharacterStore) {
     }
 
     /** 已记的头像序号在范围内就用它,否则随机挑一个并记下来。 */
-    fun avatarIndex(id: String, choices: Int, pick: (Int) -> Int = { Random.nextInt(it) }): Int {
+    override fun avatarIndex(id: String, choices: Int): Int = avatarIndex(id, choices) { Random.nextInt(it) }
+
+    fun avatarIndex(id: String, choices: Int, pick: (Int) -> Int): Int {
         val saved = store.find(id)?.avatarIndex
         if (saved != null && saved in 0 until choices) return saved
         val chosen = pick(choices)

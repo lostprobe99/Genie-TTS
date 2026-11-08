@@ -322,3 +322,14 @@ internal class PlaybackActions(
         return "%.1f".format(Locale.US, seconds)
     }
 }
+
+internal fun invalidateSpokenAudio(playback: PlaybackActions, synthesis: SynthesisActions) {
+    val hadClips = synthesis.current().clips.isNotEmpty()
+    val wasPlaying = playback.current().playing
+    playback.quietStop()
+    if (!hadClips) {
+        if (wasPlaying) playback.showStopped()
+        return
+    }
+    synthesis.clear()
+}
