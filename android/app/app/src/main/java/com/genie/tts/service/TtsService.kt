@@ -1,34 +1,22 @@
-package com.genie.tts
+package com.genie.tts.service
 
 import com.genie.tts.character.CharacterRepository
 import com.genie.tts.core.LogLevel
 import com.genie.tts.core.LogModule
 import com.genie.tts.core.MachineProbe
 import com.genie.tts.core.TtsLog
-import com.genie.tts.service.ServiceStates
-import com.genie.tts.service.TtsException
-import com.genie.tts.service.TtsPorts
-import com.genie.tts.service.TtsRequest
-import com.genie.tts.service.TtsServer
-import com.genie.tts.service.secondsText
 import com.genie.tts.speech.CancelHandle
 import com.genie.tts.speech.Engines
 import com.genie.tts.speech.TextSplitter
 import com.genie.tts.speech.inferenceThreads
-import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.content.pm.ServiceInfo
-import android.graphics.Bitmap
-import android.graphics.Canvas
-import android.graphics.Path
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.SystemClock
-import androidx.core.app.NotificationCompat
 import kotlin.concurrent.thread
 
 class TtsService : Service() {
@@ -42,7 +30,7 @@ class TtsService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
+        if (intent?.action == ServiceNotification.ACTION_STOP) {
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             return START_NOT_STICKY
@@ -143,7 +131,7 @@ class TtsService : Service() {
                 }
                 TtsLog.add(LogLevel.INFO, LogModule.SERVICE, "接口已打开 端口 $port")
                 logMachine("开机", "此前")
-                getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
+                getSystemService(NotificationManager::class.java).notify(ServiceNotification.ID, notification())
             } catch (error: Exception) {
                 if (stale(ticket)) return@thread
                 val message = if (error is java.net.BindException) {
@@ -233,72 +221,18 @@ class TtsService : Service() {
         }
     }
 
-    private fun notification(): android.app.Notification {
-        val manager = getSystemService(NotificationManager::class.java)
-        if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel(CHANNEL) == null) {
-            val channel = NotificationChannel(CHANNEL, "朗读接口", NotificationManager.IMPORTANCE_LOW)
-            channel.setShowBadge(false)
-            manager.createNotificationChannel(channel)
-        }
-        val open = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(EXTRA_PAGE, PAGE_SERVICE)
-        }
-        val pending = PendingIntent.getActivity(
-            this,
-            0,
-            open,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val stop = PendingIntent.getService(
-            this,
-            1,
-            Intent(this, TtsService::class.java).setAction(ACTION_STOP),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        return NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(R.drawable.ic_stat)
-            .setLargeIcon(notificationLogo())
-            .setContentTitle("朗读接口开着")
-            .setContentText("http://127.0.0.1:${ServiceStates.store.current().port}/tts")
-            .setOngoing(true)
-            .setContentIntent(pending)
-            .addAction(R.drawable.ic_notify_stop, "停止", stop)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
-    }
-
-    private fun notificationLogo(): Bitmap {
-        val size = (64 * resources.displayMetrics.density).toInt().coerceAtLeast(128)
-        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        canvas.clipPath(Path().apply {
-            addCircle(size / 2f, size / 2f, size / 2f, Path.Direction.CW)
-        })
-        getDrawable(R.drawable.bg_launcher)?.also {
-            it.setBounds(0, 0, size, size)
-            it.draw(canvas)
-        }
-        getDrawable(R.drawable.ic_launcher_foreground)?.also {
-            it.setBounds(0, 0, size, size)
-            it.draw(canvas)
-        }
-        return bitmap
-    }
+    private fun notification() = ServiceNotification.build(this, ServiceStates.store.current().port)
 
     private fun enterForeground(notification: android.app.Notification) {
         if (Build.VERSION.SDK_INT >= 34) {
-            startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+            startForeground(ServiceNotification.ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
         } else {
-            startForeground(NOTIFICATION_ID, notification)
+            startForeground(ServiceNotification.ID, notification)
         }
     }
 
     companion object {
         const val EXTRA_PAGE = "page"
         const val PAGE_SERVICE = "service"
-        private const val ACTION_STOP = "com.genie.tts.STOP"
-        private const val CHANNEL = "tts-service"
-        private const val NOTIFICATION_ID = 41
     }
 }

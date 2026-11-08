@@ -10,24 +10,24 @@
 
 ## 代码结构
 
-源码在 `com.genie.tts` 下按职责分包。`MainActivity` 和 `TtsService` 留在根包，`AppViewModel` 也在根包。`ui` 是页面，`character` 是角色包和清单，`speech` 是合成、韵律和 `g2p`，`service` 是朗读接口，`core` 是日志、机器状态，以及界面状态的存放。
+源码在 `com.genie.tts` 下按职责分包。`MainActivity` 和 `AppViewModel` 留在根包。`ui` 是页面，`character` 是角色包和清单，`speech` 是合成、韵律和 `g2p`，`service` 是朗读接口，`core` 是日志、机器状态、界面状态，以及给界面看的提示。
 
-`MainActivity` 负责应用生命周期、页面切换、权限、选文件，以及把状态接到页面上。韵律的下载、导入和删除仍由它发起。合成、播放和角色已经分开：
+`MainActivity` 负责应用生命周期、页面切换、权限、选文件，以及把状态接到页面上。合成、播放、角色、韵律和服务的操作已经分开：
 
 - `SpeakController` 只画主屏的分句列表、语速、按钮和底下的状态。
 - `SynthesisActions` 管主屏合成和试听的进度、分句结果和「上次没有合成完」的标记。`PlaybackActions` 管播放和试听的声音。两者都由 `AppViewModel` 拿着。
 - `TaskLane` 表示界面上正在做一件耗时的事。这时候合成、试听、导入、删除和下载不能再开一个。播放不算在里面。
 - `StateStore` 保存一份状态并通知监听的界面。服务页的 `ServiceStateStore` 用的是同一套。
-- 界面因为系统设置被系统重建时，合成和播放接着进行。真正离开这个界面才停。
+- 界面因为系统设置被系统重建时，合成、播放和韵律下载接着进行。真正离开这个界面才停播放、取消还没做完的合成。已经开始的韵律下载会做完。
 - `CharacterActions` 管角色名单、当前角色、导入、删除和改名。`CharacterController` 只画卡片、搜索和批量条。导入确认页和改名页在 `ui`，看完包、保存和删除都回调 `CharacterActions`。试听由 `SynthesisActions` 发起。
-- `ProsodyController` 管韵律页的状态、进度、路径和下载导入删除按钮。下载、导入和删除仍由 `MainActivity` 发起。
-
-- `ServicePageController` 管服务状态、统计、地址和运行时间。
+- `ProsodyActions` 管韵律的下载、导入和删除。`ProsodyController` 只画状态、进度和按钮。确认框仍由 `MainActivity` 弹出。
+- `ServiceActions` 管朗读接口的开关和端口。通知权限仍由 `MainActivity` 申请。`ServicePageController` 管服务页上的状态、统计、地址和运行时间。
+- `Notices` 放最新一条对话框或短提示。界面按编号只显示一次。
 - `LogPageController` 管日志筛选、搜索和列表渲染。
 - `HelpPageController` 管帮助分类、搜索和问答展开状态。
 - `AboutPageController` 管版本、设备与安装信息。
 
-合成路径和界面分开。`Speech` 组织一次合成，`ChineseFrontend` 生成中文音素，`Prosody` 生成中文韵律，`TtsEngine` 只运行角色包里的 ONNX 模型。同一角色连续几句复用已经读入的清单和参考张量。加载时不再把优化后的模型写到 `optimized/`，已有的这个目录会删掉。主屏、试听和接口的合成进同一条推理队列，同一时间只跑一路；丢掉已加载的模型也走这条队列。播放在自己的线程上，不占着合成。播放的时候可以导入、改字和打开别的页。点合成、试听或播放会先停掉正在放的声音。退到后台继续放。界面因为系统设置重建时接着放，真正离开这个界面才停。朗读接口由 `TtsServer` 解析 HTTP，`TtsService` 负责前台服务生命周期，再交给同一份 `Speech`。接口开着没有、端口、运行时间和调用统计放在一份不可变的 `ServiceState` 里。`ServiceStateStore` 可以同时通知好几处界面，注销之后就不再通知。角色文件和清单只从 `CharacterRepository` 进出，包格式集中在 `CharacterPackSchema`。
+合成路径和界面分开。`Speech` 组织一次合成，`ChineseFrontend` 生成中文音素，`Prosody` 生成中文韵律，`TtsEngine` 只运行角色包里的 ONNX 模型。同一角色连续几句复用已经读入的清单和参考张量。加载时不再把优化后的模型写到 `optimized/`，已有的这个目录会删掉。主屏、试听和接口的合成进同一条推理队列，同一时间只跑一路；丢掉已加载的模型也走这条队列。播放在自己的线程上，不占着合成。播放的时候可以导入、改字和打开别的页。点合成、试听或播放会先停掉正在放的声音。退到后台继续放。界面因为系统设置重建时接着放，韵律下载的进度也接着走。真正离开这个界面才停播放、取消还没做完的合成。已经开始的韵律下载会做完。朗读接口由 `TtsServer` 解析 HTTP，`service` 包里的 `TtsService` 负责前台服务生命周期，通知栏由 `ServiceNotification` 组装，再交给同一份 `Speech`。接口开着没有、端口、运行时间和调用统计放在一份不可变的 `ServiceState` 里。`ServiceStateStore` 可以同时通知好几处界面，注销之后就不再通知。角色文件和清单只从 `CharacterRepository` 进出，包格式集中在 `CharacterPackSchema`。
 
 ## 界面结构
 

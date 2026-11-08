@@ -5,20 +5,21 @@ import com.genie.tts.character.CharacterInfo
 import com.genie.tts.character.CharacterPack
 import com.genie.tts.character.ImportOffer
 import com.genie.tts.core.LogLevel
-import com.genie.tts.core.uiText
+import com.genie.tts.core.Notice
+import com.genie.tts.core.NoticeKind
 import com.genie.tts.core.LogModule
 import com.genie.tts.core.TtsLog
 import com.genie.tts.core.appBuildBanner
 import com.genie.tts.core.noteInstalledBuild
+import com.genie.tts.service.PortCommit
+import com.genie.tts.service.ServiceStart
 import com.genie.tts.service.ServiceStates
-import com.genie.tts.service.TtsPorts
+import com.genie.tts.service.TtsService
 import com.genie.tts.speech.Engines
 import com.genie.tts.speech.PlaybackKind
 import com.genie.tts.speech.Prosody
 import com.genie.tts.speech.invalidateSpokenAudio
-import com.genie.tts.speech.ProsodyPack
 import com.genie.tts.speech.Release
-import com.genie.tts.speech.Speech
 import com.genie.tts.speech.TextSplitter
 import com.genie.tts.speech.speedOf
 import com.genie.tts.ui.AboutPageController
@@ -79,19 +80,13 @@ import androidx.drawerlayout.widget.DrawerLayout
 import java.io.File
 import java.io.FileInputStream
 import java.util.Locale
-import java.util.concurrent.Executors
 import kotlin.math.max
 
 class MainActivity : AppCompatActivity() {
     private enum class Page { Speak, Characters, Service, Prosody, About, Logs, Help }
 
     private val session: AppViewModel by viewModels()
-    private val worker = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "genie").apply { isDaemon = true }
-    }
     private val splitter = TextSplitter()
-
-    private fun speech(): Speech = Engines.get(filesDir) { assets.open(it) }
     private lateinit var heldAudio: HeldAudio
     private lateinit var light: LightDialogs
     private lateinit var importSheet: ImportSheet
@@ -154,7 +149,10 @@ class MainActivity : AppCompatActivity() {
     private var seenSynthAlert = 0L
     private var seenPlayAlert = 0L
     private var seenCharacterAlert = 0L
+    private var seenNotice = 0L
     private var stopCharacterWatch: (() -> Unit)? = null
+    private var stopProsodyWatch: (() -> Unit)? = null
+    private var stopNoticeWatch: (() -> Unit)? = null
     private var drawnSpeak = SpeakSnapshot(
         clips = emptyList(),
         synthesizing = false,
@@ -170,9 +168,6 @@ class MainActivity : AppCompatActivity() {
     private var drawnPlaying = false
     private var stopSpeechWatch: (() -> Unit)? = null
     private var spinnerGen = 0
-    private var downloading = false
-    private var downloadDone = 0L
-    private var downloadTotal = 0L
     private var roleMenu: PopupWindow? = null
     private var stopWatchingService: (() -> Unit)? = null
 
@@ -183,7 +178,7 @@ class MainActivity : AppCompatActivity() {
         if (uri != null) onProsodyPicked(uri)
     }
     private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
-        startTtsService()
+        session.service.start()
     }
     private val saveLog = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         val text = pendingLogText
@@ -201,15 +196,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        ServiceStates.store.update { it.copy(port = TtsPorts.read(filesDir)) }
+        Engines.activityOpen = true
+        session.service.restorePort()
         TtsLog.attach(filesDir)
         val installed = currentAppBuild()
         noteInstalledBuild(filesDir, installed) { line ->
             TtsLog.add(LogLevel.INFO, LogModule.APP, line)
         }
         setContentView(R.layout.activity_main)
-        Engines.activityOpen = true
-        speech()
         heldAudio = HeldAudio(this)
         light = LightDialogs(this)
         importSheet = ImportSheet(this, heldAudio) { session.playback.stop() }
@@ -252,6 +246,12 @@ class MainActivity : AppCompatActivity() {
         stopCharacterWatch?.invoke()
         stopCharacterWatch = session.characters.listen { if (!isDestroyed) renderCharacters() }
         renderCharacters()
+        stopProsodyWatch?.invoke()
+        stopProsodyWatch = session.prosody.listen { if (!isDestroyed) renderProsody() }
+        stopNoticeWatch?.invoke()
+        stopNoticeWatch = session.notices.listen(::showNotice)
+        showNotice(session.notices.current())
+        renderProsody()
         TtsLog.listener = {
             if (!isDestroyed && page == Page.Logs) logController.render(logController.autoScroll.isChecked)
         }
@@ -264,6 +264,10 @@ class MainActivity : AppCompatActivity() {
         stopSpeechWatch = null
         stopCharacterWatch?.invoke()
         stopCharacterWatch = null
+        stopProsodyWatch?.invoke()
+        stopProsodyWatch = null
+        stopNoticeWatch?.invoke()
+        stopNoticeWatch = null
         stopWatchingService?.invoke()
         stopWatchingService = null
         TtsLog.listener = null
@@ -802,72 +806,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun confirmDownloadProsody() {
         if (isBusy()) return
-        if (!Prosody.isReady(filesDir)) {
-            downloadProsody()
+        if (!session.prosody.ready()) {
+            session.prosody.download()
             return
         }
         showLightConfirm(
             getString(R.string.prosody_redownload_title),
             getString(R.string.prosody_redownload_message),
             getString(R.string.prosody_redownload),
-        ) { downloadProsody() }
-    }
-
-    private fun downloadProsody() {
-        if (isBusy()) return
-        setBusy(true)
-        downloading = true
-        downloadDone = 0
-        downloadTotal = 0
-        renderProsody()
-        worker.execute {
-            try {
-                onSpeech { speech().dropProsody() }
-                ProsodyPack.download(filesDir) { done, total ->
-                    runOnUiThread {
-                        if (isDestroyed) return@runOnUiThread
-                        downloadDone = done
-                        downloadTotal = total
-                        renderProsody()
-                    }
-                }
-                TtsLog.add(LogLevel.INFO, LogModule.PROSODY, "已下载韵律模型")
-            } catch (error: Exception) {
-                TtsLog.add(LogLevel.ERROR, LogModule.PROSODY, "下载失败 ${logDetail(error)}")
-                runOnUiThread { if (!isDestroyed) alert(human(error)) }
-            } finally {
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    downloading = false
-                    downloadDone = 0
-                    downloadTotal = 0
-                    setBusy(false)
-                    renderProsody()
-                }
-            }
-        }
+        ) { session.prosody.download() }
     }
 
     private fun onProsodyPicked(uri: Uri) {
-        if (isBusy()) return
         val name = displayName(uri)
-        setBusy(true)
-        worker.execute {
-            try {
-                onSpeech { speech().dropProsody() }
-                contentResolver.openInputStream(uri)?.use { ProsodyPack.importFile(filesDir, it, name) }
-                    ?: error("打不开这个文件")
-                TtsLog.add(LogLevel.INFO, LogModule.PROSODY, "已导入韵律模型")
-            } catch (error: Exception) {
-                TtsLog.add(LogLevel.ERROR, LogModule.PROSODY, "导入失败 ${logDetail(error)}")
-                runOnUiThread { if (!isDestroyed) alert(human(error)) }
-            } finally {
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    setBusy(false)
-                    renderProsody()
-                }
-            }
+        session.prosody.import(name) {
+            contentResolver.openInputStream(uri) ?: error("打不开这个文件")
         }
     }
 
@@ -877,28 +830,7 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.prosody_delete_title),
             getString(R.string.prosody_delete_sub),
             getString(R.string.prosody_remove),
-        ) { deleteProsody() }
-    }
-
-    private fun deleteProsody() {
-        if (isBusy()) return
-        setBusy(true)
-        worker.execute {
-            try {
-                onSpeech { speech().dropProsody() }
-                ProsodyPack.delete(filesDir)
-                TtsLog.add(LogLevel.INFO, LogModule.PROSODY, "已删除韵律模型")
-            } catch (error: Exception) {
-                TtsLog.add(LogLevel.ERROR, LogModule.PROSODY, "删除失败 ${logDetail(error)}")
-                runOnUiThread { if (!isDestroyed) alert(human(error)) }
-            } finally {
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    setBusy(false)
-                    renderProsody()
-                }
-            }
-        }
+        ) { session.prosody.delete() }
     }
 
     private fun showRoleMenu(anchor: View) {
@@ -1035,16 +967,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun prosodyState(): ProsodySnapshot {
         val file = Prosody.modelFile(filesDir)
+        val job = session.prosody.current()
         return ProsodySnapshot(
             ready = Prosody.isReady(filesDir),
             fileExists = file.isFile,
             fileBytes = file.length(),
             filePath = file.absolutePath,
             lastModified = file.lastModified(),
-            downloading = downloading,
+            downloading = job.downloading,
             busy = isBusy(),
-            downloadDone = downloadDone,
-            downloadTotal = downloadTotal,
+            downloadDone = job.downloadDone,
+            downloadTotal = job.downloadTotal,
         )
     }
 
@@ -1112,10 +1045,6 @@ class MainActivity : AppCompatActivity() {
         toast("已复制日志路径")
     }
 
-    private fun logDetail(error: Exception): String {
-        return error.message?.trim().orEmpty().ifBlank { "失败" }
-    }
-
     private fun copyPlain(label: String, text: CharSequence) {
         val clipboard = getSystemService(ClipboardManager::class.java)
         clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
@@ -1123,40 +1052,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun commitPort() {
-        val value = TtsPorts.parse(serviceController.port.text.toString())
-        if (value == null) {
-            toast("端口要在 1 到 65535 之间")
+        val outcome = session.service.commitPort(serviceController.port.text.toString())
+        if (outcome == PortCommit.Invalid) {
             serviceController.port.setText(ServiceStates.store.current().port.toString())
-            return
         }
-        val running = ServiceStates.store.current().running
-        if (value == ServiceStates.store.current().port) return
-        TtsPorts.write(filesDir, value)
-        ServiceStates.store.update { it.copy(port = value, switching = running) }
-        if (running) {
-            ContextCompat.startForegroundService(this, Intent(this, TtsService::class.java))
-        }
-        renderService()
     }
 
     private fun toggleService() {
-        if (ServiceStates.store.current().running) {
-            stopService(Intent(this, TtsService::class.java))
-            return
-        }
-        if (
-            Build.VERSION.SDK_INT >= 33 &&
-            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) {
+        val granted = Build.VERSION.SDK_INT < 33 ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        if (session.service.toggle(granted) == ServiceStart.NeedPermission) {
             askNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
-            return
         }
-        startTtsService()
-    }
-
-    private fun startTtsService() {
-        ServiceStates.store.update { it.copy(error = null) }
-        ContextCompat.startForegroundService(this, Intent(this, TtsService::class.java))
     }
 
     private fun notificationsAllowed(): Boolean {
@@ -1199,7 +1106,14 @@ class MainActivity : AppCompatActivity() {
         applyBanner()
     }
 
-    private fun human(error: Throwable): String = uiText(error)
+    private fun showNotice(notice: Notice?) {
+        if (notice == null || notice.id == seenNotice || isFinishing || isDestroyed) return
+        seenNotice = notice.id
+        when (notice.kind) {
+            NoticeKind.Dialog -> if (notice.text.isNotEmpty()) alert(notice.text)
+            NoticeKind.Toast -> if (notice.text.isNotEmpty()) toast(notice.text)
+        }
+    }
 
     private fun alert(message: String) {
         AlertDialog.Builder(this)
@@ -1242,12 +1156,6 @@ class MainActivity : AppCompatActivity() {
             BuildConfig.BUILT_AT,
             info.lastUpdateTime,
         )
-    }
-
-    private fun <T> onSpeech(block: () -> T): T = Engines.scheduler.call(block)
-
-    private fun setBusy(value: Boolean) {
-        if (value) session.lane.occupy() else session.lane.release()
     }
 
     private fun fileSize(uri: Uri): Long {

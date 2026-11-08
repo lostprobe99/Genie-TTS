@@ -28,7 +28,7 @@
         </activity>
 
         <service
-            android:name=".TtsService"
+            android:name=".service.TtsService"
             android:exported="false"
             android:foregroundServiceType="specialUse">
             <property
