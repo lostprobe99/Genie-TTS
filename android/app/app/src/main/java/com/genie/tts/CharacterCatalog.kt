@@ -3,13 +3,13 @@ package com.genie.tts
 import android.database.sqlite.SQLiteDatabase
 import java.io.File
 
-internal object CharacterCatalog {
+internal object CharacterCatalog : CharacterStore {
     private val gate = Any()
     private var database: SQLiteDatabase? = null
     private var directory: File? = null
     private var rows = emptyList<CharacterInfo>()
 
-    fun attach(filesDir: File) {
+    override fun attach(filesDir: File) {
         synchronized(gate) {
             if (database != null && directory == filesDir) return
             CharacterPack.migrateLegacy(filesDir)
@@ -50,11 +50,11 @@ internal object CharacterCatalog {
         }
     }
 
-    fun list(): List<CharacterInfo> = synchronized(gate) { rows.toList() }
+    override fun list(): List<CharacterInfo> = synchronized(gate) { rows.toList() }
 
-    fun find(id: String): CharacterInfo? = synchronized(gate) { rows.find { it.id == id } }
+    override fun find(id: String): CharacterInfo? = synchronized(gate) { rows.find { it.id == id } }
 
-    fun upsert(filesDir: File, info: CharacterInfo) {
+    override fun upsert(filesDir: File, info: CharacterInfo) {
         synchronized(gate) {
             attach(filesDir)
             val opened = database ?: return
@@ -75,7 +75,7 @@ internal object CharacterCatalog {
         }
     }
 
-    fun rename(id: String, name: String) {
+    override fun rename(id: String, name: String) {
         synchronized(gate) {
             val opened = database ?: error("角色表还没有打开")
             opened.execSQL("UPDATE characters SET name = ? WHERE id = ?", arrayOf(name, id))
@@ -83,7 +83,7 @@ internal object CharacterCatalog {
         }
     }
 
-    fun setAvatar(id: String, index: Int) {
+    override fun setAvatar(id: String, index: Int) {
         synchronized(gate) {
             val opened = database ?: return
             opened.execSQL("UPDATE characters SET avatar_index = ? WHERE id = ?", arrayOf(index, id))
@@ -91,7 +91,7 @@ internal object CharacterCatalog {
         }
     }
 
-    fun remove(id: String) {
+    override fun remove(id: String) {
         synchronized(gate) {
             val opened = database ?: return
             opened.execSQL("DELETE FROM characters WHERE id = ?", arrayOf(id))

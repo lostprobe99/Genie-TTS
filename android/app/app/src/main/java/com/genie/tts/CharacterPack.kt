@@ -65,15 +65,15 @@ object CharacterPack {
             .minWithOrNull(compareBy<File>({ audioRank(it.name) }, { it.path }))
     }
 
-    fun rename(info: CharacterInfo, name: String) {
+    internal fun rename(info: CharacterInfo, name: String, store: CharacterStore = CharacterCatalog) {
         val trimmed = name.trim()
         if (trimmed.isEmpty()) error("名字不能是空的")
-        CharacterCatalog.rename(info.id, trimmed)
+        store.rename(info.id, trimmed)
     }
 
-    fun list(filesDir: File): List<CharacterInfo> {
-        CharacterCatalog.attach(filesDir)
-        return CharacterCatalog.list()
+    internal fun list(filesDir: File, store: CharacterStore = CharacterCatalog): List<CharacterInfo> {
+        store.attach(filesDir)
+        return store.list()
     }
 
     internal fun scanDisk(filesDir: File): List<CharacterInfo> {
@@ -152,7 +152,12 @@ object CharacterPack {
         return dataBytes.toDouble() / (rate * frame)
     }
 
-    fun importZip(filesDir: File, input: InputStream, displayName: String? = null): ImportResult {
+    internal fun importZip(
+        filesDir: File,
+        input: InputStream,
+        displayName: String? = null,
+        store: CharacterStore = CharacterCatalog,
+    ): ImportResult {
         val staging = File(filesDir, "import-staging").apply {
             deleteRecursively()
             mkdirs()
@@ -167,7 +172,7 @@ object CharacterPack {
             val info = read(packedRoot)
             val dest = File(directory(filesDir), info.id)
             val replaced = dest.isDirectory
-            val previous = CharacterCatalog.find(info.id)
+            val previous = store.find(info.id)
             val backup = File(filesDir, "import-backup-${info.id}")
             if (replaced) {
                 backup.deleteRecursively()
@@ -185,7 +190,7 @@ object CharacterPack {
             val stored = base.copy(name = chosen ?: base.name, avatarIndex = avatar)
             File(dest, NAME_FILE).delete()
             File(dest, AVATAR_ICON).delete()
-            CharacterCatalog.upsert(filesDir, stored)
+            store.upsert(filesDir, stored)
             backup.deleteRecursively()
             staging.deleteRecursively()
             return ImportResult(stored, replaced)
