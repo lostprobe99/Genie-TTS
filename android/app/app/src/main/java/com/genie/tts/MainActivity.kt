@@ -1174,6 +1174,7 @@ class MainActivity : AppCompatActivity() {
             try {
                 val result = contentResolver.openInputStream(uri)?.use { repository.importZip(filesDir, it, name) }
                     ?: error("打不开这个文件")
+                speech.dropIfLoaded(result.info.id)
                 val action = if (result.replaced) "已更新" else "已导入"
                 TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "$action ${result.info.id}")
                 runOnUiThread {

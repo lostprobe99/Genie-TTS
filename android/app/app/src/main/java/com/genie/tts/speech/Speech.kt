@@ -130,6 +130,12 @@ internal class Speech(
         refKey = null
     }
 
+    /** 覆盖导入的是当前已加载的角色时，丢掉旧引擎。下一次合成按新文件重新加载。 */
+    @Synchronized
+    fun dropIfLoaded(id: String) {
+        if (loadedCharacterId(engineKey) == id) dropEngine()
+    }
+
     @Synchronized
     fun dropProsody() {
         prosody?.close()
@@ -205,6 +211,12 @@ internal class Speech(
         }
         return "这句没有读出来"
     }
+}
+
+/** 引擎缓存键是「角色 id|线程数」。没有加载时返回 null。 */
+internal fun loadedCharacterId(engineKey: String?): String? {
+    val id = engineKey?.substringBefore('|') ?: return null
+    return id.takeIf { it.isNotEmpty() }
 }
 
 internal fun playSamples(
