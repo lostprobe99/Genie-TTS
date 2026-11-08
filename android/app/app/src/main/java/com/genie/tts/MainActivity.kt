@@ -28,6 +28,8 @@ import com.genie.tts.speech.speedOf
 import com.genie.tts.ui.AboutPageController
 import com.genie.tts.ui.CharacterController
 import com.genie.tts.ui.CharacterSnapshot
+import com.genie.tts.ui.ProsodyController
+import com.genie.tts.ui.ProsodySnapshot
 import com.genie.tts.ui.SpeakController
 import com.genie.tts.ui.SpeakSnapshot
 import com.genie.tts.ui.HelpPageController
@@ -68,7 +70,6 @@ import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.PopupWindow
-import android.widget.ProgressBar
 import android.widget.ScrollView
 import android.widget.SeekBar
 import android.widget.TextView
@@ -83,17 +84,13 @@ import androidx.core.view.GravityCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
-import androidx.core.text.HtmlCompat
 import androidx.core.view.updatePadding
 import androidx.drawerlayout.widget.DrawerLayout
 import java.io.File
 import java.io.FileInputStream
-import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 import kotlin.math.max
-import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity() {
     private enum class Page { Speak, Characters, Service, Prosody, About, Logs, Help }
@@ -123,7 +120,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pageTitle: TextView
     private lateinit var banner: TextView
     private lateinit var drawerRoleCount: TextView
-    private lateinit var drawerProsodyState: TextView
     private lateinit var speakPage: View
     private lateinit var speakChrome: View
     private var imeBottom = 0
@@ -150,27 +146,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var playButton: Button
     private lateinit var workStatus: TextView
     private var pendingLogText: String? = null
-    private lateinit var prosodyStatus: TextView
-    private lateinit var prosodyDetail: TextView
-    private lateinit var prosodyProgress: ProgressBar
-    private lateinit var prosodyBadge: TextView
-    private lateinit var prosodyModel: TextView
-    private lateinit var prosodyFile: TextView
-    private lateinit var prosodySize: TextView
-    private lateinit var prosodyPath: TextView
-    private lateinit var prosodyUpdated: TextView
-    private lateinit var prosodyDownloadSub: TextView
-    private lateinit var prosodyCopy: ImageButton
-    private lateinit var prosodyDeleteCard: View
-    private lateinit var downloadProsody: TextView
-    private lateinit var importProsody: TextView
-    private lateinit var deleteProsody: TextView
     private lateinit var logController: LogPageController
     private lateinit var helpController: HelpPageController
     private lateinit var aboutController: AboutPageController
     private lateinit var serviceController: ServicePageController
     private lateinit var speakController: SpeakController
     private lateinit var characterController: CharacterController
+    private lateinit var prosodyController: ProsodyController
 
     private var page = Page.Speak
     private var roster: List<CharacterInfo> = emptyList()
@@ -189,6 +171,8 @@ class MainActivity : AppCompatActivity() {
     private var suppress = false
     private var spinnerGen = 0
     private var downloading = false
+    private var downloadDone = 0L
+    private var downloadTotal = 0L
     private var roleMenu: PopupWindow? = null
     private var previewId: String? = null
     private var stopWatchingService: (() -> Unit)? = null
@@ -244,6 +228,7 @@ class MainActivity : AppCompatActivity() {
         serviceController = ServicePageController(this, { page == Page.Service }, ::notificationsAllowed)
         speakController = SpeakController(this)
         characterController = CharacterController(this) { id, choices -> repository.avatarIndex(id, choices) }
+        prosodyController = ProsodyController(this)
         bindViews()
         restoreDraft()
         showInterrupted()
@@ -317,7 +302,6 @@ class MainActivity : AppCompatActivity() {
         pageTitle = findViewById(R.id.pageTitle)
         banner = findViewById(R.id.banner)
         drawerRoleCount = findViewById(R.id.drawerRoleCount)
-        drawerProsodyState = findViewById(R.id.drawerProsodyState)
         speakPage = findViewById(R.id.speakPage)
         speakChrome = findViewById(R.id.speakChrome)
         characterPage = findViewById(R.id.characterPage)
@@ -342,25 +326,6 @@ class MainActivity : AppCompatActivity() {
         synthesizeButton = findViewById(R.id.synthesize)
         playButton = findViewById(R.id.play)
         workStatus = findViewById(R.id.workStatus)
-        prosodyStatus = findViewById(R.id.prosodyStatus)
-        prosodyDetail = findViewById(R.id.prosodyDetail)
-        prosodyProgress = findViewById(R.id.prosodyProgress)
-        prosodyBadge = findViewById(R.id.prosodyBadge)
-        prosodyModel = findViewById(R.id.prosodyModel)
-        prosodyFile = findViewById(R.id.prosodyFile)
-        prosodySize = findViewById(R.id.prosodySize)
-        prosodyPath = findViewById(R.id.prosodyPath)
-        prosodyUpdated = findViewById(R.id.prosodyUpdated)
-        prosodyDownloadSub = findViewById(R.id.prosodyDownloadSub)
-        prosodyCopy = findViewById(R.id.prosodyCopy)
-        prosodyDeleteCard = findViewById(R.id.prosodyDeleteCard)
-        downloadProsody = findViewById(R.id.downloadProsody)
-        importProsody = findViewById(R.id.importProsody)
-        deleteProsody = findViewById(R.id.deleteProsody)
-        prosodyModel.text = Prosody.FILE_NAME
-        prosodyFile.text = Prosody.FILE_NAME
-        prosodyDownloadSub.text = "拉取 ${Release.TAG} 的 prosody.zip，大约 ${bytesLabel(Prosody.MODEL_BYTES)}，中断后可以接着下。"
-        prosodyTipWhat()
         characters.setPopupBackgroundResource(R.color.card)
         padForScreen()
     }
@@ -553,17 +518,15 @@ class MainActivity : AppCompatActivity() {
                 else play(clips.indices.filter { clips[it]?.samples != null })
             },
         )
-        downloadProsody.setOnClickListener { confirmDownloadProsody() }
-        importProsody.setOnClickListener {
-            if (busy) return@setOnClickListener
-            pickProsody.launch(arrayOf("*/*", "application/zip", "application/octet-stream"))
-        }
-        deleteProsody.setOnClickListener { confirmDeleteProsody() }
-        prosodyCopy.setOnClickListener {
-            val clipboard = getSystemService(ClipboardManager::class.java)
-            clipboard.setPrimaryClip(ClipData.newPlainText("prosody", Prosody.modelFile(filesDir).absolutePath))
-            toast("已复制")
-        }
+        prosodyController.bind(
+            onDownload = ::confirmDownloadProsody,
+            onImport = {
+                if (busy) return@bind
+                pickProsody.launch(arrayOf("*/*", "application/zip", "application/octet-stream"))
+            },
+            onDelete = ::confirmDeleteProsody,
+            onCopyPath = { copyPlain("prosody", Prosody.modelFile(filesDir).absolutePath) },
+        )
         serviceController.bind(::toggleService, ::commitPort)
         findViewById<View>(R.id.copyLocal).setOnClickListener {
             copyPlain("tts", serviceController.localUrl.text)
@@ -1249,22 +1212,18 @@ class MainActivity : AppCompatActivity() {
         if (busy) return
         setBusy(true)
         downloading = true
-        downloadProsody.setText(R.string.prosody_download_busy)
-        prosodyDetail.setText(R.string.prosody_downloading)
-        showProsodyProgress(0, 0)
+        downloadDone = 0
+        downloadTotal = 0
+        renderProsody()
         worker.execute {
             try {
                 onSpeech { speech.dropProsody() }
                 ProsodyPack.download(filesDir) { done, total ->
-                    val line = if (total > 0) {
-                        "已下载 ${bytesLabel(done)} / ${bytesLabel(total)}"
-                    } else {
-                        "已下载 ${bytesLabel(done)}"
-                    }
                     runOnUiThread {
                         if (isDestroyed) return@runOnUiThread
-                        prosodyDetail.text = line
-                        showProsodyProgress(done, total)
+                        downloadDone = done
+                        downloadTotal = total
+                        renderProsody()
                     }
                 }
                 TtsLog.add(LogLevel.INFO, LogModule.PROSODY, "已下载韵律模型")
@@ -1275,22 +1234,12 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
                     downloading = false
+                    downloadDone = 0
+                    downloadTotal = 0
                     setBusy(false)
                     renderProsody()
                 }
             }
-        }
-    }
-
-    private fun showProsodyProgress(done: Long, total: Long) {
-        prosodyDetail.visibility = View.VISIBLE
-        prosodyProgress.visibility = View.VISIBLE
-        if (total > 0) {
-            prosodyProgress.isIndeterminate = false
-            prosodyProgress.max = 1000
-            prosodyProgress.progress = ((done.coerceIn(0, total) * 1000) / total).toInt()
-        } else {
-            prosodyProgress.isIndeterminate = true
         }
     }
 
@@ -1679,51 +1628,23 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private fun renderProsody() {
+    private fun prosodyState(): ProsodySnapshot {
         val file = Prosody.modelFile(filesDir)
-        val ready = Prosody.isReady(filesDir)
-        prosodyStatus.setText(if (ready) R.string.prosody_installed else R.string.prosody_missing)
-        prosodyStatus.setBackgroundResource(if (ready) R.drawable.bg_prosody_ready else R.drawable.bg_prosody_idle)
-        prosodyStatus.setTextColor(if (ready) 0xFF047857.toInt() else color(R.color.text_sub))
-        prosodyBadge.setText(if (ready) R.string.prosody_ready else R.string.prosody_missing)
-        prosodySize.text = when {
-            ready -> bytesLabel(file.length())
-            file.isFile -> getString(R.string.prosody_bad_size)
-            else -> getString(R.string.prosody_missing)
-        }
-        prosodyPath.text = file.absolutePath
-        prosodyUpdated.text = when {
-            ready -> "上次写入：${writtenAt(file.lastModified())}"
-            file.isFile -> "大小不是 ${"%,d".format(Locale.US, Prosody.MODEL_BYTES)} 字节"
-            else -> getString(R.string.prosody_absent)
-        }
-        prosodyDeleteCard.visibility = if (file.isFile) View.VISIBLE else View.GONE
-        downloadProsody.setText(
-            when {
-                downloading -> R.string.prosody_download_busy
-                ready -> R.string.prosody_installed
-                else -> R.string.download
-            },
+        return ProsodySnapshot(
+            ready = Prosody.isReady(filesDir),
+            fileExists = file.isFile,
+            fileBytes = file.length(),
+            filePath = file.absolutePath,
+            lastModified = file.lastModified(),
+            downloading = downloading,
+            busy = busy,
+            downloadDone = downloadDone,
+            downloadTotal = downloadTotal,
         )
-        if (!downloading) {
-            prosodyDetail.visibility = View.GONE
-            prosodyProgress.visibility = View.GONE
-            prosodyProgress.isIndeterminate = false
-            prosodyProgress.progress = 0
-        }
-        drawerProsodyState.text = if (ready) "已就绪" else "未安装"
     }
 
-    private fun prosodyTipWhat() {
-        findViewById<TextView>(R.id.prosodyTipWhat).text = html(getString(R.string.prosody_tip_what))
-        findViewById<TextView>(R.id.prosodyTipNet).text = html(getString(R.string.prosody_tip_net))
-    }
-
-    private fun html(source: String): CharSequence = HtmlCompat.fromHtml(source, HtmlCompat.FROM_HTML_MODE_COMPACT)
-
-    private fun writtenAt(millis: Long): String {
-        val format = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.CHINA)
-        return format.format(Date(millis))
+    private fun renderProsody() {
+        prosodyController.render(prosodyState())
     }
 
     private fun renderService() {
@@ -1863,13 +1784,7 @@ class MainActivity : AppCompatActivity() {
         speakController.updateControls(speakState())
         characters.isEnabled = !busy
         characterController.setImportEnabled(!busy)
-        downloadProsody.isEnabled = !busy
-        importProsody.isEnabled = !busy
-        deleteProsody.isEnabled = !busy
-        val prosodyAlpha = if (busy) 0.4f else 1f
-        downloadProsody.alpha = prosodyAlpha
-        importProsody.alpha = prosodyAlpha
-        deleteProsody.alpha = prosodyAlpha
+        renderProsody()
     }
 
     private fun invalidateAudio() {
@@ -2020,11 +1935,6 @@ class MainActivity : AppCompatActivity() {
             backgroundTintList = colorState(if (filled) R.color.amber else R.color.line)
             setTextColor(color(if (filled) R.color.ink else R.color.paper))
         }
-    }
-
-    private fun bytesLabel(bytes: Long): String {
-        val mb = bytes / (1024.0 * 1024.0)
-        return "${mb.roundToInt()} MB"
     }
 
     private fun color(id: Int) = ContextCompat.getColor(this, id)

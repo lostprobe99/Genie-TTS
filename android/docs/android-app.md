@@ -16,6 +16,7 @@
 
 - `SpeakController` 管主屏的分句列表、语速、合成和播放按钮，以及底下的状态。点下去之后的合成和播放仍由 `MainActivity` 发起。
 - `CharacterController` 管角色卡片、搜索、批量条和导入按钮。导入、删除、改名和试听仍由 `MainActivity` 发起。
+- `ProsodyController` 管韵律页的状态、进度、路径和下载导入删除按钮。下载、导入和删除仍由 `MainActivity` 发起。
 
 - `ServicePageController` 管服务状态、统计、地址和运行时间。
 - `LogPageController` 管日志筛选、搜索和列表渲染。
