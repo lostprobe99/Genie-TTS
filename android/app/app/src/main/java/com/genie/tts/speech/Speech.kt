@@ -70,7 +70,7 @@ internal class Speech(
             if (stop()) throw SynthesisCancelled()
             onMark(false, index)
             val clip = try {
-                speakPiece(loaded, character, piece, speed, threads, ready, ref, stop)
+                speakPiece(loaded, character, piece, index, speed, threads, ready, ref, stop)
             } catch (error: SynthesisCancelled) {
                 throw error
             } catch (error: Exception) {
@@ -86,6 +86,7 @@ internal class Speech(
         loaded: TtsEngine,
         character: CharacterInfo,
         piece: String,
+        index: Int,
         speed: Double,
         threads: Int,
         ready: Boolean,
@@ -104,7 +105,8 @@ internal class Speech(
         val bert = textBert(phones, threads, ready)
         val report = loaded.synthesize(characterModel(character), textSeq, bert, ::engineLog, ref, speed, stop)
         if (report.samples.isEmpty()) {
-            TtsLog.add(LogLevel.WARN, LogModule.SPEECH, "解码立即结束，已跳过 $piece")
+            val spoken = piece.replace("\n", " ").trim()
+            TtsLog.add(LogLevel.WARN, LogModule.SPEECH, "解码立即结束，已跳过 第 ${index + 1} 句 $spoken")
             return Clip(piece, null, report.sampleRate, "这句没有读出来")
         }
         return Clip(piece, report.samples, report.sampleRate, null)
