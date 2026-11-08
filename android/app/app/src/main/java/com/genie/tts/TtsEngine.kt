@@ -97,13 +97,13 @@ class GenieCase(val root: File) {
     val text: String
     val sampleRate: Int
     val tensors: Map<String, OwnedTensor>
-    val modelDir: File = File(root, "models")
+    val modelDir: File = CharacterPackSchema.modelsDir(root)
 
     init {
-        val manifest = JSONObject(File(root, "manifest.json").readText())
+        val manifest = JSONObject(CharacterPackSchema.manifestFile(root).readText())
         text = manifest.optString("text")
-        sampleRate = manifest.getInt("sample_rate")
-        val tensorJson = manifest.getJSONObject("tensors")
+        sampleRate = manifest.getInt(CharacterPackSchema.KEY_SAMPLE_RATE)
+        val tensorJson = manifest.getJSONObject(CharacterPackSchema.KEY_TENSORS)
         val loaded = HashMap<String, OwnedTensor>()
         for (name in tensorJson.keys()) {
             val spec = tensorJson.getJSONObject(name)
@@ -117,15 +117,8 @@ class GenieCase(val root: File) {
     fun model(name: String): File = File(modelDir, name)
 
     companion object {
-        val MODEL_NAMES = listOf(
-            "t2s_encoder_fp32.onnx",
-            "t2s_first_stage_decoder_fp32.onnx",
-            "t2s_stage_decoder_fp32.onnx",
-            "vits_fp32.onnx",
-        )
-
         fun find(candidates: List<File>): GenieCase? {
-            return candidates.firstOrNull { File(it, "manifest.json").isFile }?.let { GenieCase(it) }
+            return candidates.firstOrNull { CharacterPackSchema.manifestFile(it).isFile }?.let { GenieCase(it) }
         }
     }
 }
@@ -149,7 +142,7 @@ class TtsEngine(
     internal fun load(log: (LogLevel, String) -> Unit): Long {
         val started = SystemClock.elapsedRealtime()
         val optionsDir = File(caseDir, "optimized").apply { mkdirs() }
-        for (name in GenieCase.MODEL_NAMES) {
+        for (name in CharacterPackSchema.MODEL_NAMES) {
             if (sessions.containsKey(name)) continue
             sessions[name] = openSession(name, optionsDir, name == "vits_fp32.onnx", log)
         }
@@ -157,7 +150,7 @@ class TtsEngine(
     }
 
     private fun openSession(name: String, optionsDir: File, useXnnpack: Boolean, log: (LogLevel, String) -> Unit): OrtSession {
-        val model = File(caseDir, "models/$name").absolutePath
+        val model = CharacterPackSchema.modelFile(caseDir, name).absolutePath
         if (useXnnpack) {
             val options = sessionOptions(optFile(optionsDir, "$name.t$threads.xnnpack.opt"))
             try {

@@ -93,7 +93,7 @@ class TtsService : Service() {
         }
         val port = TtsPorts.read(filesDir)
         TtsRuntime.port = port
-        CharacterCatalog.attach(filesDir)
+        CharacterRepository.shared.attach(filesDir)
         TtsLog.attach(filesDir)
         val same = synchronized(gate) {
             TtsRuntime.running && server != null && listeningPort == port && !stopping
@@ -208,11 +208,11 @@ class TtsService : Service() {
     }
 
     private fun roster(): Map<String, Int> {
-        return CharacterCatalog.list().associate { it.id to it.sampleRate.coerceAtLeast(1) }
+        return CharacterRepository.shared.all().associate { it.id to it.sampleRate.coerceAtLeast(1) }
     }
 
     private fun speak(request: TtsRequest, stop: () -> Boolean, emit: (FloatArray) -> Unit) {
-        val character = CharacterCatalog.find(request.characterName)
+        val character = CharacterRepository.shared.find(request.characterName)
             ?: throw TtsException(404, "character '${request.characterName}' not found")
         val pieces = if (request.splitSentence) {
             TextSplitter().split(request.text)

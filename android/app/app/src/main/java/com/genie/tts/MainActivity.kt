@@ -83,6 +83,7 @@ class MainActivity : AppCompatActivity() {
     private val splitter = TextSplitter()
 
     private lateinit var speech: Speech
+    private val repository = CharacterRepository.shared
     private lateinit var drawer: DrawerLayout
     private lateinit var drawerPanel: View
     private lateinit var headerSlot: View
@@ -241,7 +242,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
         Engines.activityOpen = true
         speech = Engines.get(filesDir) { assets.open(it) }
-        CharacterCatalog.attach(filesDir)
+        repository.attach(filesDir)
         aboutController = AboutPageController(this)
         logController = LogPageController(this) { page == Page.Logs }
         helpController = HelpPageController(this, { page == Page.Help }) { aboutController.versionName() }
@@ -1145,7 +1146,7 @@ class MainActivity : AppCompatActivity() {
         setBusy(true)
         worker.execute {
             try {
-                val result = contentResolver.openInputStream(uri)?.use { CharacterPack.importZip(filesDir, it, name) }
+                val result = contentResolver.openInputStream(uri)?.use { repository.importZip(filesDir, it, name) }
                     ?: error("打不开这个文件")
                 val action = if (result.replaced) "已更新" else "已导入"
                 TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "$action ${result.info.id}")
@@ -1181,10 +1182,7 @@ class MainActivity : AppCompatActivity() {
         worker.execute {
             try {
                 if (dropsSelection) speech.dropEngine()
-                targets.forEach {
-                    val gone = it.root.deleteRecursively() || !it.root.exists()
-                    if (gone) CharacterCatalog.remove(it.id)
-                }
+                repository.remove(targets)
                 TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "已删除 ${targets.joinToString("、") { it.id }}")
                 runOnUiThread {
                     if (isDestroyed) return@runOnUiThread
@@ -1325,7 +1323,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun refreshCharacters() {
-        roster = CharacterPack.list(filesDir)
+        roster = repository.list(filesDir)
         val saved = selectionFile().takeIf { it.isFile }?.readText()?.trim()
         selectedId = roster.find { it.id == saved }?.id
         if (selectedId == null) selectionFile().delete()
@@ -1493,13 +1491,7 @@ class MainActivity : AppCompatActivity() {
         return frame
     }
 
-    private fun avatarIndex(info: CharacterInfo): Int {
-        val saved = CharacterCatalog.find(info.id)?.avatarIndex
-        if (saved != null && saved in avatarIcons.indices) return saved
-        val pick = kotlin.random.Random.nextInt(avatarIcons.size)
-        CharacterCatalog.setAvatar(info.id, pick)
-        return pick
-    }
+    private fun avatarIndex(info: CharacterInfo): Int = repository.avatarIndex(info.id, avatarIcons.size)
 
     private fun decodeAvatar(file: File): android.graphics.Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
@@ -1721,7 +1713,7 @@ class MainActivity : AppCompatActivity() {
         worker.execute {
             try {
                 if (nameChanged) {
-                    CharacterPack.rename(info, name)
+                    repository.rename(info, name)
                     TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "${info.id} 显示名改为 $name")
                 }
                 runOnUiThread {

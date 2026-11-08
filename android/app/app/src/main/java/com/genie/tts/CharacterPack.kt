@@ -32,21 +32,11 @@ data class PackPreview(
     val audioName: String?,
 )
 
-/** 一个角色包解压后的目录。安装包本身不带角色。 */
-object CharacterPack {
-    const val FORMAT = 1
-    val MODEL_NAMES = listOf(
-        "t2s_encoder_fp32.onnx",
-        "t2s_first_stage_decoder_fp32.onnx",
-        "t2s_stage_decoder_fp32.onnx",
-        "vits_fp32.onnx",
-    )
-    val REQUIRED_TENSORS = listOf("ref_seq", "ref_bert", "ssl_content", "ge", "ge_advanced")
-    private val ID_PATTERN = Regex("[a-z][a-z0-9_]{0,31}")
-    private const val NAME_FILE = "display-name.txt"
-    const val AVATAR_ICON = "avatar-icon.txt"
-    private val AVATAR_FILES = listOf("avatar.webp", "avatar.png", "avatar.jpg", "avatar.jpeg")
-    private const val MIN_MODEL_BYTES = 1024L
+/** 解到暂存目录并校验过的角色包。[root] 就是还没安装的角色目录。 */
+internal class StagedPack(val root: File, val info: CharacterInfo)
+
+/** 一个角色包的读取、校验和解压。安装、改名、删除走 [CharacterRepository]。 */
+internal object CharacterPack : CharacterDisk {
     private const val MAX_ENTRY_BYTES = 2_000_000_000L
     private const val MAX_AUDIO_BYTES = 32L * 1024 * 1024
     private val AUDIO_EXT = listOf(".wav", ".mp3", ".ogg", ".flac", ".m4a", ".aac")
@@ -54,62 +44,51 @@ object CharacterPack {
     fun directory(filesDir: File): File = File(filesDir, "characters")
 
     fun avatarImage(root: File): File? =
-        AVATAR_FILES.map { File(root, it) }.firstOrNull { it.isFile && it.length() > 0L }
+        CharacterPackSchema.AVATAR_IMAGES.map { File(root, it) }.firstOrNull { it.isFile && it.length() > 0L }
 
     /** 包里留下的参考音频。模型目录里的大文件不扫。 */
     fun referenceAudio(root: File): File? {
         if (!root.isDirectory) return null
         return root.walkTopDown()
-            .onEnter { dir -> dir.name != "models" }
+            .onEnter { dir -> dir.name != CharacterPackSchema.MODELS_DIR }
             .filter { it.isFile && isAudioName(it.name) }
             .minWithOrNull(compareBy<File>({ audioRank(it.name) }, { it.path }))
     }
 
-    internal fun rename(info: CharacterInfo, name: String, store: CharacterStore = CharacterCatalog) {
-        val trimmed = name.trim()
-        if (trimmed.isEmpty()) error("名字不能是空的")
-        store.rename(info.id, trimmed)
-    }
-
-    internal fun list(filesDir: File, store: CharacterStore = CharacterCatalog): List<CharacterInfo> {
-        store.attach(filesDir)
-        return store.list()
-    }
-
-    internal fun scanDisk(filesDir: File): List<CharacterInfo> {
+    override fun scan(filesDir: File): List<CharacterInfo> {
         val root = directory(filesDir)
         if (!root.isDirectory) return emptyList()
         return root.listFiles().orEmpty()
-            .filter { File(it, "manifest.json").isFile }
+            .filter { CharacterPackSchema.manifestFile(it).isFile }
             .mapNotNull { file -> runCatching { read(file) }.getOrNull() }
             .sortedBy { it.id }
     }
 
-    fun migrateLegacy(filesDir: File) {
+    override fun migrateLegacy(filesDir: File) {
         val legacy = File(filesDir, "android_case")
         if (!legacy.isDirectory) return
         moveRoberta(filesDir, legacy)
-        val manifest = File(legacy, "manifest.json")
+        val manifest = CharacterPackSchema.manifestFile(legacy)
         if (!manifest.isFile) return
         val id = legacyId(manifest)
         val dest = File(directory(filesDir), id)
-        if (File(dest, "manifest.json").isFile) return
+        if (CharacterPackSchema.manifestFile(dest).isFile) return
         dest.parentFile?.mkdirs()
         if (!legacy.renameTo(dest)) return
-        stamp(File(dest, "manifest.json"), id)
+        stamp(CharacterPackSchema.manifestFile(dest), id)
     }
 
     fun peek(channel: FileChannel): PackPreview {
         val items = catalog(channel)
         val manifest = items
-            .filter { it.name.substringAfterLast('/') == "manifest.json" && safeZipPath(it.name) }
+            .filter { it.name.substringAfterLast('/') == CharacterPackSchema.MANIFEST && safeZipPath(it.name) }
             .minByOrNull { it.name.count { char -> char == '/' } }
             ?: error("压缩包里没有 manifest.json")
         val json = JSONObject(readZipEntry(channel, manifest, 1_000_000).toString(Charsets.UTF_8))
-        val id = json.optString("id").trim().lowercase()
-        if (!ID_PATTERN.matches(id)) error("角色 id 不合法")
+        val id = CharacterPackSchema.normalizeId(json.optString("id"))
+        if (!CharacterPackSchema.isValidId(id)) error("角色 id 不合法")
         val packName = json.optString("name").ifBlank { displayName(id) }
-        val refText = json.optString("ref_text")
+        val refText = json.optString(CharacterPackSchema.KEY_REF_TEXT)
         val audio = items
             .filter { safeZipPath(it.name) && isAudioName(it.name) }
             .minWithOrNull(compareBy({ audioRank(it.name) }, { it.name }))
@@ -152,59 +131,22 @@ object CharacterPack {
         return dataBytes.toDouble() / (rate * frame)
     }
 
-    internal fun importZip(
-        filesDir: File,
-        input: InputStream,
-        displayName: String? = null,
-        store: CharacterStore = CharacterCatalog,
-    ): ImportResult {
-        val staging = File(filesDir, "import-staging").apply {
-            deleteRecursively()
-            mkdirs()
-        }
-        try {
-            unzip(input, staging)
-            val manifestFile = findManifest(staging)
-            val packedRoot = manifestFile.parentFile ?: staging
-            assembleParts(packedRoot)
-            val manifest = JSONObject(manifestFile.readText())
-            validate(packedRoot, manifest)
-            val info = read(packedRoot)
-            val dest = File(directory(filesDir), info.id)
-            val replaced = dest.isDirectory
-            val previous = store.find(info.id)
-            val backup = File(filesDir, "import-backup-${info.id}")
-            if (replaced) {
-                backup.deleteRecursively()
-                if (!dest.renameTo(backup)) error("无法替换已有角色 ${info.id}")
-            } else {
-                dest.parentFile?.mkdirs()
-            }
-            if (!packedRoot.renameTo(dest)) {
-                if (replaced) backup.renameTo(dest)
-                error("无法保存角色 ${info.id}")
-            }
-            val chosen = displayName?.trim()?.takeIf { it.isNotEmpty() } ?: previous?.name?.trim()?.takeIf { it.isNotEmpty() }
-            val base = read(dest)
-            val avatar = if (avatarImage(dest) != null) null else previous?.avatarIndex ?: base.avatarIndex
-            val stored = base.copy(name = chosen ?: base.name, avatarIndex = avatar)
-            File(dest, NAME_FILE).delete()
-            File(dest, AVATAR_ICON).delete()
-            store.upsert(filesDir, stored)
-            backup.deleteRecursively()
-            staging.deleteRecursively()
-            return ImportResult(stored, replaced)
-        } catch (error: Exception) {
-            staging.deleteRecursively()
-            throw error
-        }
+    /** 把 zip 解到 [staging],拼好分片,校验清单、张量和模型。通过后返回包根目录和里面的角色信息。 */
+    fun stage(input: InputStream, staging: File): StagedPack {
+        unzip(input, staging)
+        val manifestFile = findManifest(staging)
+        val packedRoot = manifestFile.parentFile ?: staging
+        assembleParts(packedRoot)
+        val manifest = JSONObject(manifestFile.readText())
+        validate(packedRoot, manifest)
+        return StagedPack(packedRoot, read(packedRoot))
     }
 
     private fun legacyId(manifest: File): String {
         val json = JSONObject(manifest.readText())
         val raw = json.optString("id").ifBlank { json.optString("character") }.ifBlank { "feibi" }
-        val id = raw.trim().lowercase()
-        if (!ID_PATTERN.matches(id)) error("旧目录里的角色 id 不合法")
+        val id = CharacterPackSchema.normalizeId(raw)
+        if (!CharacterPackSchema.isValidId(id)) error("旧目录里的角色 id 不合法")
         return id
     }
 
@@ -219,7 +161,7 @@ object CharacterPack {
 
     private fun stamp(manifest: File, id: String) {
         val json = JSONObject(manifest.readText())
-        json.put("format", FORMAT)
+        json.put("format", CharacterPackSchema.FORMAT)
         json.put("id", id)
         if (json.optString("name").isBlank()) json.put("name", displayName(id))
         manifest.writeText(json.toString(2))
@@ -232,18 +174,18 @@ object CharacterPack {
     }
 
     private fun findManifest(staging: File): File {
-        val direct = File(staging, "manifest.json")
+        val direct = CharacterPackSchema.manifestFile(staging)
         if (direct.isFile) return direct
-        val nested = staging.listFiles().orEmpty().filter { it.isDirectory && File(it, "manifest.json").isFile }
-        if (nested.size == 1) return File(nested[0], "manifest.json")
+        val nested = staging.listFiles().orEmpty().filter { it.isDirectory && CharacterPackSchema.manifestFile(it).isFile }
+        if (nested.size == 1) return CharacterPackSchema.manifestFile(nested[0])
         error("压缩包里没有 manifest.json")
     }
 
     private fun assembleParts(root: File) {
-        val partsFile = File(root, "models/parts.json")
+        val partsFile = File(root, CharacterPackSchema.MODEL_PARTS)
         if (!partsFile.isFile) return
         val parts = JSONObject(partsFile.readText())
-        val models = File(root, "models")
+        val models = CharacterPackSchema.modelsDir(root)
         for (name in parts.keys()) {
             val spec = parts.getJSONObject(name)
             val dest = File(models, name)
@@ -270,52 +212,43 @@ object CharacterPack {
     }
 
     private fun validate(root: File, manifest: JSONObject) {
-        if (manifest.optInt("format", 0) != FORMAT) error("这个包不是可导入的角色包")
-        val id = manifest.optString("id").trim().lowercase()
-        if (!ID_PATTERN.matches(id)) error("角色 id 不合法")
-        if (manifest.optString("ref_text").isBlank()) error("角色包缺少参考原文")
-        if (manifest.optInt("sample_rate", 0) <= 0) error("角色包缺少采样率")
-        val tensors = manifest.optJSONObject("tensors") ?: error("角色包缺少张量")
-        for (name in REQUIRED_TENSORS) {
+        if (manifest.optInt("format", 0) != CharacterPackSchema.FORMAT) error("这个包不是可导入的角色包")
+        val id = CharacterPackSchema.normalizeId(manifest.optString("id"))
+        if (!CharacterPackSchema.isValidId(id)) error("角色 id 不合法")
+        if (manifest.optString(CharacterPackSchema.KEY_REF_TEXT).isBlank()) error("角色包缺少参考原文")
+        if (manifest.optInt(CharacterPackSchema.KEY_SAMPLE_RATE, 0) <= 0) error("角色包缺少采样率")
+        val tensors = manifest.optJSONObject(CharacterPackSchema.KEY_TENSORS) ?: error("角色包缺少张量")
+        for (name in CharacterPackSchema.REQUIRED_TENSORS) {
             val spec = tensors.optJSONObject(name) ?: error("角色包缺少 $name")
             val file = File(root, spec.getString("file"))
             if (!file.isFile) error("角色包缺少 ${spec.getString("file")}")
             val shape = spec.getJSONArray("shape")
             val dims = LongArray(shape.length()) { shape.getLong(it) }
-            val expected = expectedBytes(spec.getString("dtype"), dims)
+            val expected = CharacterPackSchema.tensorBytes(spec.getString("dtype"), dims)
             if (file.length() != expected) error("$name 大小是 ${file.length()} 字节，应为 $expected")
         }
         val sizes = manifest.optJSONObject("model_sizes")
-        for (name in MODEL_NAMES) {
-            val file = File(root, "models/$name")
+        for (name in CharacterPackSchema.MODEL_NAMES) {
+            val file = CharacterPackSchema.modelFile(root, name)
             if (!file.isFile) error("角色包缺少 $name")
             rejectPointer(file)
-            if (file.length() < MIN_MODEL_BYTES) error("$name 太小，不是模型")
+            if (file.length() < CharacterPackSchema.MIN_MODEL_BYTES) error("$name 太小，不是模型")
             if (sizes != null && sizes.has(name) && file.length() != sizes.getLong(name)) {
                 error("$name 大小和说明不一致")
             }
         }
     }
 
-    private fun read(root: File): CharacterInfo {
-        val manifest = JSONObject(File(root, "manifest.json").readText())
-        val id = manifest.optString("id").ifBlank { manifest.optString("character") }.trim().lowercase()
-        if (!ID_PATTERN.matches(id)) error("角色 id 不合法")
-        val saved = File(root, NAME_FILE).takeIf { it.isFile }?.readText()?.trim()
+    fun read(root: File): CharacterInfo {
+        val manifest = JSONObject(CharacterPackSchema.manifestFile(root).readText())
+        val id = CharacterPackSchema.normalizeId(manifest.optString("id").ifBlank { manifest.optString("character") })
+        if (!CharacterPackSchema.isValidId(id)) error("角色 id 不合法")
+        val saved = File(root, CharacterPackSchema.LEGACY_NAME_FILE).takeIf { it.isFile }?.readText()?.trim()
         val name = saved?.takeIf { it.isNotEmpty() } ?: manifest.optString("name").ifBlank { displayName(id) }
-        val refText = manifest.optString("ref_text")
-        val rate = manifest.optInt("sample_rate", 32000).coerceAtLeast(1)
-        val avatar = File(root, AVATAR_ICON).takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull()
+        val refText = manifest.optString(CharacterPackSchema.KEY_REF_TEXT)
+        val rate = manifest.optInt(CharacterPackSchema.KEY_SAMPLE_RATE, 32000).coerceAtLeast(1)
+        val avatar = File(root, CharacterPackSchema.LEGACY_AVATAR_FILE).takeIf { it.isFile }?.readText()?.trim()?.toIntOrNull()
         return CharacterInfo(id, name, root, refText, rate, avatar)
-    }
-
-    private fun expectedBytes(dtype: String, shape: LongArray): Long {
-        val width = when (dtype) {
-            "float32" -> 4L
-            "int64" -> 8L
-            else -> error("不支持的 dtype: $dtype")
-        }
-        return shape.fold(1L) { acc, dim -> acc * dim } * width
     }
 
     private fun rejectPointer(file: File) {

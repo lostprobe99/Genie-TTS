@@ -11,14 +11,16 @@ object ReferenceLine {
 
     fun text(caseDir: File): String {
         return try {
-            JSONObject(File(caseDir, "manifest.json").readText()).optString("ref_text").ifBlank { FEIBI }
+            JSONObject(CharacterPackSchema.manifestFile(caseDir).readText())
+                .optString(CharacterPackSchema.KEY_REF_TEXT)
+                .ifBlank { FEIBI }
         } catch (_: Exception) {
             FEIBI
         }
     }
 
     fun storedIds(caseDir: File): IntArray {
-        val bytes = File(caseDir, "tensors/ref_seq.bin").readBytes()
+        val bytes = CharacterPackSchema.refSeqFile(caseDir).readBytes()
         val buffer = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
         return IntArray(bytes.size / 8) { buffer.long.toInt() }
     }

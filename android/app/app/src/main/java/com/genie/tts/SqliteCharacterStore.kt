@@ -3,7 +3,7 @@ package com.genie.tts
 import android.database.sqlite.SQLiteDatabase
 import java.io.File
 
-internal object CharacterCatalog : CharacterStore {
+internal class SqliteCharacterStore(private val disk: CharacterDisk) : CharacterStore {
     private val gate = Any()
     private var database: SQLiteDatabase? = null
     private var directory: File? = null
@@ -12,7 +12,7 @@ internal object CharacterCatalog : CharacterStore {
     override fun attach(filesDir: File) {
         synchronized(gate) {
             if (database != null && directory == filesDir) return
-            CharacterPack.migrateLegacy(filesDir)
+            disk.migrateLegacy(filesDir)
             val file = File(filesDir, "characters.db")
             val opened = SQLiteDatabase.openOrCreateDatabase(file, null)
             opened.enableWriteAheadLogging()
@@ -100,7 +100,7 @@ internal object CharacterCatalog : CharacterStore {
     }
 
     private fun migrate(filesDir: File, opened: SQLiteDatabase) {
-        val found = CharacterPack.scanDisk(filesDir)
+        val found = disk.scan(filesDir)
         opened.beginTransaction()
         try {
             found.forEach { info ->
@@ -152,10 +152,12 @@ internal object CharacterCatalog : CharacterStore {
     }
 
     private fun forgetNameFiles(root: File) {
-        File(root, "display-name.txt").delete()
-        File(root, "avatar-icon.txt").delete()
+        File(root, CharacterPackSchema.LEGACY_NAME_FILE).delete()
+        File(root, CharacterPackSchema.LEGACY_AVATAR_FILE).delete()
     }
 
-    private const val MIGRATED = "migrated"
-    private const val NAMES_CLEARED = "names_cleared"
+    private companion object {
+        const val MIGRATED = "migrated"
+        const val NAMES_CLEARED = "names_cleared"
+    }
 }
