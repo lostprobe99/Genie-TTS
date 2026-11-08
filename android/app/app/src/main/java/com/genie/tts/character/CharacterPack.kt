@@ -1,5 +1,6 @@
 package com.genie.tts.character
 
+import com.genie.tts.core.AppFailure
 import com.genie.tts.speech.Prosody
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
@@ -198,7 +199,7 @@ internal object CharacterPack : CharacterDisk {
                 for (index in 0 until pieces.length()) {
                     val relative = pieces.getString(index)
                     val piece = File(models, relative)
-                    if (!piece.isFile) error("缺少分片 $relative")
+                    if (!piece.isFile) incomplete("缺少分片 $relative")
                     if (piece.canonicalFile == dest.canonicalFile) continue
                     piece.inputStream().use { input -> input.copyTo(output, 256 * 1024) }
                 }
@@ -216,13 +217,13 @@ internal object CharacterPack : CharacterDisk {
         if (manifest.optInt("format", 0) != CharacterPackSchema.FORMAT) error("这个包不是可导入的角色包")
         val id = CharacterPackSchema.normalizeId(manifest.optString("id"))
         if (!CharacterPackSchema.isValidId(id)) error("角色 id 不合法")
-        if (manifest.optString(CharacterPackSchema.KEY_REF_TEXT).isBlank()) error("角色包缺少参考原文")
-        if (manifest.optInt(CharacterPackSchema.KEY_SAMPLE_RATE, 0) <= 0) error("角色包缺少采样率")
-        val tensors = manifest.optJSONObject(CharacterPackSchema.KEY_TENSORS) ?: error("角色包缺少张量")
+        if (manifest.optString(CharacterPackSchema.KEY_REF_TEXT).isBlank()) incomplete("角色包缺少参考原文")
+        if (manifest.optInt(CharacterPackSchema.KEY_SAMPLE_RATE, 0) <= 0) incomplete("角色包缺少采样率")
+        val tensors = manifest.optJSONObject(CharacterPackSchema.KEY_TENSORS) ?: incomplete("角色包缺少张量")
         for (name in CharacterPackSchema.REQUIRED_TENSORS) {
-            val spec = tensors.optJSONObject(name) ?: error("角色包缺少 $name")
+            val spec = tensors.optJSONObject(name) ?: incomplete("角色包缺少 $name")
             val file = File(root, spec.getString("file"))
-            if (!file.isFile) error("角色包缺少 ${spec.getString("file")}")
+            if (!file.isFile) incomplete("角色包缺少 ${spec.getString("file")}")
             val shape = spec.getJSONArray("shape")
             val dims = LongArray(shape.length()) { shape.getLong(it) }
             val expected = CharacterPackSchema.tensorBytes(spec.getString("dtype"), dims)
@@ -231,9 +232,9 @@ internal object CharacterPack : CharacterDisk {
         val sizes = manifest.optJSONObject("model_sizes")
         for (name in CharacterPackSchema.MODEL_NAMES) {
             val file = CharacterPackSchema.modelFile(root, name)
-            if (!file.isFile) error("角色包缺少 $name")
+            if (!file.isFile) incomplete("角色包缺少 $name")
             rejectPointer(file)
-            if (file.length() < CharacterPackSchema.MIN_MODEL_BYTES) error("$name 太小，不是模型")
+            if (file.length() < CharacterPackSchema.MIN_MODEL_BYTES) incomplete("$name 太小，不是模型")
             if (sizes != null && sizes.has(name) && file.length() != sizes.getLong(name)) {
                 error("$name 大小和说明不一致")
             }
@@ -252,13 +253,15 @@ internal object CharacterPack : CharacterDisk {
         return CharacterInfo(id, name, root, refText, rate, avatar)
     }
 
+    private fun incomplete(detail: String): Nothing = throw AppFailure.PackIncomplete(detail)
+
     private fun rejectPointer(file: File) {
         val head = file.inputStream().use { input ->
             val bytes = ByteArray(40)
             val count = input.read(bytes)
             if (count <= 0) "" else String(bytes, 0, count, Charsets.US_ASCII)
         }
-        if (head.startsWith("version https://git-lfs")) error("${file.name} 只是 Git LFS 指针，不是模型")
+        if (head.startsWith("version https://git-lfs")) incomplete("${file.name} 只是 Git LFS 指针，不是模型")
     }
 
     private fun unzip(input: InputStream, root: File) {
@@ -297,7 +300,7 @@ internal object CharacterPack : CharacterDisk {
 
     private fun catalog(channel: FileChannel): List<ZipItem> {
         val fileSize = channel.size()
-        if (fileSize < 22) error("压缩包不完整")
+        if (fileSize < 22) incomplete("压缩包不完整")
         val tailLen = minOf(fileSize, 22L + 65535L).toInt()
         val tail = readAt(channel, fileSize - tailLen, tailLen)
         val bytes = ByteArray(tail.remaining())
@@ -312,12 +315,12 @@ internal object CharacterPack : CharacterDisk {
                 break
             }
         }
-        if (eocd < 0) error("压缩包不完整")
+        if (eocd < 0) incomplete("压缩包不完整")
         val header = ByteBuffer.wrap(bytes, eocd, 22).slice().order(ByteOrder.LITTLE_ENDIAN)
         val cdSize = header.getInt(12).toLong() and 0xffffffffL
         val cdOffset = header.getInt(16).toLong() and 0xffffffffL
         if (cdSize == 0xffffffffL || cdOffset == 0xffffffffL || cdSize > 20_000_000L) error("压缩包过大")
-        if (cdOffset < 0 || cdOffset + cdSize > fileSize) error("压缩包不完整")
+        if (cdOffset < 0 || cdOffset + cdSize > fileSize) incomplete("压缩包不完整")
         val directory = readAt(channel, cdOffset, cdSize.toInt())
         val items = mutableListOf<ZipItem>()
         while (directory.remaining() >= 46) {
@@ -333,12 +336,12 @@ internal object CharacterPack : CharacterDisk {
             if (compressed == 0xffffffffL || size == 0xffffffffL || offset == 0xffffffffL) error("压缩包过大")
             val nameBytes = ByteArray(nameLen)
             directory.position(start + 46)
-            if (directory.remaining() < nameLen) error("压缩包不完整")
+            if (directory.remaining() < nameLen) incomplete("压缩包不完整")
             directory.get(nameBytes)
             val name = String(nameBytes, Charsets.UTF_8).trimStart('/', '\\').replace('\\', '/')
             items += ZipItem(name, method, compressed, size, offset)
             val next = start + 46 + nameLen + extraLen + commentLen
-            if (next < start || next > directory.limit()) error("压缩包不完整")
+            if (next < start || next > directory.limit()) incomplete("压缩包不完整")
             directory.position(next)
         }
         return items
@@ -348,7 +351,7 @@ internal object CharacterPack : CharacterDisk {
         if (item.size > limit || item.compressedSize > limit) error("压缩包里的文件太大")
         if (item.method != 0 && item.method != 8) error("参考音频读不出来")
         val local = readAt(channel, item.offset, 30)
-        if (local.getInt(0) != 0x04034b50) error("压缩包不完整")
+        if (local.getInt(0) != 0x04034b50) incomplete("压缩包不完整")
         val nameLen = local.getShort(26).toInt() and 0xffff
         val extraLen = local.getShort(28).toInt() and 0xffff
         val dataStart = item.offset + 30L + nameLen + extraLen
@@ -383,12 +386,12 @@ internal object CharacterPack : CharacterDisk {
     }
 
     private fun readAt(channel: FileChannel, position: Long, length: Int): ByteBuffer {
-        if (length < 0 || position < 0 || position + length > channel.size()) error("压缩包不完整")
+        if (length < 0 || position < 0 || position + length > channel.size()) incomplete("压缩包不完整")
         val buffer = ByteBuffer.allocate(length).order(ByteOrder.LITTLE_ENDIAN)
         var got = 0
         while (got < length) {
             val count = channel.read(buffer, position + got)
-            if (count < 0) error("压缩包不完整")
+            if (count < 0) incomplete("压缩包不完整")
             got += count
         }
         buffer.flip()

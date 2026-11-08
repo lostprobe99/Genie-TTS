@@ -8,7 +8,6 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
 import java.io.File
-import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
 private const val MAX_DECODE_STEPS = 500
@@ -156,14 +155,27 @@ class TtsEngine(
         }
         val decoderMs = SystemClock.elapsedRealtime() - decoderStart
 
-        val semantic = applySpeed(finishSemantic(stoppedY ?: error("解码没有输出"), steps), speed)
-        val semanticTokens = semantic.shape.last().toInt()
+        val semantic = finishSemantic(stoppedY ?: error("解码没有输出"), steps)
+        if (semantic == null) {
+            return SynthesisReport(
+                samples = FloatArray(0),
+                sampleRate = case.sampleRate,
+                encoderMs = encoderMs,
+                decoderSteps = 0,
+                semanticTokens = 0,
+                decoderMs = decoderMs,
+                vocoderMs = 0,
+                totalMs = SystemClock.elapsedRealtime() - totalStart,
+            )
+        }
+        val paced = applySpeed(semantic, speed)
+        val semanticTokens = paced.shape.last().toInt()
         val vocoderStart = SystemClock.elapsedRealtime()
         val audioTensor = run(
             sessions.getValue("vits_fp32.onnx"),
             mapOf(
                 "text_seq" to textSeq,
-                "pred_semantic" to semantic,
+                "pred_semantic" to paced,
                 "ge" to case.tensors.getValue("ge"),
                 "ge_advanced" to case.tensors.getValue("ge_advanced"),
             ),
@@ -233,18 +245,24 @@ private fun readBool(tensor: OnnxTensor): Boolean {
     return tensor.value == true
 }
 
-private fun finishSemantic(y: OwnedTensor, idx: Int): OwnedTensor {
+private fun finishSemantic(y: OwnedTensor, idx: Int): OwnedTensor? {
     val length = y.shape.last().toInt()
     val buf = y.bytes.duplicate().order(ByteOrder.nativeOrder())
     buf.position(0)
     val values = LongArray(length) { buf.long }
-    values[values.lastIndex] = 0L
-    val start = if (idx == 0) 0 else (length - idx).coerceAtLeast(0)
-    var sliced = values.copyOfRange(start, length)
+    val spoken = newlySpokenTokens(values, idx)
+    if (spoken.isEmpty()) return null
+    return OwnedTensor.fromLongs(longArrayOf(1, 1, spoken.size.toLong()), spoken)
+}
+
+/** 第 0 步就结束时没有新语义。这时不能把参考句留在结果里。 */
+internal fun newlySpokenTokens(values: LongArray, steps: Int): LongArray {
+    if (values.isEmpty() || steps <= 0) return LongArray(0)
+    val tokens = values.copyOf()
+    tokens[tokens.lastIndex] = 0L
+    val start = (tokens.size - steps).coerceAtLeast(0)
+    var sliced = tokens.copyOfRange(start, tokens.size)
     val eos = sliced.indexOfFirst { it >= 1024 }
     if (eos >= 0) sliced = sliced.copyOfRange(0, eos)
-    val out = ByteBuffer.allocateDirect(sliced.size * 8).order(ByteOrder.nativeOrder())
-    sliced.forEach { out.putLong(it) }
-    out.flip()
-    return OwnedTensor(longArrayOf(1, 1, sliced.size.toLong()), OnnxJavaType.INT64, out)
+    return sliced
 }

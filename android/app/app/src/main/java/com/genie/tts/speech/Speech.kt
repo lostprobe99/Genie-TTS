@@ -4,6 +4,7 @@ import com.genie.tts.character.CharacterInfo
 import com.genie.tts.character.CharacterPackSchema
 import com.genie.tts.character.ReferenceLine
 import com.genie.tts.core.LogLevel
+import com.genie.tts.core.sentenceUiText
 import com.genie.tts.core.LogModule
 import com.genie.tts.core.TtsLog
 import com.genie.tts.speech.g2p.PhoneResult
@@ -102,6 +103,10 @@ internal class Speech(
         )
         val bert = textBert(phones, threads, ready)
         val report = loaded.synthesize(characterModel(character), textSeq, bert, ::engineLog, ref, speed, stop)
+        if (report.samples.isEmpty()) {
+            TtsLog.add(LogLevel.WARN, LogModule.SPEECH, "解码立即结束，已跳过 $piece")
+            return Clip(piece, null, report.sampleRate, "这句没有读出来")
+        }
         return Clip(piece, report.samples, report.sampleRate, null)
     }
 
@@ -224,13 +229,7 @@ internal class Speech(
         TtsLog.add(level, LogModule.SPEECH, message)
     }
 
-    private fun sentenceError(error: Exception): String {
-        val message = error.message.orEmpty()
-        if (message.contains("缺少") || message.contains("不完整") || message.contains("太小")) {
-            return "角色包不完整，请重新导入"
-        }
-        return "这句没有读出来"
-    }
+    private fun sentenceError(error: Exception): String = sentenceUiText(error)
 }
 
 /** 引擎缓存键是「角色 id|线程数」。没有加载时返回 null。 */

@@ -3,6 +3,7 @@ package com.genie.tts.character
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import com.genie.tts.core.AppFailure
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -112,7 +113,7 @@ class CharacterRepositoryTest {
         )
         repo.importZip(files, old.inputStream())
 
-        assertThrows(IllegalStateException::class.java) { repo.importZip(files, broken.inputStream()) }
+        assertThrows(AppFailure.PackIncomplete::class.java) { repo.importZip(files, broken.inputStream()) }
 
         assertEquals(1.toByte(), vitsBytes(files, "feibi")[0])
         assertEquals("旧原文", store.find("feibi")?.refText)

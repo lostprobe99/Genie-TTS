@@ -6,6 +6,7 @@ import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import com.genie.tts.core.AppFailure
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -39,11 +40,11 @@ class CharacterPackTest {
             skip = "${CharacterPackSchema.MODELS_DIR}/vits_fp32.onnx",
         )
 
-        val error = assertThrows(IllegalStateException::class.java) {
+        val error = assertThrows(AppFailure.PackIncomplete::class.java) {
             CharacterPack.stage(broken.inputStream(), staging)
         }
 
-        assertTrue(error.message.orEmpty().contains("vits_fp32.onnx"))
+        assertTrue(error.detail.contains("vits_fp32.onnx"))
     }
 
     @Test

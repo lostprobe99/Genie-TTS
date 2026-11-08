@@ -2,6 +2,8 @@ package com.genie.tts.service
 
 import com.genie.tts.core.LogLevel
 import com.genie.tts.core.LogModule
+import com.genie.tts.core.failureLog
+import com.genie.tts.core.httpFailure
 import com.genie.tts.speech.SynthesisCancelled
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
@@ -172,10 +174,9 @@ internal class TtsServer(
         } catch (_: SynthesisCancelled) {
             failed = "客户端断开"
         } catch (error: Exception) {
-            failed = error.message ?: "失败"
-            if (!started) {
-                writeText(output, 503, "failed to load character '${request.characterName}': ${error.message}")
-            }
+            val mapped = httpFailure(error)
+            failed = failureLog(error)
+            if (!started) writeText(output, mapped.status, mapped.message)
         } finally {
             val wallMs = (System.nanoTime() - begun) / 1_000_000.0
             val ending = failed ?: "完成"
