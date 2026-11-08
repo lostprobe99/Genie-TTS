@@ -1,3 +1,7 @@
 .gradle/
+.kotlin/
 build/
 local.properties
+
+# 仓库根目录的 .gitignore 忽略所有 test/,这里把应用的单测目录放回来
+!app/src/test/
