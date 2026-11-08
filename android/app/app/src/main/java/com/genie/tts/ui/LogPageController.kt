@@ -1,12 +1,12 @@
 package com.genie.tts.ui
 
 import com.genie.tts.R
-import com.genie.tts.TtsRuntime
 import com.genie.tts.core.DEFAULT_LOG_LEVELS
 import com.genie.tts.core.LogLevel
 import com.genie.tts.core.LogLine
 import com.genie.tts.core.TtsLog
 import com.genie.tts.core.shownLogLines
+import com.genie.tts.service.ServiceStates
 import com.genie.tts.core.toggleLogLevel
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -130,7 +130,7 @@ internal class LogPageController(
     }
 
     private fun paintBanner() {
-        val running = TtsRuntime.running
+        val running = ServiceStates.store.current().running
         val tone = if (running) 0xFF0F766E.toInt() else 0xFF64748B.toInt()
         activity.findViewById<TextView>(R.id.logBannerText).apply {
             text = if (running) "接口开着 · PID ${Process.myPid()}" else "接口未开启 · PID ${Process.myPid()}"

@@ -9,6 +9,7 @@ import com.genie.tts.core.LogModule
 import com.genie.tts.core.TtsLog
 import com.genie.tts.core.appBuildBanner
 import com.genie.tts.core.noteInstalledBuild
+import com.genie.tts.service.ServiceStates
 import com.genie.tts.service.TtsPorts
 import com.genie.tts.speech.AudioPlayer
 import com.genie.tts.speech.Clip
@@ -208,6 +209,7 @@ class MainActivity : AppCompatActivity() {
     private var downloading = false
     private var roleMenu: PopupWindow? = null
     private var previewId: String? = null
+    private var stopWatchingService: (() -> Unit)? = null
     private var batching = false
     private val picked = mutableSetOf<String>()
     private var importSheet: Dialog? = null
@@ -265,7 +267,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        TtsRuntime.port = TtsPorts.read(filesDir)
+        ServiceStates.store.update { it.copy(port = TtsPorts.read(filesDir)) }
         TtsLog.attach(filesDir)
         val installed = currentAppBuild()
         noteInstalledBuild(filesDir, installed) { line ->
@@ -303,7 +305,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        TtsRuntime.listener = { if (!isDestroyed) renderService() }
+        stopWatchingService?.invoke()
+        stopWatchingService = ServiceStates.store.listen { if (!isDestroyed) renderService() }
         TtsLog.listener = {
             if (!isDestroyed && page == Page.Logs) logController.render(logController.autoScroll.isChecked)
         }
@@ -312,7 +315,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         serviceController.stop()
-        TtsRuntime.listener = null
+        stopWatchingService?.invoke()
+        stopWatchingService = null
         TtsLog.listener = null
         super.onStop()
     }
@@ -327,7 +331,7 @@ class MainActivity : AppCompatActivity() {
         player.stop()
         if (isFinishing) {
             Engines.activityOpen = false
-            worker.execute { Engines.closeIfIdle() }
+            worker.execute { Engines.closeIfIdle { ServiceStates.store.current().running } }
         }
         super.onDestroy()
     }
@@ -2032,7 +2036,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun copyHelpEndpoint() {
         val clipboard = getSystemService(ClipboardManager::class.java)
-        clipboard.setPrimaryClip(ClipData.newPlainText("tts", helpCopyText(TtsRuntime.port)))
+        clipboard.setPrimaryClip(ClipData.newPlainText("tts", helpCopyText(ServiceStates.store.current().port)))
         toast("已复制本机朗读接口")
     }
 
@@ -2112,21 +2116,21 @@ class MainActivity : AppCompatActivity() {
         val value = TtsPorts.parse(serviceController.port.text.toString())
         if (value == null) {
             toast("端口要在 1 到 65535 之间")
-            serviceController.port.setText(TtsRuntime.port.toString())
+            serviceController.port.setText(ServiceStates.store.current().port.toString())
             return
         }
-        if (value == TtsRuntime.port) return
+        val running = ServiceStates.store.current().running
+        if (value == ServiceStates.store.current().port) return
         TtsPorts.write(filesDir, value)
-        TtsRuntime.port = value
-        if (TtsRuntime.running) {
-            TtsRuntime.switching = true
+        ServiceStates.store.update { it.copy(port = value, switching = running) }
+        if (running) {
             ContextCompat.startForegroundService(this, Intent(this, TtsService::class.java))
         }
         renderService()
     }
 
     private fun toggleService() {
-        if (TtsRuntime.running) {
+        if (ServiceStates.store.current().running) {
             stopService(Intent(this, TtsService::class.java))
             return
         }
@@ -2141,7 +2145,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startTtsService() {
-        TtsRuntime.error = null
+        ServiceStates.store.update { it.copy(error = null) }
         ContextCompat.startForegroundService(this, Intent(this, TtsService::class.java))
     }
 
@@ -2152,7 +2156,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openRequestedPage(source: Intent?) {
-        if (source?.getStringExtra(TtsRuntime.EXTRA_PAGE) == TtsRuntime.PAGE_SERVICE) showPage(Page.Service)
+        if (source?.getStringExtra(TtsService.EXTRA_PAGE) == TtsService.PAGE_SERVICE) showPage(Page.Service)
     }
 
     private fun renderSpeed() {

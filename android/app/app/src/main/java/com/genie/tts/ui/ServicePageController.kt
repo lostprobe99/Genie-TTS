@@ -1,8 +1,9 @@
 package com.genie.tts.ui
 
 import com.genie.tts.R
-import com.genie.tts.TtsRuntime
 import com.genie.tts.character.CharacterInfo
+import com.genie.tts.service.ServiceState
+import com.genie.tts.service.ServiceStates
 import com.genie.tts.service.interfaceAddresses
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -61,9 +62,10 @@ internal class ServicePageController(
     }
 
     fun render(roster: List<CharacterInfo>) {
-        val running = TtsRuntime.running
-        val problem = TtsRuntime.error
-        val switching = TtsRuntime.switching
+        val state = ServiceStates.store.current()
+        val running = state.running
+        val problem = state.error
+        val switching = state.switching
         status.text = when {
             switching -> activity.getString(R.string.service_switching)
             running -> activity.getString(R.string.service_running)
@@ -81,15 +83,15 @@ internal class ServicePageController(
             },
         )
         notice.visibility = if (running && !notificationsAllowed()) View.VISIBLE else View.GONE
-        localUrl.text = url("127.0.0.1")
+        localUrl.text = url("127.0.0.1", state)
         val addresses = interfaceAddresses().filter { it != "127.0.0.1" }
         lanRow.visibility = if (addresses.isEmpty()) View.GONE else View.VISIBLE
-        lanUrl.text = addresses.joinToString("\n") { url(it) }
+        lanUrl.text = addresses.joinToString("\n") { url(it, state) }
         ids.text = roster.joinToString("、") { it.id }.ifBlank { activity.getString(R.string.service_ids_empty) }
-        requests.text = TtsRuntime.requests.toString()
-        failures.text = TtsRuntime.failures.toString()
-        failures.setTextColor(if (TtsRuntime.failures > 0) Color.parseColor("#BE123C") else color(R.color.text_main))
-        audio.text = audioLength(TtsRuntime.audioMs)
+        requests.text = state.requests.toString()
+        failures.text = state.failures.toString()
+        failures.setTextColor(if (state.failures > 0) Color.parseColor("#BE123C") else color(R.color.text_main))
+        audio.text = audioLength(state.audioMs)
         drawerState.text = if (running) "运行中" else activity.getString(R.string.service_stopped)
         drawerState.setTextColor(color(if (running) R.color.primary else R.color.text_sub))
         drawerState.setBackgroundResource(if (running) R.drawable.bg_pill else R.drawable.bg_prosody_idle)
@@ -98,7 +100,7 @@ internal class ServicePageController(
         toggle.setTextColor(if (running) Color.parseColor("#BE123C") else Color.WHITE)
         toggle.isEnabled = !switching
         toggle.alpha = if (switching) 0.45f else 1f
-        val shown = TtsRuntime.port.toString()
+        val shown = state.port.toString()
         if (!port.hasFocus() && port.text.toString() != shown) port.setText(shown)
     }
 
@@ -108,16 +110,18 @@ internal class ServicePageController(
 
     fun scheduleUptime() {
         handler.removeCallbacks(ticker)
-        val started = TtsRuntime.startedAt
-        val show = TtsRuntime.running && started > 0L && isVisible() && !activity.isDestroyed
+        val state = ServiceStates.store.current()
+        val started = state.startedAt
+        val show = state.running && started > 0L && isVisible() && !activity.isDestroyed
         if (!show) return
         val elapsed = SystemClock.elapsedRealtime() - started
         handler.postDelayed(ticker, (1000 - (elapsed % 1000)).coerceIn(32, 1000))
     }
 
     private fun paintUptime() {
-        val started = TtsRuntime.startedAt
-        val show = TtsRuntime.running && started > 0L
+        val state = ServiceStates.store.current()
+        val started = state.startedAt
+        val show = state.running && started > 0L
         uptime.visibility = if (show) View.VISIBLE else View.GONE
         if (!show) return
         val total = ((SystemClock.elapsedRealtime() - started) / 1000).coerceAtLeast(0)
@@ -129,7 +133,7 @@ internal class ServicePageController(
         )
     }
 
-    private fun url(address: String): String = "http://$address:${TtsRuntime.port}/tts"
+    private fun url(address: String, state: ServiceState): String = "http://$address:${state.port}/tts"
 
     private fun audioLength(ms: Double): String {
         val total = (ms / 1000.0 + 0.5).toLong().coerceAtLeast(0)

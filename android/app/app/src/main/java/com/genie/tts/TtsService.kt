@@ -5,6 +5,7 @@ import com.genie.tts.core.LogLevel
 import com.genie.tts.core.LogModule
 import com.genie.tts.core.MachineProbe
 import com.genie.tts.core.TtsLog
+import com.genie.tts.service.ServiceStates
 import com.genie.tts.service.TtsException
 import com.genie.tts.service.TtsPorts
 import com.genie.tts.service.TtsRequest
@@ -24,68 +25,11 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Path
 import android.os.Build
-import android.os.Handler
 import android.os.IBinder
-import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import kotlin.concurrent.thread
-
-internal object TtsRuntime {
-    const val EXTRA_PAGE = "page"
-    const val PAGE_SERVICE = "service"
-
-    @Volatile
-    var port = TtsPorts.DEFAULT
-
-    @Volatile
-    var running = false
-
-    @Volatile
-    var startedAt = 0L
-
-    @Volatile
-    var switching = false
-
-    @Volatile
-    var error: String? = null
-
-    @Volatile
-    var requests = 0
-
-    @Volatile
-    var failures = 0
-
-    @Volatile
-    var audioMs = 0.0
-
-    private val statsLock = Any()
-
-    var listener: (() -> Unit)? = null
-
-    fun noteCall(failed: Boolean, spokenMs: Double) {
-        synchronized(statsLock) {
-            requests += 1
-            if (failed) failures += 1
-            audioMs += spokenMs
-        }
-        publish()
-    }
-
-    fun resetStats() {
-        synchronized(statsLock) {
-            requests = 0
-            failures = 0
-            audioMs = 0.0
-        }
-    }
-
-    fun publish() {
-        val current = listener ?: return
-        Handler(Looper.getMainLooper()).post(current)
-    }
-}
 
 class TtsService : Service() {
     private val machine by lazy { MachineProbe(this) }
@@ -104,15 +48,15 @@ class TtsService : Service() {
             return START_NOT_STICKY
         }
         val port = TtsPorts.read(filesDir)
-        TtsRuntime.port = port
+        val states = ServiceStates.store
+        states.update { it.copy(port = port) }
         CharacterRepository.shared.attach(filesDir)
         TtsLog.attach(filesDir)
         val same = synchronized(gate) {
-            TtsRuntime.running && server != null && listeningPort == port && !stopping
+            states.current().running && server != null && listeningPort == port && !stopping
         }
         if (same) {
-            TtsRuntime.switching = false
-            TtsRuntime.publish()
+            states.update { it.copy(switching = false) }
             return START_STICKY
         }
         stopping = false
@@ -131,16 +75,13 @@ class TtsService : Service() {
             listeningPort = 0
             open
         }
-        TtsRuntime.running = false
-        TtsRuntime.switching = false
-        TtsRuntime.startedAt = 0L
+        val states = ServiceStates.store
+        states.update { it.copy(running = false, switching = false, startedAt = 0L) }
         TtsLog.add(LogLevel.INFO, LogModule.SERVICE, "接口已关闭")
-        TtsRuntime.publish()
         thread(name = "genie-http-stop", isDaemon = true) {
             current?.stop()
-            TtsRuntime.resetStats()
-            TtsRuntime.publish()
-            Engines.closeIfIdle()
+            states.update { it.copy(requests = 0, failures = 0, audioMs = 0.0) }
+            Engines.closeIfIdle { states.current().running }
         }
         super.onDestroy()
     }
@@ -162,7 +103,15 @@ class TtsService : Service() {
                     ::roster,
                     ::speak,
                     log = { level, module, message -> TtsLog.add(level, module, message) },
-                    onCall = TtsRuntime::noteCall,
+                    onCall = { failed, spokenMs ->
+                        ServiceStates.store.update { state ->
+                            state.copy(
+                                requests = state.requests + 1,
+                                failures = state.failures + if (failed) 1 else 0,
+                                audioMs = state.audioMs + spokenMs,
+                            )
+                        }
+                    },
                 )
                 created.start()
                 val keep = synchronized(gate) {
@@ -178,33 +127,45 @@ class TtsService : Service() {
                     created.stop()
                     return@thread
                 }
-                TtsRuntime.port = port
-                if (TtsRuntime.startedAt == 0L) {
-                    TtsRuntime.resetStats()
-                    TtsRuntime.startedAt = SystemClock.elapsedRealtime()
+                val openedAt = SystemClock.elapsedRealtime()
+                ServiceStates.store.update { state ->
+                    val fresh = state.startedAt == 0L
+                    state.copy(
+                        port = port,
+                        running = true,
+                        switching = false,
+                        error = null,
+                        startedAt = if (fresh) openedAt else state.startedAt,
+                        requests = if (fresh) 0 else state.requests,
+                        failures = if (fresh) 0 else state.failures,
+                        audioMs = if (fresh) 0.0 else state.audioMs,
+                    )
                 }
-                TtsRuntime.running = true
-                TtsRuntime.switching = false
-                TtsRuntime.error = null
                 TtsLog.add(LogLevel.INFO, LogModule.SERVICE, "接口已打开 端口 $port")
                 logMachine("开机", "此前")
                 getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
             } catch (error: Exception) {
                 if (stale(ticket)) return@thread
-                TtsRuntime.running = false
-                TtsRuntime.switching = false
-                TtsRuntime.startedAt = 0L
-                TtsRuntime.resetStats()
-                TtsRuntime.error = if (error is java.net.BindException) {
+                val message = if (error is java.net.BindException) {
                     "端口 $port 已被占用"
                 } else {
                     "接口没有打开"
                 }
-                TtsLog.add(LogLevel.ERROR, LogModule.SERVICE, TtsRuntime.error ?: "接口没有打开")
+                ServiceStates.store.update {
+                    it.copy(
+                        running = false,
+                        switching = false,
+                        startedAt = 0L,
+                        requests = 0,
+                        failures = 0,
+                        audioMs = 0.0,
+                        error = message,
+                    )
+                }
+                TtsLog.add(LogLevel.ERROR, LogModule.SERVICE, message)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
-            TtsRuntime.publish()
         }
     }
 
@@ -223,7 +184,7 @@ class TtsService : Service() {
         return CharacterRepository.shared.all().associate { it.id to it.sampleRate.coerceAtLeast(1) }
     }
 
-    private fun speak(request: TtsRequest, stop: () -> Boolean, emit: (FloatArray) -> Unit) {
+    private fun speak(request: TtsRequest, stop: () -> Boolean, emit: (String, FloatArray) -> Unit) {
         val character = CharacterRepository.shared.find(request.characterName)
             ?: throw TtsException(404, "character '${request.characterName}' not found")
         val pieces = if (request.splitSentence) {
@@ -260,7 +221,7 @@ class TtsService : Service() {
                     threads = threads,
                     onPiece = { _, clip ->
                         val samples = clip.samples ?: return@synthesize
-                        emit(samples)
+                        emit(clip.text, samples)
                     },
                     stop = stopNow,
                     failFast = true,
@@ -281,7 +242,7 @@ class TtsService : Service() {
         }
         val open = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(TtsRuntime.EXTRA_PAGE, TtsRuntime.PAGE_SERVICE)
+            putExtra(EXTRA_PAGE, PAGE_SERVICE)
         }
         val pending = PendingIntent.getActivity(
             this,
@@ -299,7 +260,7 @@ class TtsService : Service() {
             .setSmallIcon(R.drawable.ic_stat)
             .setLargeIcon(notificationLogo())
             .setContentTitle("朗读接口开着")
-            .setContentText("http://127.0.0.1:${TtsRuntime.port}/tts")
+            .setContentText("http://127.0.0.1:${ServiceStates.store.current().port}/tts")
             .setOngoing(true)
             .setContentIntent(pending)
             .addAction(R.drawable.ic_notify_stop, "停止", stop)
@@ -333,9 +294,11 @@ class TtsService : Service() {
         }
     }
 
-    private companion object {
-        const val ACTION_STOP = "com.genie.tts.STOP"
-        const val CHANNEL = "tts-service"
-        const val NOTIFICATION_ID = 41
+    companion object {
+        const val EXTRA_PAGE = "page"
+        const val PAGE_SERVICE = "service"
+        private const val ACTION_STOP = "com.genie.tts.STOP"
+        private const val CHANNEL = "tts-service"
+        private const val NOTIFICATION_ID = 41
     }
 }

@@ -19,12 +19,19 @@ internal fun secondsText(ms: Double): String = "%.1f".format(Locale.US, ms / 100
 
 internal data class SegmentNote(val text: String, val level: LogLevel)
 
-internal fun segmentLine(index: Int, synthMs: Double, audioMs: Double, previousAudioMs: Double?): SegmentNote {
+internal fun segmentLine(
+    index: Int,
+    synthMs: Double,
+    audioMs: Double,
+    previousAudioMs: Double?,
+    sentence: String,
+): SegmentNote {
     val head = if (index == 1) "首段等待 ${secondsText(synthMs)} 秒" else "合成 ${secondsText(synthMs)} 秒"
     val gap = if (previousAudioMs == null) 0.0 else synthMs - previousAudioMs
     val stalled = previousAudioMs != null && gap > 50.0
     val stall = if (stalled) "，播放会空等 ${secondsText(gap)} 秒" else ""
-    val text = "第 $index 段 $head，音频 ${secondsText(audioMs)} 秒$stall"
+    val spoken = sentence.replace("\n", " ").trim()
+    val text = "第 $index 段 $head，音频 ${secondsText(audioMs)} 秒$stall $spoken"
     return SegmentNote(text, if (stalled) LogLevel.WARN else LogLevel.INFO)
 }
 

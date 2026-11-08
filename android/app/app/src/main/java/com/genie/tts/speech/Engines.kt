@@ -1,6 +1,5 @@
 package com.genie.tts.speech
 
-import com.genie.tts.TtsRuntime
 import java.io.File
 import java.io.InputStream
 
@@ -19,9 +18,9 @@ internal object Engines {
         }
     }
 
-    fun closeIfIdle() {
+    fun closeIfIdle(inUse: () -> Boolean) {
         val closing = synchronized(gate) {
-            if (activityOpen || TtsRuntime.running) return
+            if (activityOpen || inUse()) return
             val current = speech
             speech = null
             current

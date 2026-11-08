@@ -1,7 +1,7 @@
 package com.genie.tts.ui
 
 import com.genie.tts.R
-import com.genie.tts.TtsRuntime
+import com.genie.tts.service.ServiceStates
 import com.genie.tts.speech.Release
 import android.graphics.Color
 import android.graphics.Typeface
@@ -70,7 +70,7 @@ internal class HelpPageController(
         paintChips()
         val shown = fillHelpList(
             activity.findViewById(R.id.helpTopics),
-            TtsRuntime.port,
+            ServiceStates.store.current().port,
             query.text.toString(),
             category,
             open,

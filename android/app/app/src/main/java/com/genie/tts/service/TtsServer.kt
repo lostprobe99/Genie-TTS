@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
 internal fun interface TtsSpeaker {
-    fun speak(request: TtsRequest, stop: () -> Boolean, emit: (FloatArray) -> Unit)
+    fun speak(request: TtsRequest, stop: () -> Boolean, emit: (String, FloatArray) -> Unit)
 }
 
 internal class TtsServer(
@@ -147,7 +147,7 @@ internal class TtsServer(
         var mark = begun
         var failed: String? = null
         try {
-            speaker.speak(request, { cancelled.get() || stopRequested }) { samples ->
+            speaker.speak(request, { cancelled.get() || stopRequested }) { sentence, samples ->
                 val now = System.nanoTime()
                 val synthMs = (now - mark) / 1_000_000.0
                 mark = now
@@ -159,7 +159,7 @@ internal class TtsServer(
                 val audioMs = if (sampleRate <= 0) 0.0 else samples.size * 1000.0 / sampleRate
                 count += 1
                 totalAudioMs += audioMs
-                val note = segmentLine(count, synthMs, audioMs, previousAudioMs)
+                val note = segmentLine(count, synthMs, audioMs, previousAudioMs, sentence)
                 log(note.level, LogModule.SPEECH, note.text)
                 previousAudioMs = audioMs
                 output.write(TtsProtocol.pcm16(samples))

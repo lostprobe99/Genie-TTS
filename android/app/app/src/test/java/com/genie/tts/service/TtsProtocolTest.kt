@@ -84,14 +84,14 @@ class TtsProtocolTest {
     @Test
     fun segmentLineShowsPlaybackGap() {
         assertEquals(
-            "第 1 段 首段等待 3.6 秒，音频 1.1 秒",
-            segmentLine(1, 3600.0, 1100.0, null).text,
+            "第 1 段 首段等待 3.6 秒，音频 1.1 秒 你好。",
+            segmentLine(1, 3600.0, 1100.0, null, "你好。").text,
         )
-        val stalled = segmentLine(2, 2400.0, 1100.0, 1100.0)
-        assertEquals("第 2 段 合成 2.4 秒，音频 1.1 秒，播放会空等 1.3 秒", stalled.text)
+        val stalled = segmentLine(2, 2400.0, 1100.0, 1100.0, "第二句")
+        assertEquals("第 2 段 合成 2.4 秒，音频 1.1 秒，播放会空等 1.3 秒 第二句", stalled.text)
         assertEquals(LogLevel.WARN, stalled.level)
-        val steady = segmentLine(2, 800.0, 1100.0, 2000.0)
-        assertEquals("第 2 段 合成 0.8 秒，音频 1.1 秒", steady.text)
+        val steady = segmentLine(2, 800.0, 1100.0, 2000.0, "下一句")
+        assertEquals("第 2 段 合成 0.8 秒，音频 1.1 秒 下一句", steady.text)
         assertEquals(LogLevel.INFO, steady.level)
     }
 
@@ -131,7 +131,7 @@ class TtsProtocolTest {
             characters = { mapOf("feibi" to 32000) },
             speaker = TtsSpeaker { request, _, emit ->
                 seen.add(request)
-                emit(floatArrayOf(0.25f, 0.25f))
+                emit(request.text, floatArrayOf(0.25f, 0.25f))
             },
             log = { _, _, message -> logs.add(message) },
             onCall = { bad, ms ->
@@ -150,7 +150,7 @@ class TtsProtocolTest {
             assertEquals(48, audio.size)
             assertEquals("feibi", seen.single().characterName)
             assertFalse(seen.single().splitSentence)
-            assertTrue(logs.any { it.contains("第 1 段") && it.contains("音频") })
+            assertTrue(logs.any { it.contains("第 1 段") && it.contains("音频") && it.contains("你好") })
             assertTrue(logs.any { it.contains("完成") && it.contains("1段") })
             assertEquals(1, calls)
             assertEquals(0, failed)
