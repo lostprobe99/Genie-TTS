@@ -8,6 +8,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
+/** 前几次写入照做，之后的写入失败，用来模拟清单写到一半出错。 */
+private class FailUpsertAfter(
+    private val delegate: InMemoryCharacterStore,
+    private var remaining: Int,
+) : CharacterStore by delegate {
+    override fun upsert(filesDir: File, info: CharacterInfo) {
+        if (remaining == 0) error("清单写不进去")
+        remaining -= 1
+        delegate.upsert(filesDir, info)
+    }
+}
+
 class CharacterRepositoryTest {
     private fun sandbox(name: String): File = File("build/$name").apply { deleteRecursively(); mkdirs() }
 
@@ -104,6 +116,38 @@ class CharacterRepositoryTest {
 
         assertEquals(1.toByte(), vitsBytes(files, "feibi")[0])
         assertEquals("旧原文", store.find("feibi")?.refText)
+        assertNoImportLeftovers(files, "feibi")
+    }
+
+    @Test
+    fun failedSaveRollsBackAnOverwrite() {
+        val root = sandbox("repo-rollback-overwrite-test")
+        val files = filesIn(root)
+        val memory = InMemoryCharacterStore()
+        val repo = CharacterRepository(FailUpsertAfter(memory, 1))
+        val old = PackFixtures.zip(File(root, "feibi-old.zip"), "feibi", "菲比", fill = 1, refText = "旧原文")
+        val fresh = PackFixtures.zip(File(root, "feibi-new.zip"), "feibi", "菲比", fill = 2, refText = "新原文")
+        repo.importZip(files, old.inputStream())
+
+        assertThrows(IllegalStateException::class.java) { repo.importZip(files, fresh.inputStream()) }
+
+        assertEquals(1.toByte(), vitsBytes(files, "feibi")[0])
+        assertEquals("旧原文", memory.find("feibi")?.refText)
+        assertNoImportLeftovers(files, "feibi")
+    }
+
+    @Test
+    fun failedSaveRemovesABrandNewCharacter() {
+        val root = sandbox("repo-rollback-new-test")
+        val files = filesIn(root)
+        val memory = InMemoryCharacterStore()
+        val repo = CharacterRepository(FailUpsertAfter(memory, 0))
+        val packed = PackFixtures.zip(File(root, "feibi.zip"), "feibi", "菲比", fill = 2)
+
+        assertThrows(IllegalStateException::class.java) { repo.importZip(files, packed.inputStream()) }
+
+        assertFalse(File(CharacterPack.directory(files), "feibi").exists())
+        assertEquals(emptyList<CharacterInfo>(), memory.list())
         assertNoImportLeftovers(files, "feibi")
     }
 

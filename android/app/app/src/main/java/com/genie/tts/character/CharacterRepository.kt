@@ -25,23 +25,27 @@ internal class CharacterRepository(private val store: CharacterStore) {
             deleteRecursively()
             mkdirs()
         }
+        var backup: File? = null
+        var installed: File? = null
         try {
             val staged = CharacterPack.stage(input, staging)
             val info = staged.info
             val dest = File(CharacterPack.directory(filesDir), info.id)
             val replaced = dest.isDirectory
             val previous = store.find(info.id)
-            val backup = File(filesDir, "$BACKUP_PREFIX${info.id}")
             if (replaced) {
-                backup.deleteRecursively()
-                if (!dest.renameTo(backup)) error("无法替换已有角色 ${info.id}")
+                val saved = File(filesDir, "$BACKUP_PREFIX${info.id}")
+                saved.deleteRecursively()
+                if (!dest.renameTo(saved)) error("无法替换已有角色 ${info.id}")
+                backup = saved
             } else {
                 dest.parentFile?.mkdirs()
             }
             if (!staged.root.renameTo(dest)) {
-                if (replaced) backup.renameTo(dest)
+                backup?.renameTo(dest)
                 error("无法保存角色 ${info.id}")
             }
+            installed = dest
             val chosen = displayName?.trim()?.takeIf { it.isNotEmpty() } ?: previous?.name?.trim()?.takeIf { it.isNotEmpty() }
             val base = CharacterPack.read(dest)
             val avatar = if (CharacterPack.avatarImage(dest) != null) null else previous?.avatarIndex ?: base.avatarIndex
@@ -49,10 +53,19 @@ internal class CharacterRepository(private val store: CharacterStore) {
             File(dest, CharacterPackSchema.LEGACY_NAME_FILE).delete()
             File(dest, CharacterPackSchema.LEGACY_AVATAR_FILE).delete()
             store.upsert(filesDir, stored)
-            backup.deleteRecursively()
+            val leftover = backup
+            backup = null
+            installed = null
+            leftover?.deleteRecursively()
             staging.deleteRecursively()
             return ImportResult(stored, replaced)
         } catch (error: Exception) {
+            // 新目录已经放上去才需要撤：删掉新的，把备份搬回原位。还没放上去时备份仍在原地。
+            val placed = installed
+            if (placed != null) {
+                placed.deleteRecursively()
+                backup?.renameTo(placed)
+            }
             staging.deleteRecursively()
             throw error
         }
