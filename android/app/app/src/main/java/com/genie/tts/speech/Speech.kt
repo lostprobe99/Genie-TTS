@@ -116,10 +116,11 @@ internal class Speech(
         character: CharacterInfo,
         threads: Int,
         onMark: (loading: Boolean, index: Int) -> Unit = { _, _ -> },
+        stop: () -> Boolean = { false },
     ): Clip {
         requireInferenceLane()
         val text = ReferenceLine.text(character.root)
-        return synthesize(character, listOf(text), 1.0, threads, onMark).single()
+        return synthesize(character, listOf(text), 1.0, threads, onMark, stop = stop).single()
     }
 
     override fun close() {

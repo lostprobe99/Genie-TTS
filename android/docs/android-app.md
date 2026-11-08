@@ -10,12 +10,16 @@
 
 ## 代码结构
 
-源码在 `com.genie.tts` 下按职责分包。`MainActivity` 和 `TtsService` 留在根包。`ui` 是页面，`character` 是角色包和清单，`speech` 是合成、韵律和 `g2p`，`service` 是朗读接口，`core` 是日志和机器状态。
+源码在 `com.genie.tts` 下按职责分包。`MainActivity` 和 `TtsService` 留在根包，`AppViewModel` 也在根包。`ui` 是页面，`character` 是角色包和清单，`speech` 是合成、韵律和 `g2p`，`service` 是朗读接口，`core` 是日志、机器状态，以及界面状态的存放。
 
-`MainActivity` 负责应用生命周期、页面切换，以及首页、角色和韵律操作。独立页面不再把筛选状态和渲染细节塞进 Activity：
+`MainActivity` 负责应用生命周期、页面切换、权限、选文件，以及把状态接到页面上。角色和韵律的导入、删除仍由它发起。合成和播放已经分开：
 
-- `SpeakController` 管主屏的分句列表、语速、合成和播放按钮，以及底下的状态。点下去之后的合成和播放仍由 `MainActivity` 发起。
-- `CharacterController` 管角色卡片、搜索、批量条和导入按钮。导入、删除、改名和试听仍由 `MainActivity` 发起。
+- `SpeakController` 只画主屏的分句列表、语速、按钮和底下的状态。
+- `SynthesisActions` 管主屏合成和试听的进度、分句结果和「上次没有合成完」的标记。`PlaybackActions` 管播放和试听的声音。两者都由 `AppViewModel` 拿着。
+- `TaskLane` 表示界面上正在做一件耗时的事。这时候合成、试听、导入、删除和下载不能再开一个。播放不算在里面。
+- `StateStore` 保存一份状态并通知监听的界面。服务页的 `ServiceStateStore` 用的是同一套。
+- 界面因为系统设置被系统重建时，合成和播放接着进行。真正离开这个界面才停。
+- `CharacterController` 管角色卡片、搜索、批量条和导入按钮。导入、删除、改名仍由 `MainActivity` 发起。试听由 `SynthesisActions` 发起。
 - `ProsodyController` 管韵律页的状态、进度、路径和下载导入删除按钮。下载、导入和删除仍由 `MainActivity` 发起。
 
 - `ServicePageController` 管服务状态、统计、地址和运行时间。
@@ -23,7 +27,7 @@
 - `HelpPageController` 管帮助分类、搜索和问答展开状态。
 - `AboutPageController` 管版本、设备与安装信息。
 
-合成路径和界面分开。`Speech` 组织一次合成，`ChineseFrontend` 生成中文音素，`Prosody` 生成中文韵律，`TtsEngine` 只运行角色包里的 ONNX 模型。同一角色连续几句复用已经读入的清单和参考张量。加载时不再把优化后的模型写到 `optimized/`，已有的这个目录会删掉。主屏、试听和接口的合成进同一条推理队列，同一时间只跑一路；丢掉已加载的模型也走这条队列。播放在自己的线程上，不占着合成。播放的时候可以导入、改字和打开别的页。点合成、试听或播放会先停掉正在放的声音。退到后台继续放，离开这个界面（Activity 销毁）就停。朗读接口由 `TtsServer` 解析 HTTP，`TtsService` 负责前台服务生命周期，再交给同一份 `Speech`。接口开着没有、端口、运行时间和调用统计放在一份不可变的 `ServiceState` 里。`ServiceStateStore` 可以同时通知好几处界面，注销之后就不再通知。角色文件和清单只从 `CharacterRepository` 进出，包格式集中在 `CharacterPackSchema`。
+合成路径和界面分开。`Speech` 组织一次合成，`ChineseFrontend` 生成中文音素，`Prosody` 生成中文韵律，`TtsEngine` 只运行角色包里的 ONNX 模型。同一角色连续几句复用已经读入的清单和参考张量。加载时不再把优化后的模型写到 `optimized/`，已有的这个目录会删掉。主屏、试听和接口的合成进同一条推理队列，同一时间只跑一路；丢掉已加载的模型也走这条队列。播放在自己的线程上，不占着合成。播放的时候可以导入、改字和打开别的页。点合成、试听或播放会先停掉正在放的声音。退到后台继续放。界面因为系统设置重建时接着放，真正离开这个界面才停。朗读接口由 `TtsServer` 解析 HTTP，`TtsService` 负责前台服务生命周期，再交给同一份 `Speech`。接口开着没有、端口、运行时间和调用统计放在一份不可变的 `ServiceState` 里。`ServiceStateStore` 可以同时通知好几处界面，注销之后就不再通知。角色文件和清单只从 `CharacterRepository` 进出，包格式集中在 `CharacterPackSchema`。
 
 ## 界面结构
 

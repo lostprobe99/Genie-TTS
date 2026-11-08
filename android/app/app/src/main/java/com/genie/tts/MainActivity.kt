@@ -12,18 +12,13 @@ import com.genie.tts.core.appBuildBanner
 import com.genie.tts.core.noteInstalledBuild
 import com.genie.tts.service.ServiceStates
 import com.genie.tts.service.TtsPorts
-import com.genie.tts.speech.AudioPlayer
-import com.genie.tts.speech.Clip
 import com.genie.tts.speech.Engines
-import com.genie.tts.speech.inferenceThreads
+import com.genie.tts.speech.PlaybackKind
 import com.genie.tts.speech.Prosody
 import com.genie.tts.speech.ProsodyPack
 import com.genie.tts.speech.Release
 import com.genie.tts.speech.Speech
-import com.genie.tts.speech.SynthesisCancelled
 import com.genie.tts.speech.TextSplitter
-import com.genie.tts.speech.isQuiet
-import com.genie.tts.speech.playSamples
 import com.genie.tts.speech.speedOf
 import com.genie.tts.ui.AboutPageController
 import com.genie.tts.ui.CharacterController
@@ -75,6 +70,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.viewModels
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -95,13 +91,13 @@ import kotlin.math.max
 class MainActivity : AppCompatActivity() {
     private enum class Page { Speak, Characters, Service, Prosody, About, Logs, Help }
 
+    private val session: AppViewModel by viewModels()
     private val worker = Executors.newSingleThreadExecutor { runnable ->
         Thread(runnable, "genie").apply { isDaemon = true }
     }
-    private val player = AudioPlayer()
     private val splitter = TextSplitter()
 
-    private lateinit var speech: Speech
+    private fun speech(): Speech = Engines.get(filesDir) { assets.open(it) }
     private val repository = CharacterRepository.shared
     private lateinit var drawer: DrawerLayout
     private lateinit var drawerPanel: View
@@ -157,24 +153,30 @@ class MainActivity : AppCompatActivity() {
     private var page = Page.Speak
     private var roster: List<CharacterInfo> = emptyList()
     private var selectedId: String? = null
-    private var clips: MutableList<Clip?> = mutableListOf()
-    private var workNote = ""
-    private var synthStartedAt = 0L
-    private var synthElapsedMs = 0L
-    private var active = -1
-    private var busy = false
-    private var playing = false
     private var speedGestureKeepsAudio = false
-    private var synthesizing = false
-    private var loadingModel = false
-    private var playFocusGranted = true
     private var suppress = false
+    private var pinnedBanner: String? = null
+    private var seenSynthAlert = 0L
+    private var seenPlayAlert = 0L
+    private var drawnSpeak = SpeakSnapshot(
+        clips = emptyList(),
+        synthesizing = false,
+        loadingModel = false,
+        playing = false,
+        busy = false,
+        active = -1,
+        workNote = "",
+        elapsedMs = 0L,
+        canSpeak = false,
+    )
+    private var drawnPreview: String? = null
+    private var drawnPlaying = false
+    private var stopSpeechWatch: (() -> Unit)? = null
     private var spinnerGen = 0
     private var downloading = false
     private var downloadDone = 0L
     private var downloadTotal = 0L
     private var roleMenu: PopupWindow? = null
-    private var previewId: String? = null
     private var stopWatchingService: (() -> Unit)? = null
     private var batching = false
     private val picked = mutableSetOf<String>()
@@ -220,7 +222,7 @@ class MainActivity : AppCompatActivity() {
         }
         setContentView(R.layout.activity_main)
         Engines.activityOpen = true
-        speech = Engines.get(filesDir) { assets.open(it) }
+        speech()
         repository.attach(filesDir)
         aboutController = AboutPageController(this)
         logController = LogPageController(this) { page == Page.Logs }
@@ -255,6 +257,7 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         stopWatchingService?.invoke()
         stopWatchingService = ServiceStates.store.listen { if (!isDestroyed) renderService() }
+        watchSpeech()
         TtsLog.listener = {
             if (!isDestroyed && page == Page.Logs) logController.render(logController.autoScroll.isChecked)
         }
@@ -263,6 +266,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         serviceController.stop()
+        stopSpeechWatch?.invoke()
+        stopSpeechWatch = null
         stopWatchingService?.invoke()
         stopWatchingService = null
         TtsLog.listener = null
@@ -276,11 +281,6 @@ class MainActivity : AppCompatActivity() {
         stopImportAudio()
         importAudioFile?.delete()
         importAudioFile = null
-        player.stop()
-        if (isFinishing) {
-            Engines.activityOpen = false
-            worker.execute { Engines.closeIfIdle { ServiceStates.store.current().running } }
-        }
         super.onDestroy()
     }
 
@@ -414,7 +414,7 @@ class MainActivity : AppCompatActivity() {
             onSelectAll = { toggleSelectShown() },
             onDeletePicked = { confirmDeletePicked() },
             onImport = {
-                if (busy) return@bind
+                if (isBusy()) return@bind
                 pickCharacter.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
             },
         )
@@ -485,11 +485,11 @@ class MainActivity : AppCompatActivity() {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 renderSpeed()
                 speedFile().writeText(progress.coerceIn(0, 16).toString())
-                if (fromUser && !suppress && !playing && !speedGestureKeepsAudio) invalidateAudio()
+                if (fromUser && !suppress && !session.playback.current().playing && !speedGestureKeepsAudio) invalidateAudio()
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {
-                speedGestureKeepsAudio = playing
+                speedGestureKeepsAudio = session.playback.current().playing
             }
 
             override fun onStopTrackingTouch(seekBar: SeekBar?) {
@@ -504,7 +504,7 @@ class MainActivity : AppCompatActivity() {
                 selectedId = next
                 if (next == null) selectionFile().delete() else selectionFile().writeText(next)
                 invalidateAudio()
-                worker.execute { onSpeech { speech.dropEngine() } }
+                worker.execute { onSpeech { speech().dropEngine() } }
                 if (page == Page.About) aboutController.render(currentRoleName())
                 updateControls()
             }
@@ -512,16 +512,20 @@ class MainActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) = Unit
         }
         speakController.bind(
-            onSynthesize = { if (!synthesizing && !busy) onSynthesize() },
+            onSynthesize = { if (!session.synthesis.current().synthesizing && !isBusy()) onSynthesize() },
             onTogglePlay = {
-                if (playing) stopPlaying()
-                else play(clips.indices.filter { clips[it]?.samples != null })
+                val playback = session.playback.current()
+                if (playback.playing) session.playback.stop()
+                else {
+                    val clips = session.synthesis.current().clips
+                    play(clips.indices.filter { clips[it]?.samples != null })
+                }
             },
         )
         prosodyController.bind(
             onDownload = ::confirmDownloadProsody,
             onImport = {
-                if (busy) return@bind
+                if (isBusy()) return@bind
                 pickProsody.launch(arrayOf("*/*", "application/zip", "application/octet-stream"))
             },
             onDelete = ::confirmDeleteProsody,
@@ -613,8 +617,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onSynthesize() {
-        if (busy) return
-        quietStop()
+        if (isBusy()) return
+        session.playback.quietStop()
         val character = currentCharacter() ?: return
         val text = sentence.text.toString()
         if (text.isBlank()) return
@@ -623,289 +627,21 @@ class MainActivity : AppCompatActivity() {
             toast("这句没有读出来")
             return
         }
-        confirmProsody(preview = false) { synthesize(character, pieces) }
-    }
-
-    private fun synthesize(character: CharacterInfo, pieces: List<String>) {
-        quietStop()
-        clips = pieces.map { Clip(it, null, 32000, null) }.toMutableList()
-        active = 0
-        synthStartedAt = SystemClock.elapsedRealtime()
-        synthElapsedMs = 0
-        synthesizing = true
-        loadingModel = true
-        showWork("正在加载模型，共 ${pieces.size} 句")
-        renderSentences()
-        banner.visibility = View.GONE
-        setBusy(true)
-        val marker = markerFile()
-        marker.writeText(aboutController.versionLabel())
-        val rate = speedOf(speed.progress)
-        val threads = threads()
-        worker.execute {
-            TtsLog.add(
-                LogLevel.INFO,
-                LogModule.SPEECH,
-                "主屏开始 ${character.id} ${pieces.size}句 语速 ${"%.2f".format(Locale.US, rate)}",
-            )
-            try {
-                val made = onSpeech { speech.synthesize(
-                    character,
-                    pieces,
-                    rate,
-                    threads,
-                    onMark = { loading, index ->
-                        runOnUiThread {
-                            if (isDestroyed) return@runOnUiThread
-                            loadingModel = loading
-                            if (!loading && index in clips.indices) active = index
-                            showWork(
-                                if (loading) {
-                                    "正在加载模型，共 ${pieces.size} 句"
-                                } else {
-                                    "正在合成第 ${index + 1} 句，共 ${pieces.size} 句"
-                                },
-                            )
-                            renderSentences()
-                            updateControls()
-                            scrollToActive()
-                        }
-                    },
-                    onPiece = { index, clip ->
-                        runOnUiThread {
-                            if (isDestroyed) return@runOnUiThread
-                            if (index in clips.indices) clips[index] = clip
-                            renderSentences()
-                            updateControls()
-                        }
-                    },
-                ) }
-                logHomeSynth(character.id, made)
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    if (synthStartedAt > 0L) synthElapsedMs = SystemClock.elapsedRealtime() - synthStartedAt
-                    synthStartedAt = 0
-                    synthesizing = false
-                    loadingModel = false
-                    active = -1
-                    renderSentences()
-                    showWork(synthSummary())
-                    updateControls()
-                }
-            } catch (error: Exception) {
-                if (error !is SynthesisCancelled) {
-                    val detail = error.message?.trim().orEmpty().ifBlank { "失败" }
-                    TtsLog.add(LogLevel.ERROR, LogModule.SPEECH, "主屏合成失败 ${character.id} $detail")
-                }
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    clearAudio()
-                    alert(human(error))
-                }
-            } finally {
-                marker.delete()
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    synthesizing = false
-                    loadingModel = false
-                    setBusy(false)
-                }
-            }
+        confirmProsody(preview = false) {
+            session.synthesis.synthesize(character, pieces, speedOf(speed.progress), aboutController.versionLabel())
         }
     }
 
     private fun preview(character: CharacterInfo) {
-        if (busy) return
+        if (isBusy()) return
         confirmProsody(preview = true) {
-            quietStop()
-            previewId = character.id
-            if (page == Page.Characters) renderCards()
-            setBusy(true)
-            banner.text = "正在加载模型"
-            banner.visibility = View.VISIBLE
-            val marker = markerFile()
-            marker.writeText(aboutController.versionLabel())
-            worker.execute {
-                TtsLog.add(LogLevel.INFO, LogModule.SPEECH, "试听 ${character.id}")
-                val clip = try {
-                    onSpeech { speech.preview(character, threads()) { loading, _ ->
-                        runOnUiThread {
-                            if (isDestroyed) return@runOnUiThread
-                            banner.text = if (loading) "正在加载模型" else "正在生成试听"
-                            banner.visibility = View.VISIBLE
-                        }
-                    } }
-                } catch (error: Exception) {
-                    marker.delete()
-                    if (error !is SynthesisCancelled) {
-                        val detail = error.message?.trim().orEmpty().ifBlank { "失败" }
-                        TtsLog.add(LogLevel.ERROR, LogModule.SPEECH, "试听失败 ${character.id} $detail")
-                        runOnUiThread { if (!isDestroyed) alert(human(error)) }
-                    }
-                    runOnUiThread {
-                        if (isDestroyed) return@runOnUiThread
-                        previewId = null
-                        banner.visibility = View.GONE
-                        setBusy(false)
-                        if (page == Page.Characters) renderCards()
-                    }
-                    return@execute
-                }
-                marker.delete()
-                val samples = clip.samples
-                if (samples == null) {
-                    val detail = clip.error ?: "这句没有读出来"
-                    TtsLog.add(LogLevel.WARN, LogModule.SPEECH, "试听没有声音 ${character.id} $detail")
-                    runOnUiThread {
-                        if (isDestroyed) return@runOnUiThread
-                        alert(detail)
-                        previewId = null
-                        banner.visibility = View.GONE
-                        setBusy(false)
-                        if (page == Page.Characters) renderCards()
-                    }
-                    return@execute
-                }
-                val quiet = isQuiet(samples)
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    setBusy(false)
-                    playing = true
-                    banner.text = if (quiet) "这句几乎没有声音" else "正在打开试听"
-                    banner.visibility = View.VISIBLE
-                    updateControls()
-                    if (page == Page.Characters) renderCards()
-                }
-                if (isDestroyed) return@execute
-                player.start(
-                    block = { stop ->
-                        playSamples(
-                            this,
-                            samples,
-                            clip.sampleRate,
-                            stop,
-                            onStarted = { granted ->
-                                runOnUiThread {
-                                    if (isDestroyed || stop()) return@runOnUiThread
-                                    playFocusGranted = granted
-                                    banner.text = previewLine(0, samples.size, clip.sampleRate, quiet, granted)
-                                }
-                            },
-                            onProgress = { played, total ->
-                                runOnUiThread {
-                                    if (isDestroyed || stop()) return@runOnUiThread
-                                    banner.text = previewLine(played, total, clip.sampleRate, quiet, playFocusGranted)
-                                }
-                            },
-                        )
-                    },
-                    onComplete = {
-                        runOnUiThread {
-                            if (isDestroyed) return@runOnUiThread
-                            playing = false
-                            previewId = null
-                            banner.visibility = View.GONE
-                            if (page == Page.Characters) renderCards()
-                            updateControls()
-                        }
-                    },
-                    onError = { error ->
-                        runOnUiThread {
-                            if (isDestroyed) return@runOnUiThread
-                            alert(human(error))
-                            playing = false
-                            previewId = null
-                            banner.visibility = View.GONE
-                            if (page == Page.Characters) renderCards()
-                            updateControls()
-                        }
-                    },
-                )
-            }
+            session.synthesis.preview(character, aboutController.versionLabel())
         }
     }
 
     private fun play(indexes: List<Int>) {
-        if (busy || indexes.isEmpty()) return
-        quietStop()
-        playing = true
-        playFocusGranted = true
-        showWork("正在打开播放")
-        updateControls()
-        player.start(
-            block = { stop ->
-                for (index in indexes) {
-                    if (stop()) return@start
-                    val clip = clips.getOrNull(index) ?: continue
-                    val samples = clip.samples ?: continue
-                    val quiet = isQuiet(samples)
-                    runOnUiThread {
-                        if (isDestroyed || stop()) return@runOnUiThread
-                        active = index
-                        renderSentences()
-                        scrollToActive()
-                    }
-                    playSamples(
-                        this,
-                        samples,
-                        clip.sampleRate,
-                        stop,
-                        onStarted = { granted ->
-                            runOnUiThread {
-                                if (isDestroyed || stop()) return@runOnUiThread
-                                playFocusGranted = granted
-                                showWork(playLine(index, 0, samples.size, clip.sampleRate, quiet))
-                            }
-                        },
-                        onProgress = { played, total ->
-                            runOnUiThread {
-                                if (isDestroyed || stop()) return@runOnUiThread
-                                showWork(playLine(index, played, total, clip.sampleRate, quiet))
-                            }
-                        },
-                    )
-                }
-            },
-            onComplete = {
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    showWork("播放结束")
-                    playing = false
-                    active = -1
-                    renderSentences()
-                    updateControls()
-                }
-            },
-            onError = { error ->
-                runOnUiThread {
-                    if (isDestroyed) return@runOnUiThread
-                    showWork(human(error))
-                    playing = false
-                    active = -1
-                    renderSentences()
-                    updateControls()
-                }
-            },
-        )
-    }
-
-    private fun quietStop() {
-        val hadAudio = playing || previewId != null || active >= 0
-        player.stop()
-        previewId = null
-        playing = false
-        active = -1
-        if (!hadAudio) return
-        banner.visibility = View.GONE
-        renderSentences()
-        if (page == Page.Characters) renderCards()
-        updateControls()
-    }
-
-    private fun stopPlaying() {
-        val wasPlaying = playing
-        quietStop()
-        if (wasPlaying) showWork("已停止")
+        if (isBusy() || indexes.isEmpty()) return
+        session.playback.play(indexes, session.synthesis.current().clips)
     }
 
     private fun confirmProsody(preview: Boolean, then: () -> Unit) {
@@ -924,7 +660,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onCharacterPicked(uri: Uri) {
-        if (busy || importInspecting) return
+        if (isBusy() || importInspecting) return
         importInspecting = true
         worker.execute {
             try {
@@ -1029,7 +765,7 @@ class MainActivity : AppCompatActivity() {
             pickCharacter.launch(arrayOf("application/zip", "application/octet-stream", "*/*"))
         }
         root.findViewById<View>(R.id.importConfirm).setOnClickListener {
-            if (busy) return@setOnClickListener
+            if (isBusy()) return@setOnClickListener
             val typed = nameField.text.toString().trim()
             dialog.dismiss()
             importCharacter(uri, typed.ifEmpty { preview.id })
@@ -1060,7 +796,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playHeldFile(file: File, onStarted: () -> Unit, onStopped: () -> Unit) {
-        stopPlaying()
+        session.playback.stop()
         stopImportAudio()
         onImportAudioStopped = onStopped
         val attributes = AudioAttributes.Builder()
@@ -1117,6 +853,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun formatSec(seconds: Double): String = "%.1f".format(Locale.US, seconds)
+
     private fun audioCaption(name: String, seconds: Double?): String {
         val file = name.substringAfterLast('/')
         val clock = seconds?.let { " (${formatSec(it)}s)" }.orEmpty()
@@ -1129,13 +867,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun importCharacter(uri: Uri, name: String) {
-        if (busy) return
+        if (isBusy()) return
         setBusy(true)
         worker.execute {
             try {
                 val result = contentResolver.openInputStream(uri)?.use { repository.importZip(filesDir, it, name) }
                     ?: error("打不开这个文件")
-                onSpeech { speech.dropIfLoaded(result.info.id) }
+                onSpeech { speech().dropIfLoaded(result.info.id) }
                 val action = if (result.replaced) "已更新" else "已导入"
                 TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "$action ${result.info.id}")
                 runOnUiThread {
@@ -1159,17 +897,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun removeCharacters(targets: List<CharacterInfo>) {
-        if (busy || targets.isEmpty()) return
+        if (isBusy() || targets.isEmpty()) return
         setBusy(true)
         val ids = targets.map { it.id }.toSet()
         val dropsSelection = selectedId in ids
-        if (previewId in ids) {
-            previewId = null
-            stopPlaying()
+        if (session.playback.current().previewId in ids) {
+            session.playback.stop()
         }
         worker.execute {
             try {
-                if (dropsSelection) onSpeech { speech.dropEngine() }
+                if (dropsSelection) onSpeech { speech().dropEngine() }
                 repository.remove(targets)
                 TtsLog.add(LogLevel.INFO, LogModule.CHARACTER, "已删除 ${targets.joinToString("、") { it.id }}")
                 runOnUiThread {
@@ -1196,7 +933,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun confirmDownloadProsody() {
-        if (busy) return
+        if (isBusy()) return
         if (!Prosody.isReady(filesDir)) {
             downloadProsody()
             return
@@ -1209,7 +946,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun downloadProsody() {
-        if (busy) return
+        if (isBusy()) return
         setBusy(true)
         downloading = true
         downloadDone = 0
@@ -1217,7 +954,7 @@ class MainActivity : AppCompatActivity() {
         renderProsody()
         worker.execute {
             try {
-                onSpeech { speech.dropProsody() }
+                onSpeech { speech().dropProsody() }
                 ProsodyPack.download(filesDir) { done, total ->
                     runOnUiThread {
                         if (isDestroyed) return@runOnUiThread
@@ -1244,12 +981,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onProsodyPicked(uri: Uri) {
-        if (busy) return
+        if (isBusy()) return
         val name = displayName(uri)
         setBusy(true)
         worker.execute {
             try {
-                onSpeech { speech.dropProsody() }
+                onSpeech { speech().dropProsody() }
                 contentResolver.openInputStream(uri)?.use { ProsodyPack.importFile(filesDir, it, name) }
                     ?: error("打不开这个文件")
                 TtsLog.add(LogLevel.INFO, LogModule.PROSODY, "已导入韵律模型")
@@ -1267,7 +1004,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun confirmDeleteProsody() {
-        if (busy) return
+        if (isBusy()) return
         showLightConfirm(
             getString(R.string.prosody_delete_title),
             getString(R.string.prosody_delete_sub),
@@ -1276,11 +1013,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun deleteProsody() {
-        if (busy) return
+        if (isBusy()) return
         setBusy(true)
         worker.execute {
             try {
-                onSpeech { speech.dropProsody() }
+                onSpeech { speech().dropProsody() }
                 ProsodyPack.delete(filesDir)
                 TtsLog.add(LogLevel.INFO, LogModule.PROSODY, "已删除韵律模型")
             } catch (error: Exception) {
@@ -1331,9 +1068,9 @@ class MainActivity : AppCompatActivity() {
         batching = batching,
         onPage = page == Page.Characters,
         picked = picked.toSet(),
-        busy = busy,
-        playing = playing,
-        previewId = previewId,
+        busy = isBusy(),
+        playing = session.playback.current().playing,
+        previewId = session.playback.current().previewId,
     )
 
     private fun renderCards() {
@@ -1341,13 +1078,16 @@ class MainActivity : AppCompatActivity() {
             characterState(),
             onToggle = ::togglePicked,
             onEdit = ::editCharacter,
-            onPreview = { info -> if (playing && previewId == info.id) stopPlaying() else preview(info) },
+            onPreview = { info ->
+                val playback = session.playback.current()
+                if (playback.playing && playback.previewId == info.id) session.playback.stop() else preview(info)
+            },
         )
     }
 
 
     private fun enterBatch() {
-        if (busy) return
+        if (isBusy()) return
         if (roster.isEmpty()) {
             toast(getString(R.string.no_roles))
             return
@@ -1392,7 +1132,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun confirmClearRoles() {
-        if (busy) return
+        if (isBusy()) return
         if (roster.isEmpty()) {
             toast(getString(R.string.no_roles))
             return
@@ -1451,7 +1191,7 @@ class MainActivity : AppCompatActivity() {
         root.findViewById<View>(R.id.editRoleCancel).setOnClickListener { dialog.dismiss() }
         bindRoleAudio(root, info, dialog)
         root.findViewById<View>(R.id.editRoleDelete).setOnClickListener {
-            if (busy) return@setOnClickListener
+            if (isBusy()) return@setOnClickListener
             dialog.dismiss()
             showLightConfirm(
                 getString(R.string.edit_role_delete),
@@ -1516,7 +1256,7 @@ class MainActivity : AppCompatActivity() {
             toast("名字不能是空的")
             return
         }
-        if (busy) return
+        if (isBusy()) return
         val nameChanged = name != info.name
         val wasCurrent = selectedId == info.id
         val selectionChanged = makeCurrent != wasCurrent
@@ -1543,7 +1283,7 @@ class MainActivity : AppCompatActivity() {
                     }
                     setBusy(false)
                     refreshCharacters()
-                    if (selectionChanged) worker.execute { onSpeech { speech.dropEngine() } }
+                    if (selectionChanged) worker.execute { onSpeech { speech().dropEngine() } }
                 }
             } catch (error: Exception) {
                 TtsLog.add(LogLevel.ERROR, LogModule.CHARACTER, "改名失败 ${info.id} ${logDetail(error)}")
@@ -1609,23 +1349,108 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun speakState(): SpeakSnapshot {
-        val canSpeak = !busy && !synthesizing && currentCharacter() != null && sentence.text.toString().isNotBlank()
+        val synth = session.synthesis.current()
+        val play = session.playback.current()
+        val busy = isBusy()
+        val sentencePlaying = play.kind == PlaybackKind.Sentences && (play.playing || play.active >= 0)
+        val elapsed = if (synth.synthesizing && synth.startedAt > 0L) {
+            SystemClock.elapsedRealtime() - synth.startedAt
+        } else {
+            synth.elapsedMs
+        }
         return SpeakSnapshot(
-            clips = clips,
-            synthesizing = synthesizing,
-            loadingModel = loadingModel,
-            playing = playing,
+            clips = synth.clips,
+            synthesizing = synth.synthesizing,
+            loadingModel = synth.loadingModel,
+            playing = play.playing,
             busy = busy,
-            active = active,
-            workNote = workNote,
-            elapsedMs = currentElapsed(),
-            canSpeak = canSpeak,
+            active = if (sentencePlaying) play.active else synth.active,
+            workNote = play.note.ifEmpty { synth.note },
+            elapsedMs = elapsed,
+            canSpeak = !busy && !synth.synthesizing && currentCharacter() != null && sentence.text.toString().isNotBlank(),
         )
     }
 
-    private fun renderSentences() {
-        speakController.renderSentences(speakState()) { index -> if (!busy) play(listOf(index)) }
+    private fun watchSpeech() {
+        val render = { if (!isDestroyed) renderSpeech() }
+        val stops = listOf(
+            session.synthesis.listen { render() },
+            session.playback.listen { render() },
+            session.lane.listen { render() },
+        )
+        stopSpeechWatch = { stops.forEach { it() } }
+        renderSpeech()
     }
+
+    private fun renderSpeech() {
+        if (isDestroyed || !::speakController.isInitialized) return
+        val snap = speakState()
+        val listChanged = snap.clips != drawnSpeak.clips ||
+            snap.synthesizing != drawnSpeak.synthesizing ||
+            snap.loadingModel != drawnSpeak.loadingModel ||
+            snap.active != drawnSpeak.active ||
+            snap.busy != drawnSpeak.busy ||
+            snap.playing != drawnSpeak.playing
+        if (listChanged) {
+            speakController.renderSentences(snap) { index -> if (!isBusy()) play(listOf(index)) }
+        } else {
+            speakController.paint(snap)
+        }
+        val controlsChanged = listChanged ||
+            snap.workNote != drawnSpeak.workNote ||
+            snap.canSpeak != drawnSpeak.canSpeak ||
+            snap.elapsedMs != drawnSpeak.elapsedMs
+        if (controlsChanged) {
+            speakController.updateControls(snap)
+            characters.isEnabled = !snap.busy
+            characterController.setImportEnabled(!snap.busy)
+            renderProsody()
+        }
+        if (snap.active != drawnSpeak.active && snap.active >= 0) speakController.scrollToActive(snap.active)
+        val play = session.playback.current()
+        val cardsChanged = play.previewId != drawnPreview || play.playing != drawnPlaying || snap.busy != drawnSpeak.busy
+        drawnPreview = play.previewId
+        drawnPlaying = play.playing
+        if (cardsChanged && page == Page.Characters) renderCards()
+        applyBanner()
+        drawnSpeak = snap
+        consumeAlerts()
+    }
+
+    private fun applyBanner() {
+        val play = session.playback.current()
+        if (play.bannerOwned) {
+            val text = play.banner
+            if (text.isNullOrEmpty()) {
+                banner.visibility = View.GONE
+            } else {
+                banner.text = text
+                banner.visibility = View.VISIBLE
+            }
+            return
+        }
+        val pinned = pinnedBanner
+        if (pinned != null) {
+            banner.text = pinned
+            banner.visibility = View.VISIBLE
+        }
+    }
+
+    private fun consumeAlerts() {
+        if (isFinishing || isDestroyed) return
+        val synth = session.synthesis.current()
+        if (synth.alert != null && synth.alertId != seenSynthAlert) {
+            seenSynthAlert = synth.alertId
+            if (synth.alert.isNotEmpty()) alert(synth.alert)
+        }
+        val play = session.playback.current()
+        if (play.alert != null && play.alertId != seenPlayAlert) {
+            seenPlayAlert = play.alertId
+            if (play.alert.isNotEmpty()) alert(play.alert)
+        }
+    }
+
+    private fun isBusy(): Boolean = session.lane.isBusy()
 
 
     private fun prosodyState(): ProsodySnapshot {
@@ -1637,7 +1462,7 @@ class MainActivity : AppCompatActivity() {
             filePath = file.absolutePath,
             lastModified = file.lastModified(),
             downloading = downloading,
-            busy = busy,
+            busy = isBusy(),
             downloadDone = downloadDone,
             downloadTotal = downloadTotal,
         )
@@ -1707,18 +1532,6 @@ class MainActivity : AppCompatActivity() {
         toast("已复制日志路径")
     }
 
-    private fun logHomeSynth(id: String, made: List<Clip>) {
-        val playable = made.count { it.samples != null }
-        val quiet = made.count { clip -> clip.samples?.let(::isQuiet) == true }
-        val broken = made.count { it.error != null }
-        val level = if (playable == 0 || broken > 0 || (playable > 0 && quiet == playable)) {
-            LogLevel.WARN
-        } else {
-            LogLevel.INFO
-        }
-        TtsLog.add(level, LogModule.SPEECH, "主屏完成 $id ${playable}/${made.size}句可播放")
-    }
-
     private fun logDetail(error: Exception): String {
         return error.message?.trim().orEmpty().ifBlank { "失败" }
     }
@@ -1782,68 +1595,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateControls() {
         speakController.updateControls(speakState())
-        characters.isEnabled = !busy
-        characterController.setImportEnabled(!busy)
+        characters.isEnabled = !isBusy()
+        characterController.setImportEnabled(!isBusy())
         renderProsody()
     }
 
     private fun invalidateAudio() {
-        if (playing) stopPlaying()
-        if (clips.isEmpty()) return
-        clearAudio()
-        updateControls()
-    }
-
-    private fun clearAudio() {
-        clips.clear()
-        active = -1
-        synthStartedAt = 0
-        synthElapsedMs = 0
-        workNote = ""
-        renderSentences()
-    }
-
-    private fun showWork(text: String) {
-        workNote = text
-        paintWork()
-    }
-
-    private fun paintWork() = speakController.paint(speakState())
-
-    private fun currentElapsed(): Long {
-        if (synthesizing && synthStartedAt > 0L) return SystemClock.elapsedRealtime() - synthStartedAt
-        return synthElapsedMs
-    }
-
-    private fun scrollToActive() = speakController.scrollToActive(active)
-
-    private fun synthSummary(): String = speakController.summary(clips)
-
-    private fun playLine(index: Int, played: Int, total: Int, sampleRate: Int, quiet: Boolean): String {
-        val clock = "${formatCount(played, sampleRate)}/${formatCount(total, sampleRate)} 秒"
-        val head = "正在播放第 ${index + 1} 句 · $clock"
-        return when {
-            quiet -> "$head，这句几乎没有声音"
-            !playFocusGranted -> "声音可能被其他应用占用。$head"
-            else -> head
+        val hadClips = session.synthesis.current().clips.isNotEmpty()
+        val wasPlaying = session.playback.current().playing
+        session.playback.quietStop()
+        if (!hadClips) {
+            if (wasPlaying) session.playback.showStopped()
+            return
         }
+        session.synthesis.clear()
     }
-
-    private fun previewLine(played: Int, total: Int, sampleRate: Int, quiet: Boolean, granted: Boolean): String {
-        val clock = "${formatCount(played, sampleRate)}/${formatCount(total, sampleRate)} 秒"
-        return when {
-            quiet -> "正在试听 $clock，这句几乎没有声音"
-            !granted -> "声音可能被其他应用占用。正在试听 $clock"
-            else -> "正在试听 $clock"
-        }
-    }
-
-    private fun formatCount(samples: Int, sampleRate: Int): String {
-        val seconds = if (sampleRate <= 0) 0.0 else samples.toDouble() / sampleRate
-        return formatSec(seconds)
-    }
-
-    private fun formatSec(seconds: Double): String = "%.1f".format(Locale.US, seconds)
 
     private fun restoreDraft() {
         suppress = true
@@ -1854,12 +1620,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showInterrupted() {
-        val marker = markerFile()
-        if (!marker.isFile) return
-        val version = marker.readText().trim().ifBlank { aboutController.versionLabel() }
-        banner.text = "上次合成没有完成\n版本 $version"
-        banner.visibility = View.VISIBLE
-        marker.delete()
+        if (session.playback.current().bannerOwned) return
+        val raw = session.synthesis.consumeMarker() ?: return
+        pinnedBanner = "上次合成没有完成\n版本 ${raw.ifBlank { aboutController.versionLabel() }}"
+        applyBanner()
     }
 
     private fun human(error: Throwable): String = uiText(error)
@@ -1888,8 +1652,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun currentRoleName(): String = currentCharacter()?.name ?: getString(R.string.unselected)
 
-    private fun threads(): Int = inferenceThreads()
-
     private fun currentAppBuild(): com.genie.tts.core.AppBuild {
         val info = packageManager.getPackageInfo(packageName, 0)
         val code = if (Build.VERSION.SDK_INT >= 28) {
@@ -1909,9 +1671,7 @@ class MainActivity : AppCompatActivity() {
     private fun <T> onSpeech(block: () -> T): T = Engines.scheduler.call(block)
 
     private fun setBusy(value: Boolean) {
-        busy = value
-        updateControls()
-        if (sentenceCard.visibility == View.VISIBLE) renderSentences()
+        if (value) session.lane.occupy() else session.lane.release()
     }
 
     private fun fileSize(uri: Uri): Long {
@@ -1948,6 +1708,4 @@ class MainActivity : AppCompatActivity() {
     private fun speedFile() = File(filesDir, "speech-speed.txt")
 
     private fun selectionFile() = File(filesDir, "selected-character.txt")
-
-    private fun markerFile() = File(filesDir, "last_step.txt")
 }

@@ -2,7 +2,6 @@ package com.genie.tts.ui
 
 import com.genie.tts.R
 import com.genie.tts.speech.Clip
-import com.genie.tts.speech.isQuiet
 import com.genie.tts.speech.secondsOf
 import android.content.res.ColorStateList
 import android.graphics.Color
@@ -232,16 +231,6 @@ internal class SpeakController(private val activity: AppCompatActivity) {
         if (active < 0) return
         val child = sentenceList.getChildAt(active) ?: return
         sentenceScroll.post { (sentenceScroll as android.widget.ScrollView).smoothScrollTo(0, child.top) }
-    }
-
-    fun summary(clips: List<Clip?>): String {
-        val playable = clips.count { it?.samples != null }
-        val quiet = clips.count { clip -> clip?.samples?.let(::isQuiet) == true }
-        return when {
-            playable == 0 -> "没有可以播放的句子"
-            quiet == playable -> "合成完成，但是几乎没有声音"
-            else -> "合成完成，$playable 句可播放"
-        }
     }
 
     private fun metricsLine(state: SpeakSnapshot): String {

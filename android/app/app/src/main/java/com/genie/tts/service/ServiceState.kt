@@ -1,5 +1,6 @@
 package com.genie.tts.service
 
+import com.genie.tts.core.StateStore
 import android.os.Handler
 import android.os.Looper
 
@@ -21,44 +22,17 @@ internal data class ServiceState(
  */
 internal class ServiceStateStore(
     initial: ServiceState = ServiceState(),
-    private val post: (() -> Unit) -> Unit = { block ->
+    post: (() -> Unit) -> Unit = { block ->
         Handler(Looper.getMainLooper()).post(block)
     },
 ) {
-    private val lock = Any()
-    private var state = initial
-    private var nextId = 0L
-    private val listeners = LinkedHashMap<Long, (ServiceState) -> Unit>()
+    private val store = StateStore(initial, post)
 
-    fun current(): ServiceState = synchronized(lock) { state }
+    fun current(): ServiceState = store.current()
 
-    fun update(block: (ServiceState) -> ServiceState): ServiceState {
-        synchronized(lock) {
-            state = block(state)
-        }
-        dispatch()
-        return current()
-    }
+    fun update(block: (ServiceState) -> ServiceState): ServiceState = store.update(block)
 
-    fun listen(listener: (ServiceState) -> Unit): () -> Unit {
-        val id = synchronized(lock) {
-            val assigned = nextId
-            nextId += 1
-            listeners[assigned] = listener
-            assigned
-        }
-        return { synchronized(lock) { listeners.remove(id) } }
-    }
-
-    private fun dispatch() {
-        val pending = synchronized(lock) { listeners.isNotEmpty() }
-        if (!pending) return
-        post {
-            val snapshot = current()
-            val live = synchronized(lock) { listeners.values.toList() }
-            live.forEach { it(snapshot) }
-        }
-    }
+    fun listen(listener: (ServiceState) -> Unit): () -> Unit = store.listen(listener)
 }
 
 internal object ServiceStates {
