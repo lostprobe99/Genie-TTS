@@ -10,6 +10,8 @@
 
 ## 代码结构
 
+源码在 `com.genie.tts` 下按职责分包。`MainActivity` 和 `TtsService` 留在根包。`ui` 是页面，`character` 是角色包和清单，`speech` 是合成、韵律和 `g2p`，`service` 是朗读接口，`core` 是日志和机器状态。
+
 `MainActivity` 负责应用生命周期、页面切换，以及首页、角色和韵律操作。独立页面不再把筛选状态和渲染细节塞进 Activity：
 
 - `ServicePageController` 管服务状态、统计、地址和运行时间。
@@ -17,7 +19,7 @@
 - `HelpPageController` 管帮助分类、搜索和问答展开状态。
 - `AboutPageController` 管版本、设备与安装信息。
 
-合成路径和界面分开。`Speech` 组织一次合成，`ChineseFrontend` 生成中文音素，`Prosody` 生成中文韵律，`TtsEngine` 只运行角色包里的 ONNX 模型。朗读接口由 `TtsServer` 解析 HTTP，`TtsService` 负责前台服务生命周期，再交给同一份 `Speech`。角色元数据由 `CharacterCatalog` 管，角色包文件由 `CharacterPack` 管。
+合成路径和界面分开。`Speech` 组织一次合成，`ChineseFrontend` 生成中文音素，`Prosody` 生成中文韵律，`TtsEngine` 只运行角色包里的 ONNX 模型。朗读接口由 `TtsServer` 解析 HTTP，`TtsService` 负责前台服务生命周期，再交给同一份 `Speech`。角色文件和清单只从 `CharacterRepository` 进出，包格式集中在 `CharacterPackSchema`。
 
 ## 界面结构
 
