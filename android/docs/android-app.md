@@ -8,6 +8,17 @@
 
 示意图里的 Genie 是顶栏上的应用名。`( 播放 )` 表示还不能点，`[ 播放 ]` 表示可以点。`#` 是抽屉拉开后变暗的主屏。
 
+## 代码结构
+
+`MainActivity` 负责应用生命周期、页面切换，以及首页、角色和韵律操作。独立页面不再把筛选状态和渲染细节塞进 Activity：
+
+- `ServicePageController` 管服务状态、统计、地址和运行时间。
+- `LogPageController` 管日志筛选、搜索和列表渲染。
+- `HelpPageController` 管帮助分类、搜索和问答展开状态。
+- `AboutPageController` 管版本、设备与安装信息。
+
+合成路径和界面分开。`Speech` 组织一次合成，`ChineseFrontend` 生成中文音素，`Prosody` 生成中文韵律，`TtsEngine` 只运行角色包里的 ONNX 模型。朗读接口由 `TtsServer` 解析 HTTP，`TtsService` 负责前台服务生命周期，再交给同一份 `Speech`。角色元数据由 `CharacterCatalog` 管，角色包文件由 `CharacterPack` 管。
+
 ## 界面结构
 
 四个页面从主屏进入。

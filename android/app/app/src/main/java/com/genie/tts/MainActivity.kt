@@ -22,10 +22,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Debug
-import android.os.Handler
-import android.os.Looper
-import android.os.Process
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.text.Editable
@@ -39,7 +35,6 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewOutlineProvider
 import android.view.WindowManager
-import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
 import android.widget.AdapterView
 import android.widget.Button
@@ -58,7 +53,6 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.widget.SwitchCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.GravityCompat
@@ -106,7 +100,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var pageTitle: TextView
     private lateinit var banner: TextView
     private lateinit var drawerRoleCount: TextView
-    private lateinit var drawerServiceState: TextView
     private lateinit var drawerProsodyState: TextView
     private lateinit var speakPage: View
     private lateinit var speakChrome: View
@@ -146,29 +139,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var roleSelectAll: TextView
     private lateinit var roleDeletePicked: TextView
     private lateinit var importCharacter: View
-    private lateinit var serviceStatus: TextView
-    private lateinit var serviceUptime: View
-    private lateinit var serviceUptimeValue: TextView
-    private lateinit var serviceDot: View
-    private val uptimeHandler = Handler(Looper.getMainLooper())
-    private val uptimeTicker = Runnable {
-        if (isDestroyed) return@Runnable
-        paintUptime()
-        scheduleUptime()
-    }
-    private lateinit var serviceNotice: TextView
-    private lateinit var serviceToggle: TextView
-    private lateinit var servicePort: EditText
-    private lateinit var serviceLocalUrl: TextView
-    private lateinit var serviceLanRow: View
-    private lateinit var serviceLanUrl: TextView
-    private lateinit var serviceIds: TextView
-    private lateinit var serviceStatRequests: TextView
-    private lateinit var serviceStatFailures: TextView
-    private lateinit var serviceStatAudio: TextView
-    private var logLevelFilter: LogLevel? = null
-    private var helpCategory = "all"
-    private val helpOpen = mutableMapOf<String, Boolean>()
     private var pendingLogText: String? = null
     private lateinit var prosodyStatus: TextView
     private lateinit var prosodyDetail: TextView
@@ -185,14 +155,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var downloadProsody: TextView
     private lateinit var importProsody: TextView
     private lateinit var deleteProsody: TextView
-    private lateinit var aboutBadge: TextView
-    private lateinit var aboutSystem: TextView
-    private lateinit var aboutModel: TextView
-    private lateinit var aboutRole: TextView
-    private lateinit var aboutInstalled: TextView
-    private lateinit var aboutBuilt: TextView
-    private lateinit var aboutVersion: TextView
-    private lateinit var aboutPackage: TextView
+    private lateinit var logController: LogPageController
+    private lateinit var helpController: HelpPageController
+    private lateinit var aboutController: AboutPageController
+    private lateinit var serviceController: ServicePageController
 
     private var page = Page.Speak
     private var roster: List<CharacterInfo> = emptyList()
@@ -276,6 +242,10 @@ class MainActivity : AppCompatActivity() {
         Engines.activityOpen = true
         speech = Engines.get(filesDir) { assets.open(it) }
         CharacterCatalog.attach(filesDir)
+        aboutController = AboutPageController(this)
+        logController = LogPageController(this) { page == Page.Logs }
+        helpController = HelpPageController(this, { page == Page.Help }) { aboutController.versionName() }
+        serviceController = ServicePageController(this, { page == Page.Service }, ::notificationsAllowed)
         bindViews()
         restoreDraft()
         showInterrupted()
@@ -284,7 +254,7 @@ class MainActivity : AppCompatActivity() {
         renderSpeed()
         showPage(Page.Speak)
         openRequestedPage(intent)
-        val version = versionBadge()
+        val version = aboutController.versionBadge()
         findViewById<TextView>(R.id.drawerVersion).text = version
         findViewById<TextView>(R.id.homeVersion).text = version
         findViewById<TextView>(R.id.logsVersion).text = version
@@ -301,13 +271,13 @@ class MainActivity : AppCompatActivity() {
         super.onStart()
         TtsRuntime.listener = { if (!isDestroyed) renderService() }
         TtsLog.listener = {
-            if (!isDestroyed && page == Page.Logs) renderLogs(logAutoScroll().isChecked)
+            if (!isDestroyed && page == Page.Logs) logController.render(logController.autoScroll.isChecked)
         }
         renderService()
     }
 
     override fun onStop() {
-        uptimeHandler.removeCallbacks(uptimeTicker)
+        serviceController.stop()
         TtsRuntime.listener = null
         TtsLog.listener = null
         super.onStop()
@@ -346,7 +316,6 @@ class MainActivity : AppCompatActivity() {
         pageTitle = findViewById(R.id.pageTitle)
         banner = findViewById(R.id.banner)
         drawerRoleCount = findViewById(R.id.drawerRoleCount)
-        drawerServiceState = findViewById(R.id.drawerServiceState)
         drawerProsodyState = findViewById(R.id.drawerProsodyState)
         speakPage = findViewById(R.id.speakPage)
         speakChrome = findViewById(R.id.speakChrome)
@@ -385,20 +354,6 @@ class MainActivity : AppCompatActivity() {
         roleSelectAll = findViewById(R.id.roleSelectAll)
         roleDeletePicked = findViewById(R.id.roleDeletePicked)
         importCharacter = findViewById(R.id.importCharacter)
-        serviceStatus = findViewById(R.id.serviceStatus)
-        serviceUptime = findViewById(R.id.serviceUptime)
-        serviceUptimeValue = findViewById(R.id.serviceUptimeValue)
-        serviceDot = findViewById(R.id.serviceDot)
-        serviceNotice = findViewById(R.id.serviceNotice)
-        serviceToggle = findViewById(R.id.serviceToggle)
-        servicePort = findViewById(R.id.servicePort)
-        serviceLocalUrl = findViewById(R.id.serviceLocalUrl)
-        serviceLanRow = findViewById(R.id.serviceLanRow)
-        serviceLanUrl = findViewById(R.id.serviceLanUrl)
-        serviceIds = findViewById(R.id.serviceIds)
-        serviceStatRequests = findViewById(R.id.serviceStatRequests)
-        serviceStatFailures = findViewById(R.id.serviceStatFailures)
-        serviceStatAudio = findViewById(R.id.serviceStatAudio)
         prosodyStatus = findViewById(R.id.prosodyStatus)
         prosodyDetail = findViewById(R.id.prosodyDetail)
         prosodyProgress = findViewById(R.id.prosodyProgress)
@@ -414,14 +369,6 @@ class MainActivity : AppCompatActivity() {
         downloadProsody = findViewById(R.id.downloadProsody)
         importProsody = findViewById(R.id.importProsody)
         deleteProsody = findViewById(R.id.deleteProsody)
-        aboutBadge = findViewById(R.id.aboutBadge)
-        aboutSystem = findViewById(R.id.aboutSystem)
-        aboutModel = findViewById(R.id.aboutModel)
-        aboutRole = findViewById(R.id.aboutRole)
-        aboutInstalled = findViewById(R.id.aboutInstalled)
-        aboutBuilt = findViewById(R.id.aboutBuilt)
-        aboutVersion = findViewById(R.id.aboutVersion)
-        aboutPackage = findViewById(R.id.aboutPackage)
         prosodyModel.text = Prosody.FILE_NAME
         prosodyFile.text = Prosody.FILE_NAME
         prosodyDownloadSub.text = "拉取 ${Release.TAG} 的 prosody.zip，大约 ${bytesLabel(Prosody.MODEL_BYTES)}，中断后可以接着下。"
@@ -492,58 +439,22 @@ class MainActivity : AppCompatActivity() {
         }
         findViewById<View>(R.id.prosodyBack).setOnClickListener { drawer.openDrawer(drawerPanel) }
         findViewById<View>(R.id.aboutBack).setOnClickListener { showPage(Page.Speak) }
-        findViewById<View>(R.id.logsBack).setOnClickListener { showPage(Page.Speak) }
-        findViewById<View>(R.id.helpBack).setOnClickListener { showPage(Page.Speak) }
-        findViewById<View>(R.id.helpRefresh).setOnClickListener {
-            toast("当前是 ${versionBadge()}。应用不在线检查更新。")
-        }
-        findViewById<View>(R.id.helpDocs).setOnClickListener { openRepo() }
-        findViewById<View>(R.id.helpFilterAll).setOnClickListener { pickHelpCategory("all") }
-        findViewById<View>(R.id.helpFilterStarter).setOnClickListener { pickHelpCategory("starter") }
-        findViewById<View>(R.id.helpFilterLegado).setOnClickListener { pickHelpCategory("legado") }
-        findViewById<View>(R.id.helpFilterBattery).setOnClickListener { pickHelpCategory("battery") }
-        findViewById<View>(R.id.helpFilterModel).setOnClickListener { pickHelpCategory("model") }
-        findViewById<View>(R.id.helpFilterService).setOnClickListener { pickHelpCategory("service") }
-        val helpQuery = findViewById<EditText>(R.id.helpQuery)
-        helpQuery.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-            override fun afterTextChanged(s: Editable?) {
-                findViewById<View>(R.id.helpQueryClear).visibility =
-                    if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
-                if (page == Page.Help) renderHelp(true)
-            }
-        })
-        findViewById<View>(R.id.helpQueryClear).setOnClickListener { helpQuery.setText("") }
-        findViewById<View>(R.id.helpRepo).setOnClickListener { openRepo() }
-        findViewById<View>(R.id.helpProsody).setOnClickListener { openLink(Release.PROSODY_URL) }
-        findViewById<View>(R.id.helpOpenLogs).setOnClickListener { showPage(Page.Logs) }
-        findViewById<View>(R.id.logsRefresh).setOnClickListener {
-            TtsLog.reload()
-            renderLogs(true)
-        }
-        findViewById<View>(R.id.logsHeaderExport).setOnClickListener { exportLogs() }
-        findViewById<View>(R.id.logsMore).setOnClickListener { copyLogPath() }
-        findViewById<View>(R.id.logFilterAll).setOnClickListener { pickLogLevel(null) }
-        findViewById<View>(R.id.logFilterInfo).setOnClickListener { pickLogLevel(LogLevel.INFO) }
-        findViewById<View>(R.id.logFilterWarn).setOnClickListener { pickLogLevel(LogLevel.WARN) }
-        findViewById<View>(R.id.logFilterError).setOnClickListener { pickLogLevel(LogLevel.ERROR) }
-        findViewById<View>(R.id.logFilterDebug).setOnClickListener { pickLogLevel(LogLevel.DEBUG) }
-        val logQuery = findViewById<EditText>(R.id.logQuery)
-        logQuery.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
-            override fun afterTextChanged(s: Editable?) {
-                findViewById<View>(R.id.logQueryClear).visibility =
-                    if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
-                if (page == Page.Logs) renderLogs(false)
-            }
-        })
-        findViewById<View>(R.id.logQueryClear).setOnClickListener { logQuery.setText("") }
-        val logSwitch = logAutoScroll()
-        val switchStates = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
-        logSwitch.trackTintList = ColorStateList(switchStates, intArrayOf(0xFF0A4B56.toInt(), 0xFFCBD5E1.toInt()))
-        logSwitch.thumbTintList = ColorStateList.valueOf(Color.WHITE)
+        helpController.bind(
+            onBack = { showPage(Page.Speak) },
+            onRefresh = { toast("当前是 ${aboutController.versionBadge()}。应用不在线检查更新。") },
+            onDocs = ::openRepo,
+            onCopyEndpoint = ::copyHelpEndpoint,
+            onRepo = ::openRepo,
+            onProsody = { openLink(Release.PROSODY_URL) },
+            onOpenLogs = { showPage(Page.Logs) },
+        )
+        logController.bind(
+            onBack = { showPage(Page.Speak) },
+            onExport = ::exportLogs,
+            onCopyPath = ::copyLogPath,
+            onClear = ::confirmClearLogs,
+            onCopyAll = ::copyAllLogs,
+        )
         findViewById<View>(R.id.serviceBack).setOnClickListener { drawer.openDrawer(drawerPanel) }
         findViewById<View>(R.id.serviceLogJump).setOnClickListener { showPage(Page.Logs) }
         findViewById<View>(R.id.roleSearchButton).setOnClickListener { toggleRoleSearch() }
@@ -644,7 +555,7 @@ class MainActivity : AppCompatActivity() {
                 if (next == null) selectionFile().delete() else selectionFile().writeText(next)
                 invalidateAudio()
                 worker.execute { speech.dropEngine() }
-                if (page == Page.About) renderAbout()
+                if (page == Page.About) aboutController.render(currentRoleName())
                 updateControls()
             }
 
@@ -672,26 +583,16 @@ class MainActivity : AppCompatActivity() {
             clipboard.setPrimaryClip(ClipData.newPlainText("prosody", Prosody.modelFile(filesDir).absolutePath))
             toast("已复制")
         }
-        serviceToggle.setOnClickListener { toggleService() }
-        findViewById<View>(R.id.copyLocal).setOnClickListener { copyPlain("tts", serviceLocalUrl.text) }
-        findViewById<View>(R.id.copyLan).setOnClickListener { copyPlain("tts", serviceLanUrl.text) }
-        findViewById<View>(R.id.logClear).setOnClickListener { confirmClearLogs() }
-        findViewById<View>(R.id.logCopy).setOnClickListener { copyAllLogs() }
-        findViewById<View>(R.id.logExport).setOnClickListener { exportLogs() }
-        servicePort.setOnEditorActionListener { view, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_DONE) {
-                view.clearFocus()
-                true
-            } else {
-                false
-            }
+        serviceController.bind(::toggleService, ::commitPort)
+        findViewById<View>(R.id.copyLocal).setOnClickListener {
+            copyPlain("tts", serviceController.localUrl.text)
         }
-        servicePort.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) commitPort()
+        findViewById<View>(R.id.copyLan).setOnClickListener {
+            copyPlain("tts", serviceController.lanUrl.text)
         }
         findViewById<View>(R.id.copyAbout).setOnClickListener {
             val clipboard = getSystemService(ClipboardManager::class.java)
-            clipboard.setPrimaryClip(ClipData.newPlainText("about", aboutLines()))
+            clipboard.setPrimaryClip(ClipData.newPlainText("about", aboutController.lines(currentRoleName())))
             toast("已复制")
         }
         findViewById<View>(R.id.aboutOpen).setOnClickListener { openRepo() }
@@ -759,12 +660,12 @@ class MainActivity : AppCompatActivity() {
             Page.Characters -> renderCards()
             Page.Service -> renderService()
             Page.Prosody -> renderProsody()
-            Page.About -> renderAbout()
-            Page.Logs -> renderLogs(true)
-            Page.Help -> renderHelp(true)
+            Page.About -> aboutController.render(currentRoleName())
+            Page.Logs -> logController.render(true)
+            Page.Help -> helpController.render(true)
             Page.Speak -> Unit
         }
-        scheduleUptime()
+        serviceController.scheduleUptime()
     }
 
     private fun onSynthesize() {
@@ -793,7 +694,7 @@ class MainActivity : AppCompatActivity() {
         banner.visibility = View.GONE
         setBusy(true)
         val marker = markerFile()
-        marker.writeText(versionLabel())
+        marker.writeText(aboutController.versionLabel())
         val rate = speedOf(speed.progress)
         val threads = threads()
         worker.execute {
@@ -878,7 +779,7 @@ class MainActivity : AppCompatActivity() {
             banner.text = "正在加载模型"
             banner.visibility = View.VISIBLE
             val marker = markerFile()
-            marker.writeText(versionLabel())
+            marker.writeText(aboutController.versionLabel())
             val gen = playGen.incrementAndGet()
             worker.execute {
                 TtsLog.add(LogLevel.INFO, LogModule.SPEECH, "试听 ${character.id}")
@@ -1448,7 +1349,7 @@ class MainActivity : AppCompatActivity() {
         }
         renderCards()
         drawerRoleCount.text = "${roster.size}个角色"
-        if (page == Page.About) renderAbout()
+        if (page == Page.About) aboutController.render(currentRoleName())
         updateControls()
     }
 
@@ -2054,134 +1955,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderService() {
-        val running = TtsRuntime.running
-        val problem = TtsRuntime.error
-        val switching = TtsRuntime.switching
-        serviceStatus.text = when {
-            switching -> getString(R.string.service_switching)
-            running -> getString(R.string.service_running)
-            !problem.isNullOrBlank() -> problem
-            else -> getString(R.string.service_stopped)
-        }
-        val open = running && !switching
-        paintUptime()
-        scheduleUptime()
-        serviceDot.backgroundTintList = ColorStateList.valueOf(
-            when {
-                open -> Color.parseColor("#10B981")
-                !running && problem.isNullOrBlank() && !switching -> Color.parseColor("#CBD5E1")
-                else -> color(R.color.amber)
-            },
-        )
-        val warn = running && !notificationsAllowed()
-        serviceNotice.visibility = if (warn) View.VISIBLE else View.GONE
-        serviceLocalUrl.text = serviceUrl("127.0.0.1")
-        val lan = interfaceAddresses().filter { it != "127.0.0.1" }
-        serviceLanRow.visibility = if (lan.isEmpty()) View.GONE else View.VISIBLE
-        serviceLanUrl.text = lan.joinToString("\n") { serviceUrl(it) }
-        serviceIds.text = roster.joinToString("、") { it.id }.ifBlank { getString(R.string.service_ids_empty) }
-        serviceStatRequests.text = TtsRuntime.requests.toString()
-        serviceStatFailures.text = TtsRuntime.failures.toString()
-        serviceStatFailures.setTextColor(if (TtsRuntime.failures > 0) Color.parseColor("#BE123C") else color(R.color.text_main))
-        serviceStatAudio.text = audioLength(TtsRuntime.audioMs)
-        drawerServiceState.text = if (running) "运行中" else getString(R.string.service_stopped)
-        drawerServiceState.setTextColor(color(if (running) R.color.primary else R.color.text_sub))
-        drawerServiceState.setBackgroundResource(if (running) R.drawable.bg_pill else R.drawable.bg_prosody_idle)
-        serviceToggle.setText(if (running) R.string.service_stop else R.string.service_start)
-        serviceToggle.setBackgroundResource(if (running) R.drawable.bg_service_stop else R.drawable.bg_service_start)
-        serviceToggle.setTextColor(if (running) Color.parseColor("#BE123C") else Color.WHITE)
-        serviceToggle.isEnabled = !switching
-        serviceToggle.alpha = if (switching) 0.45f else 1f
-        val shown = TtsRuntime.port.toString()
-        if (!servicePort.hasFocus() && servicePort.text.toString() != shown) {
-            servicePort.setText(shown)
-        }
-    }
-
-    private fun serviceUrl(address: String): String = "http://$address:${TtsRuntime.port}/tts"
-
-    private fun audioLength(ms: Double): String {
-        val total = (ms / 1000.0 + 0.5).toLong().coerceAtLeast(0)
-        val hours = total / 3600
-        val minutes = (total % 3600) / 60
-        val seconds = total % 60
-        return if (hours > 0) {
-            "%d:%02d:%02d".format(Locale.US, hours, minutes, seconds)
-        } else {
-            "%d:%02d".format(Locale.US, minutes, seconds)
-        }
-    }
-
-    private fun paintUptime() {
-        val started = TtsRuntime.startedAt
-        val show = TtsRuntime.running && started > 0L
-        serviceUptime.visibility = if (show) View.VISIBLE else View.GONE
-        if (!show) return
-        val total = ((SystemClock.elapsedRealtime() - started) / 1000).coerceAtLeast(0)
-        val hours = total / 3600
-        val minutes = (total % 3600) / 60
-        val seconds = total % 60
-        serviceUptimeValue.text = "%02d:%02d:%02d".format(Locale.US, hours, minutes, seconds)
-    }
-
-    private fun scheduleUptime() {
-        uptimeHandler.removeCallbacks(uptimeTicker)
-        val started = TtsRuntime.startedAt
-        val show = TtsRuntime.running && started > 0L && page == Page.Service && !isDestroyed
-        if (!show) return
-        val elapsed = SystemClock.elapsedRealtime() - started
-        val delay = (1000 - (elapsed % 1000)).coerceIn(32, 1000)
-        uptimeHandler.postDelayed(uptimeTicker, delay)
-    }
-
-    private fun logAutoScroll(): SwitchCompat = findViewById(R.id.logAutoScroll)
-
-    private fun pickHelpCategory(key: String) {
-        helpCategory = key
-        if (page == Page.Help) renderHelp(true)
-    }
-
-    private fun renderHelp(toTop: Boolean) {
-        val scroll = helpPage as ScrollView
-        val scrollY = scroll.scrollY
-        paintHelpChips()
-        val query = findViewById<EditText>(R.id.helpQuery)
-        val shown = fillHelpList(
-            findViewById(R.id.helpTopics),
-            TtsRuntime.port,
-            query.text.toString(),
-            helpCategory,
-            helpOpen,
-            onToggle = { title ->
-                helpOpen[title] = helpOpen[title] != true
-                renderHelp(false)
-            },
-            onCopy = { copyHelpEndpoint() },
-        )
-        findViewById<View>(R.id.helpEmpty).visibility = if (shown) View.GONE else View.VISIBLE
-        findViewById<TextView>(R.id.helpProsodySub).text = "${Release.TAG} / prosody.zip"
-        findViewById<TextView>(R.id.helpVersion).text = "GenieTTS v${versionName()}"
-        scroll.post { scroll.scrollTo(0, if (toTop) 0 else scrollY) }
-    }
-
-    private fun paintHelpChips() {
-        listOf(
-            R.id.helpFilterAll to "all",
-            R.id.helpFilterStarter to "starter",
-            R.id.helpFilterLegado to "legado",
-            R.id.helpFilterBattery to "battery",
-            R.id.helpFilterModel to "model",
-            R.id.helpFilterService to "service",
-        ).forEach { (id, key) ->
-            val view = findViewById<TextView>(id)
-            val selected = helpCategory == key
-            view.setTextColor(if (selected) Color.WHITE else 0xFF475569.toInt())
-            view.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
-            view.background = GradientDrawable().apply {
-                cornerRadius = dp(16).toFloat()
-                setColor(if (selected) 0xFF0D7384.toInt() else Color.WHITE)
-            }
-        }
+        serviceController.render(roster)
     }
 
     private fun copyHelpEndpoint() {
@@ -2196,11 +1970,6 @@ class MainActivity : AppCompatActivity() {
         } catch (_: ActivityNotFoundException) {
             toast("打不开这个链接")
         }
-    }
-
-    private fun pickLogLevel(level: LogLevel?) {
-        logLevelFilter = level
-        if (page == Page.Logs) renderLogs(false)
     }
 
     private fun confirmClearLogs() {
@@ -2245,160 +2014,6 @@ class MainActivity : AppCompatActivity() {
         toast("已复制日志路径")
     }
 
-    private fun renderLogs(follow: Boolean) {
-        val entries = TtsLog.entries()
-        val query = findViewById<EditText>(R.id.logQuery).text.toString().trim()
-        val shown = entries.mapIndexed { index, line -> (index + 1) to line }.filter { (_, line) ->
-            val levelOk = logLevelFilter == null || line.level == logLevelFilter
-            val haystack = "${line.module} ${line.message}"
-            val queryOk = query.isEmpty() || haystack.contains(query, ignoreCase = true)
-            levelOk && queryOk
-        }
-        paintLogChip(R.id.logFilterAll, null, entries.size)
-        paintLogChip(R.id.logFilterInfo, LogLevel.INFO, entries.count { it.level == LogLevel.INFO })
-        paintLogChip(R.id.logFilterWarn, LogLevel.WARN, entries.count { it.level == LogLevel.WARN })
-        paintLogChip(R.id.logFilterError, LogLevel.ERROR, entries.count { it.level == LogLevel.ERROR })
-        paintLogChip(R.id.logFilterDebug, LogLevel.DEBUG, entries.count { it.level == LogLevel.DEBUG })
-        val running = TtsRuntime.running
-        val tone = if (running) 0xFF0F766E.toInt() else 0xFF64748B.toInt()
-        val bannerText = findViewById<TextView>(R.id.logBannerText)
-        bannerText.text = if (running) "接口开着 · PID ${Process.myPid()}" else "接口未开启 · PID ${Process.myPid()}"
-        bannerText.setTextColor(tone)
-        val ram = findViewById<TextView>(R.id.logBannerRam)
-        val memory = Debug.MemoryInfo()
-        Debug.getMemoryInfo(memory)
-        ram.text = "RAM %.1f MB".format(Locale.US, memory.totalPss / 1024.0)
-        ram.setTextColor(tone)
-        findViewById<View>(R.id.logBannerDot).backgroundTintList =
-            ColorStateList.valueOf(if (running) 0xFF0D9488.toInt() else 0xFF94A3B8.toInt())
-        val list = findViewById<LinearLayout>(R.id.logList)
-        val scroll = findViewById<ScrollView>(R.id.logScroll)
-        val scrollY = scroll.scrollY
-        list.removeAllViews()
-        val end = findViewById<TextView>(R.id.logEnd)
-        if (shown.isEmpty()) {
-            end.visibility = View.GONE
-            list.addView(TextView(this).apply {
-                text = if (entries.isEmpty()) "还没有日志" else "没有符合的日志"
-                gravity = Gravity.CENTER
-                setPadding(dp(16), dp(28), dp(16), dp(28))
-                setTextColor(color(R.color.text_sub))
-                textSize = 13f
-            })
-        } else {
-            end.visibility = View.VISIBLE
-            end.text = if (logLevelFilter == null && query.isEmpty()) "已显示全部日志" else "已显示筛选结果"
-            shown.forEachIndexed { position, (index, line) ->
-                if (position > 0) list.addView(logDivider())
-                list.addView(logRow(index, line))
-            }
-        }
-        findViewById<TextView>(R.id.logCount).text = "共 ${entries.size} 条 · 占用 ${logBytes(TtsLog.bytes())}"
-        scroll.post {
-            scroll.post {
-                val child = scroll.getChildAt(0)
-                if (follow && child != null) scroll.scrollTo(0, child.bottom)
-                else scroll.scrollTo(0, scrollY)
-            }
-        }
-    }
-
-    private fun paintLogChip(id: Int, level: LogLevel?, count: Int) {
-        val view = findViewById<TextView>(id)
-        val selected = logLevelFilter == level
-        val label = level?.name ?: "全部"
-        view.text = if (level == null || count > 0) "$label  $count" else label
-        view.setTextColor(if (selected) Color.WHITE else 0xFF475569.toInt())
-        view.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
-        view.background = GradientDrawable().apply {
-            cornerRadius = dp(16).toFloat()
-            setColor(if (selected) 0xFF0A4B56.toInt() else 0xFFF1F5F9.toInt())
-        }
-        val dotColor = when (level) {
-            LogLevel.INFO -> 0xFF06B6D4.toInt()
-            LogLevel.WARN -> 0xFFF59E0B.toInt()
-            LogLevel.ERROR -> 0xFFF43F5E.toInt()
-            LogLevel.DEBUG -> 0xFFA855F7.toInt()
-            null -> 0
-        }
-        if (dotColor == 0) {
-            view.setCompoundDrawables(null, null, null, null)
-        } else {
-            val size = dp(6).coerceAtLeast(1)
-            val dot = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(dotColor)
-                setBounds(0, 0, size, size)
-            }
-            view.setCompoundDrawables(dot, null, null, null)
-            view.compoundDrawablePadding = dp(4)
-        }
-    }
-
-    private fun logRow(index: Int, line: LogLine): View {
-        val row = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(10), dp(8), dp(10), dp(8))
-            setBackgroundColor(logRowColor(line.level))
-        }
-        val meta = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-        val stamp = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        fun stampChild() = LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-        )
-        if (line.date.isNotBlank()) stamp.addView(logStamp(line.date), stampChild())
-        stamp.addView(logStamp(line.time.ifBlank { "--:--:--.---" }), stampChild())
-        meta.addView(
-            stamp,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-            ),
-        )
-        meta.addView(
-            logBadge(line.level),
-            LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                marginStart = dp(6)
-            },
-        )
-        meta.addView(
-            TextView(this).apply {
-                text = if (line.module.isBlank()) "" else "[${line.module}]"
-                textSize = 11f
-                setTypeface(typeface, Typeface.BOLD)
-                setTextColor(0xFF334155.toInt())
-            },
-            LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginStart = dp(6) },
-        )
-        meta.addView(TextView(this).apply {
-            text = "#%03d".format(Locale.US, index)
-            textSize = 10f
-            setTextColor(0xFF94A3B8.toInt())
-        })
-        row.addView(meta)
-        row.addView(TextView(this).apply {
-            text = line.message
-            textSize = 12f
-            setTextColor(0xFF334155.toInt())
-            setPadding(dp(2), dp(4), 0, 0)
-            setTextIsSelectable(true)
-        })
-        return row
-    }
-
-    private fun logStamp(text: String): TextView {
-        return TextView(this).apply {
-            this.text = text
-            textSize = 10f
-            typeface = Typeface.MONOSPACE
-            setTextColor(0xFF94A3B8.toInt())
-        }
-    }
-
     private fun logHomeSynth(id: String, made: List<Clip>) {
         val playable = made.count { it.samples != null }
         val quiet = made.count { clip -> clip.samples?.let(::isQuiet) == true }
@@ -2415,49 +2030,6 @@ class MainActivity : AppCompatActivity() {
         return error.message?.trim().orEmpty().ifBlank { "失败" }
     }
 
-    private fun logBadge(level: LogLevel): TextView {
-        val (fill, ink, stroke) = when (level) {
-            LogLevel.INFO -> Triple(0xFFECFEFF.toInt(), 0xFF0E7490.toInt(), 0xFFA5F3FC.toInt())
-            LogLevel.WARN -> Triple(0xFFFFFBEB.toInt(), 0xFFB45309.toInt(), 0xFFFDE68A.toInt())
-            LogLevel.ERROR -> Triple(0xFFFFF1F2.toInt(), 0xFFBE123C.toInt(), 0xFFFECDD3.toInt())
-            LogLevel.DEBUG -> Triple(0xFFFAF5FF.toInt(), 0xFF7E22CE.toInt(), 0xFFE9D5FF.toInt())
-        }
-        return TextView(this).apply {
-            text = level.name
-            textSize = 10f
-            setTextColor(ink)
-            setTypeface(typeface, Typeface.BOLD)
-            setPadding(dp(6), dp(1), dp(6), dp(1))
-            background = GradientDrawable().apply {
-                cornerRadius = dp(4).toFloat()
-                setColor(fill)
-                setStroke(dp(1).coerceAtLeast(1), stroke)
-            }
-        }
-    }
-
-    private fun logRowColor(level: LogLevel): Int = when (level) {
-        LogLevel.INFO -> Color.WHITE
-        LogLevel.WARN -> 0xFFFFFBEB.toInt()
-        LogLevel.ERROR -> 0xFFFFF1F2.toInt()
-        LogLevel.DEBUG -> 0xFFFAF5FF.toInt()
-    }
-
-    private fun logDivider(): View {
-        return View(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(1).coerceAtLeast(1),
-            )
-            setBackgroundColor(0xFFF1F5F9.toInt())
-        }
-    }
-
-    private fun logBytes(bytes: Long): String {
-        if (bytes < 1024) return "$bytes B"
-        return "${(bytes + 512) / 1024} KB"
-    }
-
     private fun copyPlain(label: String, text: CharSequence) {
         val clipboard = getSystemService(ClipboardManager::class.java)
         clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
@@ -2465,10 +2037,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun commitPort() {
-        val value = TtsPorts.parse(servicePort.text.toString())
+        val value = TtsPorts.parse(serviceController.port.text.toString())
         if (value == null) {
             toast("端口要在 1 到 65535 之间")
-            servicePort.setText(TtsRuntime.port.toString())
+            serviceController.port.setText(TtsRuntime.port.toString())
             return
         }
         if (value == TtsRuntime.port) return
@@ -2534,8 +2106,6 @@ class MainActivity : AppCompatActivity() {
             )
         }
     }
-
-    private fun versionBadge(): String = "v${versionName()} (${versionCode()})"
 
     private fun updateControls() {
         val canSpeak = !busy && !playing && !synthesizing && currentCharacter() != null && sentence.text.toString().isNotBlank()
@@ -2741,7 +2311,7 @@ class MainActivity : AppCompatActivity() {
     private fun showInterrupted() {
         val marker = markerFile()
         if (!marker.isFile) return
-        val version = marker.readText().trim().ifBlank { versionLabel() }
+        val version = marker.readText().trim().ifBlank { aboutController.versionLabel() }
         banner.text = "上次合成没有完成\n版本 $version"
         banner.visibility = View.VISIBLE
         marker.delete()
@@ -2776,18 +2346,6 @@ class MainActivity : AppCompatActivity() {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
     }
 
-    private fun renderAbout() {
-        val role = roster.find { it.id == selectedId }?.name ?: getString(R.string.unselected)
-        aboutBadge.text = versionBadge()
-        aboutSystem.text = "Android ${Build.VERSION.RELEASE}"
-        aboutModel.text = "${Build.MANUFACTURER} ${Build.MODEL}"
-        aboutRole.text = role
-        aboutInstalled.text = writtenAt(packageManager.getPackageInfo(packageName, 0).lastUpdateTime)
-        aboutBuilt.text = writtenAt(BuildConfig.BUILT_AT)
-        aboutVersion.text = versionLabel()
-        aboutPackage.text = packageName
-    }
-
     private fun openRepo() {
         val intent = Intent(Intent.ACTION_VIEW, Uri.parse(getString(R.string.about_repo_url)))
         try {
@@ -2797,30 +2355,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun aboutLines(): String {
-        val role = roster.find { it.id == selectedId }?.name ?: getString(R.string.unselected)
-        val installed = writtenAt(packageManager.getPackageInfo(packageName, 0).lastUpdateTime)
-        return "版本 ${versionLabel()}\n" +
-            "构建时间 ${writtenAt(BuildConfig.BUILT_AT)}\n" +
-            "包名 $packageName\n" +
-            "系统 Android ${Build.VERSION.RELEASE}（API ${Build.VERSION.SDK_INT}）\n" +
-            "机型 ${Build.MANUFACTURER} ${Build.MODEL}\n" +
-            "当前角色 $role\n" +
-            "安装时间 $installed"
-    }
-
-    private fun versionLabel(): String = "${versionName()}（${versionCode()}）"
-
-    private fun versionName(): String {
-        return packageManager.getPackageInfo(packageName, 0).versionName ?: "0.0.19"
-    }
-
-    private fun versionCode(): Long {
-        val info = packageManager.getPackageInfo(packageName, 0)
-        return if (Build.VERSION.SDK_INT >= 28) info.longVersionCode else @Suppress("DEPRECATION") info.versionCode.toLong()
-    }
-
     private fun currentCharacter(): CharacterInfo? = roster.find { it.id == selectedId }
+
+    private fun currentRoleName(): String = currentCharacter()?.name ?: getString(R.string.unselected)
 
     private fun threads(): Int = min(6, max(1, Runtime.getRuntime().availableProcessors()))
 
