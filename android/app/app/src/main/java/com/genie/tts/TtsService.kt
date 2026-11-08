@@ -12,6 +12,7 @@ import com.genie.tts.service.TtsServer
 import com.genie.tts.service.secondsText
 import com.genie.tts.speech.Engines
 import com.genie.tts.speech.TextSplitter
+import com.genie.tts.speech.inferenceThreads
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -29,8 +30,6 @@ import android.os.PowerManager
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import kotlin.concurrent.thread
-import kotlin.math.max
-import kotlin.math.min
 
 internal object TtsRuntime {
     const val EXTRA_PAGE = "page"
@@ -233,7 +232,7 @@ class TtsService : Service() {
         }
         if (pieces.isEmpty()) throw TtsException(400, "Text is required")
         val speech = Engines.get(filesDir) { assets.open(it) }
-        val threads = min(6, max(1, Runtime.getRuntime().availableProcessors()))
+        val threads = inferenceThreads()
         val power = getSystemService(PowerManager::class.java)
         val lock = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "genie:tts")
         lock.setReferenceCounted(false)

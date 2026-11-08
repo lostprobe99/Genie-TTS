@@ -45,27 +45,30 @@ class Prosody(
             "token_type_ids" to OwnedTensor.fromLongs(shape, LongArray(ids.size)).toTensor(env),
             "attention_mask" to OwnedTensor.fromLongs(shape, LongArray(ids.size) { 1L }).toTensor(env),
         )
-        val result = session.run(inputs)
         try {
-            val tensor = result.get(0) as OnnxTensor
-            val info = tensor.info as TensorInfo
-            val (rows, cols) = when (info.shape.size) {
-                2 -> info.shape[0].toInt() to info.shape[1].toInt()
-                3 -> {
-                    if (info.shape[0] != 1L) error("韵律输出的 batch 不是 1")
-                    info.shape[1].toInt() to info.shape[2].toInt()
+            val result = session.run(inputs)
+            try {
+                val tensor = result.get(0) as OnnxTensor
+                val info = tensor.info as TensorInfo
+                val (rows, cols) = when (info.shape.size) {
+                    2 -> info.shape[0].toInt() to info.shape[1].toInt()
+                    3 -> {
+                        if (info.shape[0] != 1L) error("韵律输出的 batch 不是 1")
+                        info.shape[1].toInt() to info.shape[2].toInt()
+                    }
+                    else -> error("韵律输出维度不对")
                 }
-                else -> error("韵律输出维度不对")
+                if (cols != BertAlign.DIM) error("韵律维度是 $cols")
+                val buffer = tensor.floatBuffer
+                buffer.rewind()
+                val data = FloatArray(rows * cols)
+                if (buffer.remaining() < data.size) error("韵律输出长度对不上")
+                buffer.get(data)
+                return data to rows
+            } finally {
+                result.close()
             }
-            if (cols != BertAlign.DIM) error("韵律维度是 $cols")
-            val buffer = tensor.floatBuffer
-            buffer.rewind()
-            val data = FloatArray(rows * cols)
-            if (buffer.remaining() < data.size) error("韵律输出长度对不上")
-            buffer.get(data)
-            return data to rows
         } finally {
-            result.close()
             inputs.values.forEach { it.close() }
         }
     }

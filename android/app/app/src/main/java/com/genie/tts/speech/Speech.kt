@@ -1,6 +1,7 @@
 package com.genie.tts.speech
 
 import com.genie.tts.character.CharacterInfo
+import com.genie.tts.character.CharacterPackSchema
 import com.genie.tts.character.ReferenceLine
 import com.genie.tts.core.LogLevel
 import com.genie.tts.core.LogModule
@@ -16,6 +17,7 @@ import android.media.AudioTrack
 import android.os.SystemClock
 import com.genie.tts.speech.g2p.ChineseFrontend
 import com.genie.tts.speech.g2p.G2pFiles
+import org.json.JSONObject
 import java.io.File
 import java.io.InputStream
 import kotlin.math.max
@@ -40,6 +42,7 @@ internal class Speech(
     private var frontend: ChineseFrontend? = null
     private var refBert: OwnedTensor? = null
     private var refKey: String? = null
+    private var loadedCharacter: LoadedCharacter? = null
 
     @Synchronized
     fun prepare(character: CharacterInfo, threads: Int) {
@@ -98,7 +101,7 @@ internal class Speech(
             LongArray(length) { phones.ids[it].toLong() },
         )
         val bert = textBert(phones, threads, ready)
-        val report = loaded.synthesize(GenieCase(character.root), textSeq, bert, ::engineLog, ref, speed, stop)
+        val report = loaded.synthesize(characterModel(character), textSeq, bert, ::engineLog, ref, speed, stop)
         return Clip(piece, report.samples, report.sampleRate, null)
     }
 
@@ -116,9 +119,12 @@ internal class Speech(
     override fun close() {
         engine?.close()
         engine = null
+        engineKey = null
+        loadedCharacter = null
         prosody?.close()
         prosody = null
         refBert = null
+        refKey = null
     }
 
     @Synchronized
@@ -128,6 +134,7 @@ internal class Speech(
         engineKey = null
         refBert = null
         refKey = null
+        loadedCharacter = null
     }
 
     /** 覆盖导入的是当前已加载的角色时，丢掉旧引擎。下一次合成按新文件重新加载。 */
@@ -196,8 +203,21 @@ internal class Speech(
         return tensor
     }
 
+    private fun characterModel(character: CharacterInfo): GenieCase {
+        val cached = loadedCharacter
+        if (cached != null && cached.id == character.id) return cached.case
+        val created = LoadedCharacter(character.id, character.root)
+        loadedCharacter = created
+        return created.case
+    }
+
     private fun characterSampleRate(character: CharacterInfo): Int {
-        return runCatching { GenieCase(character.root).sampleRate }.getOrDefault(32000)
+        val cached = loadedCharacter
+        if (cached != null && cached.id == character.id) return cached.case.sampleRate
+        return runCatching {
+            JSONObject(CharacterPackSchema.manifestFile(character.root).readText())
+                .getInt(CharacterPackSchema.KEY_SAMPLE_RATE)
+        }.getOrDefault(32000)
     }
 
     private fun engineLog(level: LogLevel, message: String) {

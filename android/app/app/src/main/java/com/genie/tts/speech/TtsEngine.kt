@@ -7,10 +7,7 @@ import ai.onnxruntime.OnnxJavaType
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.OrtSession
-import ai.onnxruntime.TensorInfo
-import org.json.JSONObject
 import java.io.File
-import java.io.FileInputStream
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
@@ -18,111 +15,8 @@ private const val MAX_DECODE_STEPS = 500
 
 internal class SynthesisCancelled : Exception()
 
-data class OwnedTensor(
-    val shape: LongArray,
-    val type: OnnxJavaType,
-    val bytes: ByteBuffer,
-) {
-    fun toTensor(env: OrtEnvironment): OnnxTensor {
-        val view = bytes.duplicate().order(ByteOrder.nativeOrder())
-        view.position(0)
-        view.limit(view.capacity())
-        return OnnxTensor.createTensor(env, view, shape, type)
-    }
-
-    companion object {
-        fun fromFile(file: File, dtype: String, shape: LongArray): OwnedTensor {
-            val type = when (dtype) {
-                "float32" -> OnnxJavaType.FLOAT
-                "int64" -> OnnxJavaType.INT64
-                else -> error("不支持的 dtype: $dtype")
-            }
-            val expected = shape.fold(1L) { acc, dim -> acc * dim } * typeSize(type)
-            val bytes = readDirect(file)
-            if (bytes.capacity().toLong() != expected) {
-                error("${file.name} 大小是 ${bytes.capacity()} 字节，按 shape 应为 $expected")
-            }
-            return OwnedTensor(shape, type, bytes)
-        }
-
-        fun fromLongs(shape: LongArray, values: LongArray): OwnedTensor {
-            val copy = ByteBuffer.allocateDirect(values.size * 8).order(ByteOrder.nativeOrder())
-            values.forEach { copy.putLong(it) }
-            copy.flip()
-            return OwnedTensor(shape, OnnxJavaType.INT64, copy)
-        }
-
-        fun fromFloats(shape: LongArray, values: FloatArray): OwnedTensor {
-            val copy = ByteBuffer.allocateDirect(values.size * 4).order(ByteOrder.nativeOrder())
-            values.forEach { copy.putFloat(it) }
-            copy.flip()
-            return OwnedTensor(shape, OnnxJavaType.FLOAT, copy)
-        }
-
-        fun fromOutput(tensor: OnnxTensor): OwnedTensor {
-            val info = tensor.info as TensorInfo
-            if (info.type == OnnxJavaType.BOOL) {
-                val bit: Byte = if (tensor.value == true) 1 else 0
-                val copy = ByteBuffer.allocateDirect(1).order(ByteOrder.nativeOrder())
-                copy.put(bit)
-                copy.flip()
-                return OwnedTensor(info.shape.copyOf(), OnnxJavaType.BOOL, copy)
-            }
-            val src = tensor.byteBuffer.duplicate().order(ByteOrder.nativeOrder())
-            src.position(0)
-            val copy = ByteBuffer.allocateDirect(src.remaining()).order(ByteOrder.nativeOrder())
-            copy.put(src)
-            copy.flip()
-            return OwnedTensor(info.shape.copyOf(), info.type, copy)
-        }
-
-        private fun readDirect(file: File): ByteBuffer {
-            FileInputStream(file).channel.use { channel ->
-                val buffer = ByteBuffer.allocateDirect(channel.size().toInt()).order(ByteOrder.nativeOrder())
-                while (buffer.hasRemaining()) {
-                    if (channel.read(buffer) < 0) break
-                }
-                buffer.flip()
-                return buffer
-            }
-        }
-
-        private fun typeSize(type: OnnxJavaType): Int = when (type) {
-            OnnxJavaType.FLOAT -> 4
-            OnnxJavaType.INT64 -> 8
-            else -> error("不支持的类型: $type")
-        }
-    }
-}
-
-class GenieCase(val root: File) {
-    val text: String
-    val sampleRate: Int
-    val tensors: Map<String, OwnedTensor>
-    val modelDir: File = CharacterPackSchema.modelsDir(root)
-
-    init {
-        val manifest = JSONObject(CharacterPackSchema.manifestFile(root).readText())
-        text = manifest.optString("text")
-        sampleRate = manifest.getInt(CharacterPackSchema.KEY_SAMPLE_RATE)
-        val tensorJson = manifest.getJSONObject(CharacterPackSchema.KEY_TENSORS)
-        val loaded = HashMap<String, OwnedTensor>()
-        for (name in tensorJson.keys()) {
-            val spec = tensorJson.getJSONObject(name)
-            val shapeJson = spec.getJSONArray("shape")
-            val shape = LongArray(shapeJson.length()) { shapeJson.getLong(it) }
-            loaded[name] = OwnedTensor.fromFile(File(root, spec.getString("file")), spec.getString("dtype"), shape)
-        }
-        tensors = loaded
-    }
-
-    fun model(name: String): File = File(modelDir, name)
-
-    companion object {
-        fun find(candidates: List<File>): GenieCase? {
-            return candidates.firstOrNull { CharacterPackSchema.manifestFile(it).isFile }?.let { GenieCase(it) }
-        }
-    }
+internal fun discardOptimizedModels(caseDir: File) {
+    File(caseDir, "optimized").deleteRecursively()
 }
 
 private val STAGE_INPUTS: List<String> = buildList {
@@ -143,18 +37,18 @@ class TtsEngine(
 
     internal fun load(log: (LogLevel, String) -> Unit): Long {
         val started = SystemClock.elapsedRealtime()
-        val optionsDir = File(caseDir, "optimized").apply { mkdirs() }
+        discardOptimizedModels(caseDir)
         for (name in CharacterPackSchema.MODEL_NAMES) {
             if (sessions.containsKey(name)) continue
-            sessions[name] = openSession(name, optionsDir, name == "vits_fp32.onnx", log)
+            sessions[name] = openSession(name, name == "vits_fp32.onnx", log)
         }
         return SystemClock.elapsedRealtime() - started
     }
 
-    private fun openSession(name: String, optionsDir: File, useXnnpack: Boolean, log: (LogLevel, String) -> Unit): OrtSession {
+    private fun openSession(name: String, useXnnpack: Boolean, log: (LogLevel, String) -> Unit): OrtSession {
         val model = CharacterPackSchema.modelFile(caseDir, name).absolutePath
         if (useXnnpack) {
-            val options = sessionOptions(optFile(optionsDir, "$name.t$threads.xnnpack.opt"))
+            val options = sessionOptions()
             try {
                 options.addXnnpack(mapOf("intra_op_num_threads" to threads.toString()))
                 val session = env.createSession(model, options)
@@ -166,7 +60,7 @@ class TtsEngine(
                 options.close()
             }
         }
-        val options = sessionOptions(optFile(optionsDir, "$name.t$threads.opt"))
+        val options = sessionOptions()
         try {
             val session = env.createSession(model, options)
             log(LogLevel.INFO, "已加载 $name（CPU）")
@@ -176,19 +70,10 @@ class TtsEngine(
         }
     }
 
-    private fun optFile(dir: File, name: String): String {
-        val model = name.substringBefore(".onnx") + ".onnx"
-        dir.listFiles()?.filter { file ->
-            file.name != name && file.name.startsWith(model) && file.name.endsWith(".opt")
-        }?.forEach { it.delete() }
-        return File(dir, name).absolutePath
-    }
-
-    private fun sessionOptions(optimizedPath: String): OrtSession.SessionOptions {
+    private fun sessionOptions(): OrtSession.SessionOptions {
         return OrtSession.SessionOptions().apply {
             setIntraOpNumThreads(threads)
             setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-            setOptimizedModelFilePath(optimizedPath)
         }
     }
 
@@ -225,23 +110,28 @@ class TtsEngine(
         val decoderStart = SystemClock.elapsedRealtime()
         var steps = 0
         var previous: OrtSession.Result? = null
-        var yTensor = first[0].toTensor(env)
-        var yEmbTensor = first[1].toTensor(env)
-        var cacheTensors = first.drop(2).map { it.toTensor(env) }
+        var yTensor: OnnxTensor? = null
+        var yEmbTensor: OnnxTensor? = null
+        var cacheTensors = emptyList<OnnxTensor>()
         var closeInputs = true
         var stoppedY: OwnedTensor? = null
         try {
+            yTensor = first[0].toTensor(env)
+            yEmbTensor = first[1].toTensor(env)
+            val built = ArrayList<OnnxTensor>()
+            cacheTensors = built
+            for (tensor in first.drop(2)) built.add(tensor.toTensor(env))
             for (idx in 0 until MAX_DECODE_STEPS) {
                 if (cancelled()) throw SynthesisCancelled()
                 steps = idx
                 val feed = HashMap<String, OnnxTensor>(STAGE_INPUTS.size)
-                feed[STAGE_INPUTS[0]] = yTensor
-                feed[STAGE_INPUTS[1]] = yEmbTensor
+                feed[STAGE_INPUTS[0]] = yTensor ?: error("解码没有输出")
+                feed[STAGE_INPUTS[1]] = yEmbTensor ?: error("解码没有输出")
                 cacheTensors.forEachIndexed { index, tensor -> feed[STAGE_INPUTS[index + 2]] = tensor }
                 val result = stage.run(feed)
                 if (closeInputs) {
-                    yTensor.close()
-                    yEmbTensor.close()
+                    yTensor?.close()
+                    yEmbTensor?.close()
                     cacheTensors.forEach { it.close() }
                 }
                 previous?.close()
@@ -255,8 +145,13 @@ class TtsEngine(
                 if (stop) break
             }
             if (cancelled()) throw SynthesisCancelled()
-            stoppedY = OwnedTensor.fromOutput(yTensor)
+            stoppedY = OwnedTensor.fromOutput(yTensor ?: error("解码没有输出"))
         } finally {
+            if (closeInputs) {
+                yTensor?.close()
+                yEmbTensor?.close()
+                cacheTensors.forEach { it.close() }
+            }
             previous?.close()
         }
         val decoderMs = SystemClock.elapsedRealtime() - decoderStart

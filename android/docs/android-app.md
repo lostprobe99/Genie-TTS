@@ -19,7 +19,7 @@
 - `HelpPageController` 管帮助分类、搜索和问答展开状态。
 - `AboutPageController` 管版本、设备与安装信息。
 
-合成路径和界面分开。`Speech` 组织一次合成，`ChineseFrontend` 生成中文音素，`Prosody` 生成中文韵律，`TtsEngine` 只运行角色包里的 ONNX 模型。朗读接口由 `TtsServer` 解析 HTTP，`TtsService` 负责前台服务生命周期，再交给同一份 `Speech`。角色文件和清单只从 `CharacterRepository` 进出，包格式集中在 `CharacterPackSchema`。
+合成路径和界面分开。`Speech` 组织一次合成，`ChineseFrontend` 生成中文音素，`Prosody` 生成中文韵律，`TtsEngine` 只运行角色包里的 ONNX 模型。同一角色连续几句复用已经读入的清单和参考张量。加载时不再把优化后的模型写到 `optimized/`，已有的这个目录会删掉。朗读接口由 `TtsServer` 解析 HTTP，`TtsService` 负责前台服务生命周期，再交给同一份 `Speech`。角色文件和清单只从 `CharacterRepository` 进出，包格式集中在 `CharacterPackSchema`。
 
 ## 界面结构
 

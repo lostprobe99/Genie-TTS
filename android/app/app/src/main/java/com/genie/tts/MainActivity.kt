@@ -10,6 +10,7 @@ import com.genie.tts.core.TtsLog
 import com.genie.tts.service.TtsPorts
 import com.genie.tts.speech.Clip
 import com.genie.tts.speech.Engines
+import com.genie.tts.speech.inferenceThreads
 import com.genie.tts.speech.Prosody
 import com.genie.tts.speech.ProsodyPack
 import com.genie.tts.speech.RefMismatch
@@ -96,7 +97,6 @@ import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity() {
@@ -2378,7 +2378,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun currentRoleName(): String = currentCharacter()?.name ?: getString(R.string.unselected)
 
-    private fun threads(): Int = min(6, max(1, Runtime.getRuntime().availableProcessors()))
+    private fun threads(): Int = inferenceThreads()
 
     private fun setBusy(value: Boolean) {
         busy = value
