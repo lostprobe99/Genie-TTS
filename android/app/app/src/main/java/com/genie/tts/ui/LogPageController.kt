@@ -8,6 +8,8 @@ import com.genie.tts.core.DEFAULT_LOG_LEVELS
 import com.genie.tts.core.LogLevel
 import com.genie.tts.core.LogLine
 import com.genie.tts.core.TtsLog
+import com.genie.tts.core.newShownLines
+import com.genie.tts.core.recentLogText
 import com.genie.tts.core.shownLogLines
 import com.genie.tts.service.ServiceStates
 import com.genie.tts.core.toggleLogLevel
@@ -38,6 +40,9 @@ import java.util.Locale
  *
  * File operations stay in [MainActivity]; this class is only responsible for
  * presenting the current [TtsLog] snapshot.
+ *
+ * New lines only move the list while auto-scroll is on and the list sits at its
+ * last row. Otherwise the shown rows stay put and a button counts what arrived.
  */
 internal class LogPageController(
     private val activity: AppCompatActivity,
@@ -49,13 +54,31 @@ internal class LogPageController(
     private val list: RecyclerView = binding.logsPage.logList
     private val empty: TextView = binding.logsPage.logEmpty
     private val end: TextView = binding.logsPage.logEnd
+    private val newLines: TextView = binding.logsPage.logNewLines
     private val rows = LogRowAdapter { copyLine(it) }
-    val autoScroll: SwitchCompat = binding.logsPage.logAutoScroll
+    private val autoScroll: SwitchCompat = binding.logsPage.logAutoScroll
+    private var atBottom = true
+    private var shownSeq = 0L
 
     fun bind(onBack: () -> Unit, onExport: () -> Unit, onClear: () -> Unit) {
         list.layoutManager = LinearLayoutManager(activity)
         list.adapter = rows
         list.itemAnimator = null
+        list.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                if (!recyclerView.canScrollVertically(1)) {
+                    val resume = !atBottom && newLines.visibility == View.VISIBLE && autoScroll.isChecked
+                    atBottom = true
+                    if (resume) recyclerView.post { if (isVisible()) render(follow = true) }
+                } else if (recyclerView.scrollState != RecyclerView.SCROLL_STATE_IDLE) {
+                    atBottom = false
+                }
+            }
+        })
+        newLines.setOnClickListener { render(follow = true) }
+        autoScroll.setOnCheckedChangeListener { _, on ->
+            if (on && isVisible()) render(follow = true)
+        }
         binding.logsBack.setOnClickListener { onBack() }
         binding.logsRefresh.setOnClickListener {
             TtsLog.reload()
@@ -90,15 +113,26 @@ internal class LogPageController(
         binding.logsPage.logExport.setOnClickListener { onExport() }
     }
 
+    /** [TtsLog] 有新行时调用。停在旧位置或关了自动滚动时，列表不动，只数新来了几行。 */
+    fun onNewLines() {
+        val entries = TtsLog.entries()
+        val cleared = entries.isEmpty() || entries.first().seq > shownSeq + 1 || entries.last().seq < shownSeq
+        if (cleared || rows.itemCount == 0 || (autoScroll.isChecked && atBottom)) {
+            render(follow = autoScroll.isChecked)
+            return
+        }
+        paintCounts(entries)
+        val waiting = newShownLines(entries, levels, query.text.toString(), shownSeq)
+        newLines.text = activity.getString(R.string.log_new_lines, waiting)
+        newLines.visibility = if (waiting > 0) View.VISIBLE else View.GONE
+    }
+
     fun render(follow: Boolean, reset: Boolean = false) {
         val entries = TtsLog.entries()
         val shown = shownLogLines(entries, levels, query.text.toString())
-        paintChip(binding.logsPage.logFilterAll, null, entries.size)
-        paintChip(binding.logsPage.logFilterInfo, LogLevel.INFO, entries.count { it.level == LogLevel.INFO })
-        paintChip(binding.logsPage.logFilterWarn, LogLevel.WARN, entries.count { it.level == LogLevel.WARN })
-        paintChip(binding.logsPage.logFilterError, LogLevel.ERROR, entries.count { it.level == LogLevel.ERROR })
-        paintChip(binding.logsPage.logFilterDebug, LogLevel.DEBUG, entries.count { it.level == LogLevel.DEBUG })
-        paintBanner()
+        paintCounts(entries)
+        shownSeq = entries.lastOrNull()?.seq ?: 0L
+        newLines.visibility = View.GONE
         rows.submit(shown)
         val nothing = shown.isEmpty()
         empty.visibility = if (nothing) View.VISIBLE else View.GONE
@@ -109,11 +143,28 @@ internal class LogPageController(
         end.text = activity.getString(
             if (allLevels && query.text.isNullOrBlank()) R.string.log_shown_all else R.string.log_shown_filtered,
         )
+        if (shown.isEmpty()) {
+            atBottom = true
+            return
+        }
+        if (follow) {
+            list.scrollToPosition(shown.lastIndex)
+            atBottom = true
+        } else if (reset) {
+            list.scrollToPosition(0)
+            atBottom = false
+        }
+    }
+
+    private fun paintCounts(entries: List<LogLine>) {
+        paintChip(binding.logsPage.logFilterAll, null, entries.size)
+        paintChip(binding.logsPage.logFilterInfo, LogLevel.INFO, entries.count { it.level == LogLevel.INFO })
+        paintChip(binding.logsPage.logFilterWarn, LogLevel.WARN, entries.count { it.level == LogLevel.WARN })
+        paintChip(binding.logsPage.logFilterError, LogLevel.ERROR, entries.count { it.level == LogLevel.ERROR })
+        paintChip(binding.logsPage.logFilterDebug, LogLevel.DEBUG, entries.count { it.level == LogLevel.DEBUG })
+        paintBanner()
         binding.logsPage.logCount.text =
             activity.getString(R.string.log_count, entries.size, bytesLabel(TtsLog.bytes()))
-        if (shown.isEmpty()) return
-        if (follow) list.scrollToPosition(shown.lastIndex)
-        else if (reset) list.scrollToPosition(0)
     }
 
     private fun toggle(level: LogLevel) {
@@ -121,24 +172,21 @@ internal class LogPageController(
         if (isVisible()) render(follow = false, reset = true)
     }
 
-    fun exportText(): String? {
-        val text = TtsLog.text()
-        if (text.isBlank()) {
-            Toast.makeText(activity, activity.getString(R.string.log_empty), Toast.LENGTH_SHORT).show()
-            return null
-        }
-        return text
-    }
-
     private fun copyAll() {
-        val text = TtsLog.text()
-        if (text.isBlank()) {
+        val entries = TtsLog.entries()
+        if (entries.isEmpty()) {
             Toast.makeText(activity, activity.getString(R.string.log_empty), Toast.LENGTH_SHORT).show()
             return
         }
+        val (text, count) = recentLogText(entries, MAX_COPY_CHARS)
         val clipboard = activity.getSystemService(ClipboardManager::class.java)
         clipboard.setPrimaryClip(ClipData.newPlainText("tts-log", text))
-        Toast.makeText(activity, activity.getString(R.string.copied), Toast.LENGTH_SHORT).show()
+        val note = if (count < entries.size) {
+            activity.getString(R.string.log_copied_recent, count)
+        } else {
+            activity.getString(R.string.copied)
+        }
+        Toast.makeText(activity, note, Toast.LENGTH_SHORT).show()
     }
 
     private fun copyPath() {
@@ -216,20 +264,25 @@ internal class LogPageController(
         if (bytes < 1024) "$bytes B" else "${(bytes + 512) / 1024} KB"
 
     private fun color(id: Int) = ContextCompat.getColor(activity, id)
+
+    private companion object {
+        /** 剪贴板走 Binder，整段太大会失败。 */
+        const val MAX_COPY_CHARS = 200_000
+    }
 }
 
 private class LogRowAdapter(
     private val onLongPress: (LogLine) -> Unit,
 ) : RecyclerView.Adapter<LogRowAdapter.Holder>() {
-    private val rows = ArrayList<Pair<Int, LogLine>>()
+    private val rows = ArrayList<LogLine>()
 
-    fun submit(items: List<Pair<Int, LogLine>>) {
+    fun submit(items: List<LogLine>) {
         val old = rows.toList()
         val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
             override fun getOldListSize() = old.size
             override fun getNewListSize() = items.size
-            override fun areItemsTheSame(a: Int, b: Int) = old[a] == items[b]
-            override fun areContentsTheSame(a: Int, b: Int) = (a == 0) == (b == 0)
+            override fun areItemsTheSame(a: Int, b: Int) = old[a].seq == items[b].seq
+            override fun areContentsTheSame(a: Int, b: Int) = old[a] == items[b] && (a == 0) == (b == 0)
         })
         rows.clear()
         rows.addAll(items)
@@ -244,8 +297,7 @@ private class LogRowAdapter(
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
-        val (index, line) = rows[position]
-        holder.bind(index, line, position == 0, onLongPress)
+        holder.bind(rows[position], position == 0, onLongPress)
     }
 
     class Holder(row: ItemLogLineBinding) : RecyclerView.ViewHolder(row.root) {
@@ -257,7 +309,7 @@ private class LogRowAdapter(
         private val index: TextView = row.logRowIndex
         private val message: TextView = row.logRowMessage
 
-        fun bind(number: Int, line: LogLine, first: Boolean, onLongPress: (LogLine) -> Unit) {
+        fun bind(line: LogLine, first: Boolean, onLongPress: (LogLine) -> Unit) {
             itemView.setBackgroundColor(rowColor(line.level))
             divider.visibility = if (first) View.GONE else View.VISIBLE
             date.visibility = if (line.date.isBlank()) View.GONE else View.VISIBLE
@@ -266,7 +318,7 @@ private class LogRowAdapter(
             level.text = line.level.name
             paintLevel(line.level)
             module.text = if (line.module.isBlank()) "" else "[${line.module}]"
-            index.text = "#%03d".format(Locale.US, number)
+            index.text = "#%03d".format(Locale.US, line.seq)
             message.text = line.message
             itemView.setOnLongClickListener {
                 onLongPress(line)

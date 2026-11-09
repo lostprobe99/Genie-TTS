@@ -231,6 +231,21 @@
                 android:textColor="@color/text_sub"
                 android:textSize="13sp"
                 android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/logNewLines"
+                android:layout_width="wrap_content"
+                android:layout_height="@dimen/dp_32"
+                android:layout_gravity="bottom|center_horizontal"
+                android:layout_marginBottom="@dimen/dp_12"
+                android:background="@drawable/bg_log_export"
+                android:elevation="@dimen/dp_2"
+                android:gravity="center"
+                android:paddingStart="@dimen/dp_14"
+                android:paddingEnd="@dimen/dp_14"
+                android:textColor="@android:color/white"
+                android:textSize="12sp"
+                android:visibility="gone" />
         </FrameLayout>
 
         <TextView

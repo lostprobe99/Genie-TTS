@@ -90,7 +90,7 @@ class TtsService : Service() {
                     port,
                     ::roster,
                     ::speak,
-                    log = { level, module, message -> TtsLog.add(level, module, message) },
+                    log = { level, module, message, error -> TtsLog.add(level, module, message, error) },
                     onCall = { failed, spokenMs ->
                         ServiceStates.store.update { state ->
                             state.copy(
@@ -150,7 +150,7 @@ class TtsService : Service() {
                         error = message,
                     )
                 }
-                TtsLog.add(LogLevel.ERROR, LogModule.SERVICE, message)
+                TtsLog.add(LogLevel.ERROR, LogModule.SERVICE, message, error.takeUnless { it is java.net.BindException })
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }

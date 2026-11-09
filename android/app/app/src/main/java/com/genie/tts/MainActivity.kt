@@ -79,7 +79,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var light: LightDialogs
     private lateinit var importSheet: ImportSheet
     private lateinit var editRole: EditRoleDialog
-    private var pendingLogText: String? = null
     private lateinit var logController: LogPageController
     private lateinit var helpController: HelpPageController
     private lateinit var aboutController: AboutPageController
@@ -112,17 +111,18 @@ class MainActivity : AppCompatActivity() {
         session.service.start()
     }
     private val saveLog = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
-        val text = pendingLogText
-        pendingLogText = null
-        if (uri == null || text.isNullOrEmpty()) return@registerForActivityResult
-        try {
-            contentResolver.openOutputStream(uri)?.use { stream ->
-                stream.write(text.toByteArray(Charsets.UTF_8))
-            } ?: error("empty")
-            toast(getString(R.string.exported))
-        } catch (_: Exception) {
-            toast(getString(R.string.export_failed))
-        }
+        if (uri == null) return@registerForActivityResult
+        Thread({
+            val saved = try {
+                contentResolver.openOutputStream(uri)?.use(TtsLog::exportTo) ?: error("empty")
+                true
+            } catch (_: Exception) {
+                false
+            }
+            runOnUiThread {
+                if (!isDestroyed) toast(getString(if (saved) R.string.exported else R.string.export_failed))
+            }
+        }, "genie-log-export").start()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -187,7 +187,7 @@ class MainActivity : AppCompatActivity() {
         showNotice(session.notices.current())
         renderProsody()
         TtsLog.listener = {
-            if (!isDestroyed && page == AppPage.Logs) logController.render(logController.autoScroll.isChecked)
+            if (!isDestroyed && page == AppPage.Logs) logController.onNewLines()
         }
         renderService()
     }
@@ -698,7 +698,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun confirmClearLogs() {
-        if (TtsLog.entries().isEmpty()) {
+        if (TtsLog.isEmpty()) {
             toast(getString(R.string.log_empty))
             return
         }
@@ -712,8 +712,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun exportLogs() {
-        val text = logController.exportText() ?: return
-        pendingLogText = text
+        if (TtsLog.isEmpty()) {
+            toast(getString(R.string.log_empty))
+            return
+        }
         saveLog.launch("genie-log.txt")
     }
 

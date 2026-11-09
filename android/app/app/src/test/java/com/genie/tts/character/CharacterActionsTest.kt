@@ -1,5 +1,6 @@
 package com.genie.tts.character
 
+import com.genie.tts.core.LogSink
 import com.genie.tts.core.StateStore
 import com.genie.tts.core.TaskLane
 import org.junit.Assert.assertEquals
@@ -282,7 +283,7 @@ class CharacterActionsTest {
             dropEngine = { droppedEngine.incrementAndGet() },
             dropIfLoaded = { dropped += it },
             stopPreview = { stopped += it },
-            log = { _, message -> logs += message },
+            log = LogSink { _, message, _ -> logs += message },
             runAsync = { task -> if (async) task() else queued += task },
             post = { it() },
         )

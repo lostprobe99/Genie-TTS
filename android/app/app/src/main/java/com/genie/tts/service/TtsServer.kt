@@ -20,11 +20,18 @@ internal fun interface TtsSpeaker {
     fun speak(request: TtsRequest, stop: () -> Boolean, emit: (String, FloatArray) -> Unit)
 }
 
+internal fun interface ServerLog {
+    fun write(level: LogLevel, module: LogModule, message: String, error: Throwable?)
+}
+
+private operator fun ServerLog.invoke(level: LogLevel, module: LogModule, message: String, error: Throwable? = null) =
+    write(level, module, message, error)
+
 internal class TtsServer(
     private val port: Int,
     private val characters: () -> Map<String, Int>,
     private val speaker: TtsSpeaker,
-    private val log: (LogLevel, LogModule, String) -> Unit = { _, _, _ -> },
+    private val log: ServerLog = ServerLog { _, _, _, _ -> },
     private val onCall: (Boolean, Double) -> Unit = { _, _ -> },
 ) {
     private var socket: ServerSocket? = null
@@ -148,6 +155,7 @@ internal class TtsServer(
         var totalAudioMs = 0.0
         var mark = begun
         var failed: String? = null
+        var failure: Throwable? = null
         try {
             speaker.speak(request, { cancelled.get() || stopRequested }) { sentence, samples ->
                 val now = System.nanoTime()
@@ -176,6 +184,7 @@ internal class TtsServer(
         } catch (error: Exception) {
             val mapped = httpFailure(error)
             failed = failureLog(error)
+            failure = error
             if (!started) writeText(output, mapped.status, mapped.message)
         } finally {
             val wallMs = (System.nanoTime() - begun) / 1_000_000.0
@@ -189,6 +198,7 @@ internal class TtsServer(
                 level,
                 LogModule.WEB,
                 "$host $ending ${count}段 音频 ${secondsText(totalAudioMs)} 秒 用时 ${secondsText(wallMs)} 秒",
+                failure,
             )
             onCall(failed != null && failed != "客户端断开", totalAudioMs)
             try {

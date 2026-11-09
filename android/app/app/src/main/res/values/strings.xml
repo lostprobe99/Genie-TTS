@@ -206,6 +206,8 @@
     <string name="log_ram">RAM %1$s MB</string>
     <string name="log_hint">搜索日志（如端口、角色、耗时）</string>
     <string name="log_autoscroll">自动滚动</string>
+    <string name="log_new_lines">↓ %1$d 条新日志</string>
+    <string name="log_copied_recent">日志太长，已复制最近 %1$d 条，完整的请导出</string>
     <string name="log_file_name">tts-log.txt</string>
     <string name="log_clear">清空日志</string>
     <string name="log_copy_all">复制全部</string>

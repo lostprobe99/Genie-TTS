@@ -2,9 +2,11 @@ package com.genie.tts.speech
 
 import com.genie.tts.core.LogLevel
 import com.genie.tts.core.LogModule
+import com.genie.tts.core.LogSink
 import com.genie.tts.core.StateStore
 import com.genie.tts.core.TaskLane
-import com.genie.tts.core.TtsLog
+import com.genie.tts.core.invoke
+import com.genie.tts.core.moduleLog
 import com.genie.tts.core.uiText
 import java.io.File
 import java.io.InputStream
@@ -34,9 +36,7 @@ internal class ProsodyActions(
     private val deletePack: () -> Unit = { ProsodyPack.delete(filesDir) },
     private val readyCheck: () -> Boolean = { Prosody.isReady(filesDir) },
     private val notice: (String) -> Unit,
-    private val log: (LogLevel, String) -> Unit = { level, message ->
-        TtsLog.add(level, LogModule.PROSODY, message)
-    },
+    private val log: LogSink = moduleLog(LogModule.PROSODY),
     private val runAsync: (() -> Unit) -> Unit = { task -> executor.execute(task) },
     post: (() -> Unit) -> Unit = { block ->
         android.os.Handler(android.os.Looper.getMainLooper()).post(block)
@@ -61,7 +61,7 @@ internal class ProsodyActions(
                 }
                 log(LogLevel.INFO, "已下载韵律模型")
             } catch (error: Exception) {
-                log(LogLevel.ERROR, "下载失败 ${detail(error)}")
+                log(LogLevel.ERROR, "下载失败 ${detail(error)}", error)
                 notice(uiText(error))
             } finally {
                 finish()
@@ -77,7 +77,7 @@ internal class ProsodyActions(
                 open().use { importPack(it, name) }
                 log(LogLevel.INFO, "已导入韵律模型")
             } catch (error: Exception) {
-                log(LogLevel.ERROR, "导入失败 ${detail(error)}")
+                log(LogLevel.ERROR, "导入失败 ${detail(error)}", error)
                 notice(uiText(error))
             } finally {
                 finish()
@@ -93,7 +93,7 @@ internal class ProsodyActions(
                 deletePack()
                 log(LogLevel.INFO, "已删除韵律模型")
             } catch (error: Exception) {
-                log(LogLevel.ERROR, "删除失败 ${detail(error)}")
+                log(LogLevel.ERROR, "删除失败 ${detail(error)}", error)
                 notice(uiText(error))
             } finally {
                 finish()

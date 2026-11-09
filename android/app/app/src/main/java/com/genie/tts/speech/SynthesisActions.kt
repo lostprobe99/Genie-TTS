@@ -3,10 +3,12 @@ package com.genie.tts.speech
 import com.genie.tts.character.CharacterInfo
 import com.genie.tts.core.LogLevel
 import com.genie.tts.core.LogModule
+import com.genie.tts.core.LogSink
 import com.genie.tts.core.StateStore
 import com.genie.tts.core.StepMark
 import com.genie.tts.core.TaskLane
-import com.genie.tts.core.TtsLog
+import com.genie.tts.core.invoke
+import com.genie.tts.core.moduleLog
 import com.genie.tts.core.uiText
 import android.os.SystemClock
 import java.util.Locale
@@ -63,9 +65,7 @@ internal class SynthesisActions(
     ) -> Clip,
     private val clock: () -> Long = { SystemClock.elapsedRealtime() },
     private val threads: () -> Int = { inferenceThreads() },
-    private val log: (LogLevel, String) -> Unit = { level, message ->
-        TtsLog.add(level, LogModule.SPEECH, message)
-    },
+    private val log: LogSink = moduleLog(LogModule.SPEECH),
     private val runAsync: (() -> Unit) -> Unit = { task ->
         executor.execute(task)
     },
@@ -170,7 +170,7 @@ internal class SynthesisActions(
                 } catch (error: Exception) {
                     if (error !is SynthesisCancelled && runs.get() == run) {
                         val detail = error.message?.trim().orEmpty().ifBlank { "失败" }
-                        log(LogLevel.ERROR, "主屏合成失败 ${character.id} $detail")
+                        log(LogLevel.ERROR, "主屏合成失败 ${character.id} $detail", error)
                         store.update { state ->
                             if (state.run != run) state
                             else SynthesisState(alert = uiText(error), alertId = state.alertId + 1)
@@ -213,7 +213,7 @@ internal class SynthesisActions(
                     if (runs.get() != run) return@runAsync
                     if (error !is SynthesisCancelled) {
                         val detail = error.message?.trim().orEmpty().ifBlank { "失败" }
-                        log(LogLevel.ERROR, "试听失败 ${character.id} $detail")
+                        log(LogLevel.ERROR, "试听失败 ${character.id} $detail", error)
                         playback.failPreview(uiText(error))
                     } else {
                         playback.endPreview()

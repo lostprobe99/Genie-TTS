@@ -2,9 +2,11 @@ package com.genie.tts.character
 
 import com.genie.tts.core.LogLevel
 import com.genie.tts.core.LogModule
+import com.genie.tts.core.LogSink
 import com.genie.tts.core.StateStore
 import com.genie.tts.core.TaskLane
-import com.genie.tts.core.TtsLog
+import com.genie.tts.core.invoke
+import com.genie.tts.core.moduleLog
 import com.genie.tts.core.uiText
 import java.io.File
 import java.io.InputStream
@@ -48,9 +50,7 @@ internal class CharacterActions(
     private val dropEngine: () -> Unit,
     private val dropIfLoaded: (String) -> Unit,
     private val stopPreview: (Set<String>) -> Unit,
-    private val log: (LogLevel, String) -> Unit = { level, message ->
-        TtsLog.add(level, LogModule.CHARACTER, message)
-    },
+    private val log: LogSink = moduleLog(LogModule.CHARACTER),
     private val runAsync: (() -> Unit) -> Unit = { task -> executor.execute(task) },
     post: (() -> Unit) -> Unit = { block ->
         android.os.Handler(android.os.Looper.getMainLooper()).post(block)
@@ -108,7 +108,7 @@ internal class CharacterActions(
                 log(LogLevel.INFO, "$action ${result.info.id}")
                 reload(store.current().selectedId)
             } catch (error: Exception) {
-                log(LogLevel.ERROR, "导入失败 ${detail(error)}")
+                log(LogLevel.ERROR, "导入失败 ${detail(error)}", error)
                 alert(error)
             } finally {
                 lane.release()
@@ -132,7 +132,7 @@ internal class CharacterActions(
                 }
                 reload(if (dropsSelection) null else store.current().selectedId)
             } catch (error: Exception) {
-                log(LogLevel.ERROR, "删除失败 ${detail(error)}")
+                log(LogLevel.ERROR, "删除失败 ${detail(error)}", error)
                 alert(error)
             } finally {
                 lane.release()
@@ -169,7 +169,7 @@ internal class CharacterActions(
                 reload(next)
                 if (selectionChanged) dropEngine()
             } catch (error: Exception) {
-                log(LogLevel.ERROR, "改名失败 ${info.id} ${detail(error)}")
+                log(LogLevel.ERROR, "改名失败 ${info.id} ${detail(error)}", error)
                 alert(error)
             } finally {
                 lane.release()

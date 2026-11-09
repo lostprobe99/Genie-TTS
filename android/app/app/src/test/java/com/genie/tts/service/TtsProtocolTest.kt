@@ -133,7 +133,7 @@ class TtsProtocolTest {
                 seen.add(request)
                 emit(request.text, floatArrayOf(0.25f, 0.25f))
             },
-            log = { _, _, message -> logs.add(message) },
+            log = { _, _, message, _ -> logs.add(message) },
             onCall = { bad, ms ->
                 calls += 1
                 if (bad) failed += 1

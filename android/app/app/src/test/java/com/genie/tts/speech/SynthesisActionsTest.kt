@@ -1,6 +1,7 @@
 package com.genie.tts.speech
 
 import com.genie.tts.character.CharacterInfo
+import com.genie.tts.core.LogSink
 import com.genie.tts.core.LogLevel
 import com.genie.tts.core.StateStore
 import com.genie.tts.core.StepMark
@@ -37,7 +38,7 @@ class SynthesisActionsTest {
             playback = playback,
             marker = marker,
             clock = { clock.get() },
-            log = { _, message -> logs += message },
+            log = LogSink { _, message, _ -> logs += message },
             synthesize = { _, pieces, _, _, onMark, onPiece, _ ->
                 assertEquals("1.0（1）", marker.armed)
                 onMark(true, -1)
@@ -82,7 +83,7 @@ class SynthesisActionsTest {
         val logs = mutableListOf<Pair<LogLevel, String>>()
         val actions = actions(
             lane = lane,
-            log = { level, message -> logs += level to message },
+            log = LogSink { level, message, _ -> logs += level to message },
             synthesize = { _, _, _, _, _, _, _ -> error("模型打不开") },
         )
         actions.synthesize(character(), listOf("你好"), 1.0, "1.0（1）")
@@ -174,7 +175,7 @@ class SynthesisActionsTest {
         playback: PlaybackActions = playback(),
         marker: StepMark = MemoryMark(),
         clock: () -> Long = { 0L },
-        log: (LogLevel, String) -> Unit = { _, _ -> },
+        log: LogSink = LogSink { _, _, _ -> },
         synthesize: (
             CharacterInfo,
             List<String>,

@@ -1,5 +1,6 @@
 package com.genie.tts.speech
 
+import com.genie.tts.core.LogSink
 import com.genie.tts.core.StateStore
 import com.genie.tts.core.TaskLane
 import org.junit.Assert.assertEquals
@@ -109,7 +110,7 @@ class ProsodyActionsTest {
             deletePack = { deleted += 1 },
             readyCheck = { false },
             notice = { notices += it },
-            log = { _, message -> logs += message },
+            log = LogSink { _, message, _ -> logs += message },
             runAsync = { it() },
             post = { it() },
         )
