@@ -12,23 +12,23 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:padding="@dimen/dp_20">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingBottom="14dp">
+            android:paddingBottom="@dimen/dp_14">
 
             <FrameLayout
-                android:layout_width="36dp"
-                android:layout_height="36dp"
+                android:layout_width="@dimen/dp_36"
+                android:layout_height="@dimen/dp_36"
                 android:background="@drawable/bg_edit_icon">
 
                 <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="@dimen/dp_20"
+                    android:layout_height="@dimen/dp_20"
                     android:layout_gravity="center"
                     android:src="@drawable/ic_edit" />
             </FrameLayout>
@@ -36,7 +36,7 @@
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
+                android:layout_marginStart="@dimen/dp_10"
                 android:layout_weight="1"
                 android:orientation="vertical">
 
@@ -51,7 +51,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="@dimen/dp_2"
                     android:text="@string/edit_role_sub"
                     android:textColor="@color/text_sub"
                     android:textSize="11sp" />
@@ -59,8 +59,8 @@
 
             <ImageButton
                 android:id="@+id/editRoleClose"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="@dimen/dp_32"
+                android:layout_height="@dimen/dp_32"
                 android:background="@android:color/transparent"
                 android:contentDescription="@string/import_close"
                 android:minWidth="0dp"
@@ -71,26 +71,26 @@
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="1dp"
+            android:layout_height="@dimen/dp_1"
             android:background="@color/mist" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="@dimen/dp_14"
             android:background="@drawable/bg_edit_banner"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:padding="10dp">
+            android:padding="@dimen/dp_10">
 
             <FrameLayout
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="@dimen/dp_32"
+                android:layout_height="@dimen/dp_32"
                 android:background="@drawable/bg_role_fab">
 
                 <ImageView
-                    android:layout_width="16dp"
-                    android:layout_height="16dp"
+                    android:layout_width="@dimen/dp_16"
+                    android:layout_height="@dimen/dp_16"
                     android:layout_gravity="center"
                     android:src="@drawable/ic_note" />
             </FrameLayout>
@@ -98,7 +98,7 @@
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
+                android:layout_marginStart="@dimen/dp_10"
                 android:layout_weight="1"
                 android:orientation="vertical">
 
@@ -116,7 +116,7 @@
                     android:id="@+id/editRoleBannerId"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="@dimen/dp_2"
                     android:ellipsize="end"
                     android:fontFamily="monospace"
                     android:maxLines="1"
@@ -128,12 +128,12 @@
                 android:id="@+id/editRoleCurrent"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="@dimen/dp_8"
                 android:background="@drawable/bg_edit_pill"
-                android:paddingStart="8dp"
-                android:paddingTop="2dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="2dp"
+                android:paddingStart="@dimen/dp_8"
+                android:paddingTop="@dimen/dp_2"
+                android:paddingEnd="@dimen/dp_8"
+                android:paddingBottom="@dimen/dp_2"
                 android:text="@string/edit_role_current"
                 android:textColor="@android:color/white"
                 android:textSize="10sp"
@@ -143,7 +143,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="@dimen/dp_16"
             android:text="@string/edit_role_id"
             android:textColor="@color/text_main"
             android:textSize="12sp"
@@ -152,14 +152,14 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="@dimen/dp_4"
             android:background="@drawable/bg_import_id"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingStart="12dp"
-            android:paddingTop="6dp"
-            android:paddingEnd="6dp"
-            android:paddingBottom="6dp">
+            android:paddingStart="@dimen/dp_12"
+            android:paddingTop="@dimen/dp_6"
+            android:paddingEnd="@dimen/dp_6"
+            android:paddingBottom="@dimen/dp_6">
 
             <TextView
                 android:id="@+id/editRoleId"
@@ -179,13 +179,13 @@
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_import_cancel"
                 android:clickable="true"
-                android:drawablePadding="4dp"
+                android:drawablePadding="@dimen/dp_4"
                 android:focusable="true"
                 android:gravity="center"
-                android:paddingStart="8dp"
-                android:paddingTop="4dp"
-                android:paddingEnd="8dp"
-                android:paddingBottom="4dp"
+                android:paddingStart="@dimen/dp_8"
+                android:paddingTop="@dimen/dp_4"
+                android:paddingEnd="@dimen/dp_8"
+                android:paddingBottom="@dimen/dp_4"
                 android:text="@string/copy"
                 android:textColor="@color/primary"
                 android:textSize="11sp" />
@@ -194,7 +194,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="@dimen/dp_4"
             android:text="@string/edit_role_id_hint"
             android:textColor="@color/slate"
             android:textSize="10sp" />
@@ -202,7 +202,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="@dimen/dp_14"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -227,7 +227,7 @@
         <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp">
+            android:layout_marginTop="@dimen/dp_4">
 
             <EditText
                 android:id="@+id/editRoleName"
@@ -236,20 +236,20 @@
                 android:background="@drawable/bg_import_name"
                 android:importantForAutofill="no"
                 android:inputType="text"
-                android:paddingStart="12dp"
-                android:paddingTop="10dp"
-                android:paddingEnd="36dp"
-                android:paddingBottom="10dp"
+                android:paddingStart="@dimen/dp_12"
+                android:paddingTop="@dimen/dp_10"
+                android:paddingEnd="@dimen/dp_36"
+                android:paddingBottom="@dimen/dp_10"
                 android:singleLine="true"
                 android:textColor="@color/text_main"
                 android:textSize="13sp" />
 
             <ImageButton
                 android:id="@+id/editRoleClear"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
+                android:layout_width="@dimen/dp_28"
+                android:layout_height="@dimen/dp_28"
                 android:layout_gravity="end|center_vertical"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="@dimen/dp_6"
                 android:background="@android:color/transparent"
                 android:contentDescription="@string/edit_role_clear"
                 android:minWidth="0dp"
@@ -261,7 +261,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="@dimen/dp_14"
             android:text="@string/edit_role_audio"
             android:textColor="@color/text_main"
             android:textSize="12sp"
@@ -270,17 +270,17 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
+            android:layout_marginTop="@dimen/dp_6"
             android:background="@drawable/bg_import_id"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:padding="10dp">
+            android:padding="@dimen/dp_10">
 
             <ImageButton
                 android:id="@+id/editRolePlay"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:layout_marginEnd="10dp"
+                android:layout_width="@dimen/dp_32"
+                android:layout_height="@dimen/dp_32"
+                android:layout_marginEnd="@dimen/dp_10"
                 android:background="@drawable/bg_role_fab"
                 android:contentDescription="@string/preview"
                 android:minWidth="0dp"
@@ -307,7 +307,7 @@
                     android:id="@+id/editRoleAudioMeta"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="@dimen/dp_2"
                     android:fontFamily="monospace"
                     android:textColor="@color/slate"
                     android:textSize="10sp"
@@ -318,7 +318,7 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
+            android:layout_marginTop="@dimen/dp_14"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -339,7 +339,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="@dimen/dp_2"
                     android:text="@string/edit_role_make_current_sub"
                     android:textColor="@color/slate"
                     android:textSize="10sp" />
@@ -349,19 +349,19 @@
                 android:id="@+id/editRoleSwitch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp" />
+                android:layout_marginStart="@dimen/dp_8" />
         </LinearLayout>
 
         <View
             android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:layout_marginTop="16dp"
+            android:layout_height="@dimen/dp_1"
+            android:layout_marginTop="@dimen/dp_16"
             android:background="@color/mist" />
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/dp_12"
             android:gravity="center_vertical"
             android:orientation="horizontal">
 
@@ -370,8 +370,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="?android:attr/selectableItemBackground"
-                android:paddingTop="8dp"
-                android:paddingBottom="8dp"
+                android:paddingTop="@dimen/dp_8"
+                android:paddingBottom="@dimen/dp_8"
                 android:text="@string/edit_role_delete"
                 android:textColor="@color/rose"
                 android:textSize="12sp" />
@@ -386,10 +386,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_import_cancel"
-                android:paddingStart="12dp"
-                android:paddingTop="8dp"
-                android:paddingEnd="12dp"
-                android:paddingBottom="8dp"
+                android:paddingStart="@dimen/dp_12"
+                android:paddingTop="@dimen/dp_8"
+                android:paddingEnd="@dimen/dp_12"
+                android:paddingBottom="@dimen/dp_8"
                 android:text="@string/cancel"
                 android:textColor="@color/text_sub"
                 android:textSize="12sp" />
@@ -398,12 +398,12 @@
                 android:id="@+id/editRoleSave"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="@dimen/dp_8"
                 android:background="@drawable/bg_import_confirm"
-                android:paddingStart="14dp"
-                android:paddingTop="8dp"
-                android:paddingEnd="14dp"
-                android:paddingBottom="8dp"
+                android:paddingStart="@dimen/dp_14"
+                android:paddingTop="@dimen/dp_8"
+                android:paddingEnd="@dimen/dp_14"
+                android:paddingBottom="@dimen/dp_8"
                 android:text="@string/edit_role_save"
                 android:textColor="@android:color/white"
                 android:textSize="12sp"

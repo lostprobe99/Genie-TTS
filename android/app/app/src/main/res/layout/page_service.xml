@@ -10,29 +10,29 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingStart="14dp"
-        android:paddingTop="14dp"
-        android:paddingEnd="14dp"
-        android:paddingBottom="24dp">
+        android:paddingStart="@dimen/dp_14"
+        android:paddingTop="@dimen/dp_14"
+        android:paddingEnd="@dimen/dp_14"
+        android:paddingBottom="@dimen/dp_24">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/bg_prosody_card"
-            android:elevation="2dp"
+            android:elevation="@dimen/dp_2"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:padding="16dp">
+            android:padding="@dimen/dp_16">
 
             <FrameLayout
-                android:layout_width="44dp"
-                android:layout_height="44dp"
+                android:layout_width="@dimen/dp_44"
+                android:layout_height="@dimen/dp_44"
                 android:background="@drawable/bg_prosody_icon">
 
                 <View
                     android:id="@+id/serviceDot"
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
+                    android:layout_width="@dimen/dp_14"
+                    android:layout_height="@dimen/dp_14"
                     android:layout_gravity="center"
                     android:background="@drawable/bg_service_dot" />
             </FrameLayout>
@@ -40,7 +40,7 @@
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
+                android:layout_marginStart="@dimen/dp_12"
                 android:layout_weight="1"
                 android:orientation="vertical">
 
@@ -57,21 +57,21 @@
                     android:id="@+id/serviceUptime"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
+                    android:layout_marginTop="@dimen/dp_2"
                     android:gravity="center_vertical"
                     android:orientation="horizontal"
                     android:visibility="gone">
 
                     <ImageView
-                        android:layout_width="13dp"
-                        android:layout_height="13dp"
+                        android:layout_width="@dimen/dp_13"
+                        android:layout_height="@dimen/dp_13"
                         android:importantForAccessibility="no"
                         android:src="@drawable/ic_service_clock" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
+                        android:layout_marginStart="@dimen/dp_4"
                         android:text="@string/service_uptime"
                         android:textColor="@color/text_sub"
                         android:textSize="12sp" />
@@ -80,7 +80,7 @@
                         android:id="@+id/serviceUptimeValue"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginStart="4dp"
+                        android:layout_marginStart="@dimen/dp_4"
                         android:fontFamily="monospace"
                         android:textColor="@color/slate_strong"
                         android:textSize="12sp" />
@@ -90,7 +90,7 @@
                     android:id="@+id/serviceNotice"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="@dimen/dp_4"
                     android:text="@string/service_notice"
                     android:textColor="@color/amber_ink"
                     android:textSize="12sp"
@@ -100,15 +100,15 @@
             <TextView
                 android:id="@+id/serviceToggle"
                 android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:layout_marginStart="8dp"
+                android:layout_height="@dimen/dp_32"
+                android:layout_marginStart="@dimen/dp_8"
                 android:background="@drawable/bg_service_start"
                 android:clickable="true"
                 android:focusable="true"
                 android:gravity="center"
-                android:minWidth="64dp"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp"
+                android:minWidth="@dimen/dp_64"
+                android:paddingStart="@dimen/dp_14"
+                android:paddingEnd="@dimen/dp_14"
                 android:text="@string/service_start"
                 android:textColor="@android:color/white"
                 android:textSize="13sp"
@@ -118,11 +118,11 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/dp_12"
             android:background="@drawable/bg_prosody_card"
-            android:elevation="2dp"
+            android:elevation="@dimen/dp_2"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="@dimen/dp_16">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -136,8 +136,8 @@
                     android:background="@drawable/bg_about_row"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:paddingTop="10dp"
-                    android:paddingBottom="10dp">
+                    android:paddingTop="@dimen/dp_10"
+                    android:paddingBottom="@dimen/dp_10">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -150,7 +150,7 @@
                         android:id="@+id/serviceStatRequests"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
                         android:fontFamily="monospace"
                         android:text="@string/stat_zero"
                         android:textColor="@color/text_main"
@@ -161,13 +161,13 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="@dimen/dp_8"
                     android:layout_weight="1"
                     android:background="@drawable/bg_about_row"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:paddingTop="10dp"
-                    android:paddingBottom="10dp">
+                    android:paddingTop="@dimen/dp_10"
+                    android:paddingBottom="@dimen/dp_10">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -180,7 +180,7 @@
                         android:id="@+id/serviceStatFailures"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
                         android:fontFamily="monospace"
                         android:text="@string/stat_zero"
                         android:textColor="@color/text_main"
@@ -191,13 +191,13 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="@dimen/dp_8"
                     android:layout_weight="1"
                     android:background="@drawable/bg_about_row"
                     android:gravity="center"
                     android:orientation="vertical"
-                    android:paddingTop="10dp"
-                    android:paddingBottom="10dp">
+                    android:paddingTop="@dimen/dp_10"
+                    android:paddingBottom="@dimen/dp_10">
 
                     <TextView
                         android:layout_width="wrap_content"
@@ -210,7 +210,7 @@
                         android:id="@+id/serviceStatAudio"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
                         android:fontFamily="monospace"
                         android:text="@string/stat_clock"
                         android:textColor="@color/text_main"
@@ -222,7 +222,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="@dimen/dp_10"
                 android:text="@string/service_stat_note"
                 android:textColor="@color/text_sub"
                 android:textSize="12sp" />
@@ -231,11 +231,11 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/dp_12"
             android:background="@drawable/bg_prosody_card"
-            android:elevation="2dp"
+            android:elevation="@dimen/dp_2"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="@dimen/dp_16">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -248,11 +248,11 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="@dimen/dp_12"
                 android:background="@drawable/bg_about_row"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="12dp">
+                android:padding="@dimen/dp_12">
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -270,7 +270,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
                         android:text="@string/service_port_range"
                         android:textColor="@color/text_sub"
                         android:textSize="11sp" />
@@ -278,8 +278,8 @@
 
                 <EditText
                     android:id="@+id/servicePort"
-                    android:layout_width="72dp"
-                    android:layout_height="36dp"
+                    android:layout_width="@dimen/dp_72"
+                    android:layout_height="@dimen/dp_36"
                     android:background="@drawable/bg_service_input"
                     android:digits="0123456789"
                     android:fontFamily="monospace"
@@ -296,11 +296,11 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/dp_8"
                 android:background="@drawable/bg_about_row"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="12dp">
+                android:padding="@dimen/dp_12">
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -319,7 +319,7 @@
                         android:id="@+id/serviceLocalUrl"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
                         android:fontFamily="monospace"
                         android:textColor="@color/text_main"
                         android:textIsSelectable="true"
@@ -329,8 +329,8 @@
 
                 <ImageButton
                     android:id="@+id/copyLocal"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
+                    android:layout_width="@dimen/dp_36"
+                    android:layout_height="@dimen/dp_36"
                     android:background="@android:color/transparent"
                     android:contentDescription="@string/copy"
                     android:src="@drawable/ic_copy" />
@@ -340,11 +340,11 @@
                 android:id="@+id/serviceLanRow"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/dp_8"
                 android:background="@drawable/bg_about_row"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="12dp"
+                android:padding="@dimen/dp_12"
                 android:visibility="gone">
 
                 <LinearLayout
@@ -364,7 +364,7 @@
                         android:id="@+id/serviceLanUrl"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
                         android:fontFamily="monospace"
                         android:textColor="@color/text_main"
                         android:textIsSelectable="true"
@@ -374,8 +374,8 @@
 
                 <ImageButton
                     android:id="@+id/copyLan"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
+                    android:layout_width="@dimen/dp_36"
+                    android:layout_height="@dimen/dp_36"
                     android:background="@android:color/transparent"
                     android:contentDescription="@string/copy"
                     android:src="@drawable/ic_copy" />
@@ -384,7 +384,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="@dimen/dp_10"
                 android:text="@string/service_port_note"
                 android:textColor="@color/text_sub"
                 android:textSize="12sp" />
@@ -393,11 +393,11 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/dp_12"
             android:background="@drawable/bg_prosody_card"
-            android:elevation="2dp"
+            android:elevation="@dimen/dp_2"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="@dimen/dp_16">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -409,10 +409,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_service_post"
-                    android:paddingStart="8dp"
-                    android:paddingTop="2dp"
-                    android:paddingEnd="8dp"
-                    android:paddingBottom="2dp"
+                    android:paddingStart="@dimen/dp_8"
+                    android:paddingTop="@dimen/dp_2"
+                    android:paddingEnd="@dimen/dp_8"
+                    android:paddingBottom="@dimen/dp_2"
                     android:text="@string/service_post"
                     android:textColor="@android:color/white"
                     android:textSize="11sp"
@@ -421,7 +421,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="@dimen/dp_8"
                     android:fontFamily="monospace"
                     android:text="@string/service_path"
                     android:textColor="@color/text_main"
@@ -441,7 +441,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="@dimen/dp_12"
                 android:text="@string/service_param_character"
                 android:textColor="@color/text_main"
                 android:textSize="13sp" />
@@ -449,7 +449,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="@dimen/dp_6"
                 android:text="@string/service_param_text"
                 android:textColor="@color/text_main"
                 android:textSize="13sp" />
@@ -457,7 +457,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="@dimen/dp_6"
                 android:text="@string/service_param_split"
                 android:textColor="@color/text_main"
                 android:textSize="13sp" />
@@ -465,7 +465,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
+                android:layout_marginTop="@dimen/dp_10"
                 android:text="@string/service_response"
                 android:textColor="@color/text_sub"
                 android:textSize="12sp" />
@@ -473,7 +473,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="@dimen/dp_14"
                 android:text="@string/service_ids_label"
                 android:textColor="@color/slate"
                 android:textSize="11sp" />
@@ -482,7 +482,7 @@
                 android:id="@+id/serviceIds"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
+                android:layout_marginTop="@dimen/dp_2"
                 android:fontFamily="monospace"
                 android:textColor="@color/text_main"
                 android:textSize="13sp"
@@ -491,7 +491,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
+                android:layout_marginTop="@dimen/dp_4"
                 android:text="@string/service_ids_note"
                 android:textColor="@color/text_sub"
                 android:textSize="12sp" />
@@ -500,10 +500,10 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/dp_12"
             android:background="@drawable/bg_service_tip"
             android:orientation="vertical"
-            android:padding="14dp">
+            android:padding="@dimen/dp_14">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -516,8 +516,8 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:lineSpacingExtra="3dp"
+                android:layout_marginTop="@dimen/dp_6"
+                android:lineSpacingExtra="@dimen/dp_3"
                 android:text="@string/service_tip"
                 android:textColor="@color/teal_deep"
                 android:textSize="12sp" />

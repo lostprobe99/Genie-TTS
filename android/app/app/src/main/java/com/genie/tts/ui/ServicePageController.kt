@@ -1,5 +1,6 @@
 package com.genie.tts.ui
 
+import com.genie.tts.databinding.ActivityMainBinding
 import com.genie.tts.R
 import com.genie.tts.character.CharacterInfo
 import com.genie.tts.service.ServiceState
@@ -21,24 +22,25 @@ import java.util.Locale
 /** Owns service-page views, session statistics and uptime painting. */
 internal class ServicePageController(
     private val activity: AppCompatActivity,
+    private val binding: ActivityMainBinding,
     private val isVisible: () -> Boolean,
     private val notificationsAllowed: () -> Boolean,
 ) {
-    private val status: TextView = activity.findViewById(R.id.serviceStatus)
-    private val uptime: View = activity.findViewById(R.id.serviceUptime)
-    private val uptimeValue: TextView = activity.findViewById(R.id.serviceUptimeValue)
-    private val dot: View = activity.findViewById(R.id.serviceDot)
-    private val notice: TextView = activity.findViewById(R.id.serviceNotice)
-    private val toggle: TextView = activity.findViewById(R.id.serviceToggle)
-    val port: EditText = activity.findViewById(R.id.servicePort)
-    val localUrl: TextView = activity.findViewById(R.id.serviceLocalUrl)
-    val lanUrl: TextView = activity.findViewById(R.id.serviceLanUrl)
-    private val lanRow: View = activity.findViewById(R.id.serviceLanRow)
-    private val ids: TextView = activity.findViewById(R.id.serviceIds)
-    private val requests: TextView = activity.findViewById(R.id.serviceStatRequests)
-    private val failures: TextView = activity.findViewById(R.id.serviceStatFailures)
-    private val audio: TextView = activity.findViewById(R.id.serviceStatAudio)
-    private val drawerState: TextView = activity.findViewById(R.id.drawerServiceState)
+    private val status: TextView = binding.servicePage.serviceStatus
+    private val uptime: View = binding.servicePage.serviceUptime
+    private val uptimeValue: TextView = binding.servicePage.serviceUptimeValue
+    private val dot: View = binding.servicePage.serviceDot
+    private val notice: TextView = binding.servicePage.serviceNotice
+    private val toggle: TextView = binding.servicePage.serviceToggle
+    val port: EditText = binding.servicePage.servicePort
+    val localUrl: TextView = binding.servicePage.serviceLocalUrl
+    val lanUrl: TextView = binding.servicePage.serviceLanUrl
+    private val lanRow: View = binding.servicePage.serviceLanRow
+    private val ids: TextView = binding.servicePage.serviceIds
+    private val requests: TextView = binding.servicePage.serviceStatRequests
+    private val failures: TextView = binding.servicePage.serviceStatFailures
+    private val audio: TextView = binding.servicePage.serviceStatAudio
+    private val drawerState: TextView = binding.drawerServiceState
     private val handler = Handler(Looper.getMainLooper())
     private val ticker = object : Runnable {
         override fun run() {

@@ -1,5 +1,7 @@
 package com.genie.tts.ui
 
+import com.genie.tts.databinding.ActivityMainBinding
+import com.genie.tts.databinding.ItemLogLineBinding
 import androidx.core.content.ContextCompat
 import com.genie.tts.R
 import com.genie.tts.core.DEFAULT_LOG_LEVELS
@@ -26,6 +28,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import java.util.Locale
@@ -38,62 +41,63 @@ import java.util.Locale
  */
 internal class LogPageController(
     private val activity: AppCompatActivity,
+    private val binding: ActivityMainBinding,
     private val isVisible: () -> Boolean,
 ) {
     private var levels: Set<LogLevel> = DEFAULT_LOG_LEVELS
-    private val query: EditText = activity.findViewById(R.id.logQuery)
-    private val list: RecyclerView = activity.findViewById(R.id.logList)
-    private val empty: TextView = activity.findViewById(R.id.logEmpty)
-    private val end: TextView = activity.findViewById(R.id.logEnd)
+    private val query: EditText = binding.logsPage.logQuery
+    private val list: RecyclerView = binding.logsPage.logList
+    private val empty: TextView = binding.logsPage.logEmpty
+    private val end: TextView = binding.logsPage.logEnd
     private val rows = LogRowAdapter { copyLine(it) }
-    val autoScroll: SwitchCompat = activity.findViewById(R.id.logAutoScroll)
+    val autoScroll: SwitchCompat = binding.logsPage.logAutoScroll
 
     fun bind(onBack: () -> Unit, onExport: () -> Unit, onClear: () -> Unit) {
         list.layoutManager = LinearLayoutManager(activity)
         list.adapter = rows
         list.itemAnimator = null
-        activity.findViewById<View>(R.id.logsBack).setOnClickListener { onBack() }
-        activity.findViewById<View>(R.id.logsRefresh).setOnClickListener {
+        binding.logsBack.setOnClickListener { onBack() }
+        binding.logsRefresh.setOnClickListener {
             TtsLog.reload()
             render(true)
         }
-        activity.findViewById<View>(R.id.logsHeaderExport).setOnClickListener { onExport() }
-        activity.findViewById<View>(R.id.logsMore).setOnClickListener { copyPath() }
-        activity.findViewById<View>(R.id.logFilterAll).setOnClickListener {
+        binding.logsHeaderExport.setOnClickListener { onExport() }
+        binding.logsMore.setOnClickListener { copyPath() }
+        binding.logsPage.logFilterAll.setOnClickListener {
             levels = enumValues<LogLevel>().toSet()
             render(follow = false, reset = true)
         }
-        activity.findViewById<View>(R.id.logFilterInfo).setOnClickListener { toggle(LogLevel.INFO) }
-        activity.findViewById<View>(R.id.logFilterWarn).setOnClickListener { toggle(LogLevel.WARN) }
-        activity.findViewById<View>(R.id.logFilterError).setOnClickListener { toggle(LogLevel.ERROR) }
-        activity.findViewById<View>(R.id.logFilterDebug).setOnClickListener { toggle(LogLevel.DEBUG) }
+        binding.logsPage.logFilterInfo.setOnClickListener { toggle(LogLevel.INFO) }
+        binding.logsPage.logFilterWarn.setOnClickListener { toggle(LogLevel.WARN) }
+        binding.logsPage.logFilterError.setOnClickListener { toggle(LogLevel.ERROR) }
+        binding.logsPage.logFilterDebug.setOnClickListener { toggle(LogLevel.DEBUG) }
         query.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
             override fun afterTextChanged(s: Editable?) {
-                activity.findViewById<View>(R.id.logQueryClear).visibility =
+                binding.logsPage.logQueryClear.visibility =
                     if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
                 if (isVisible()) render(follow = false, reset = true)
             }
         })
-        activity.findViewById<View>(R.id.logQueryClear).setOnClickListener { query.setText("") }
+        binding.logsPage.logQueryClear.setOnClickListener { query.setText("") }
         val switchStates = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
         autoScroll.trackTintList =
             android.content.res.ColorStateList(switchStates, intArrayOf(color(R.color.teal_press), color(R.color.mist_line)))
         autoScroll.thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
-        activity.findViewById<View>(R.id.logClear).setOnClickListener { onClear() }
-        activity.findViewById<View>(R.id.logCopy).setOnClickListener { copyAll() }
-        activity.findViewById<View>(R.id.logExport).setOnClickListener { onExport() }
+        binding.logsPage.logClear.setOnClickListener { onClear() }
+        binding.logsPage.logCopy.setOnClickListener { copyAll() }
+        binding.logsPage.logExport.setOnClickListener { onExport() }
     }
 
     fun render(follow: Boolean, reset: Boolean = false) {
         val entries = TtsLog.entries()
         val shown = shownLogLines(entries, levels, query.text.toString())
-        paintChip(R.id.logFilterAll, null, entries.size)
-        paintChip(R.id.logFilterInfo, LogLevel.INFO, entries.count { it.level == LogLevel.INFO })
-        paintChip(R.id.logFilterWarn, LogLevel.WARN, entries.count { it.level == LogLevel.WARN })
-        paintChip(R.id.logFilterError, LogLevel.ERROR, entries.count { it.level == LogLevel.ERROR })
-        paintChip(R.id.logFilterDebug, LogLevel.DEBUG, entries.count { it.level == LogLevel.DEBUG })
+        paintChip(binding.logsPage.logFilterAll, null, entries.size)
+        paintChip(binding.logsPage.logFilterInfo, LogLevel.INFO, entries.count { it.level == LogLevel.INFO })
+        paintChip(binding.logsPage.logFilterWarn, LogLevel.WARN, entries.count { it.level == LogLevel.WARN })
+        paintChip(binding.logsPage.logFilterError, LogLevel.ERROR, entries.count { it.level == LogLevel.ERROR })
+        paintChip(binding.logsPage.logFilterDebug, LogLevel.DEBUG, entries.count { it.level == LogLevel.DEBUG })
         paintBanner()
         rows.submit(shown)
         val nothing = shown.isEmpty()
@@ -105,7 +109,7 @@ internal class LogPageController(
         end.text = activity.getString(
             if (allLevels && query.text.isNullOrBlank()) R.string.log_shown_all else R.string.log_shown_filtered,
         )
-        activity.findViewById<TextView>(R.id.logCount).text =
+        binding.logsPage.logCount.text =
             activity.getString(R.string.log_count, entries.size, bytesLabel(TtsLog.bytes()))
         if (shown.isEmpty()) return
         if (follow) list.scrollToPosition(shown.lastIndex)
@@ -160,7 +164,7 @@ internal class LogPageController(
     private fun paintBanner() {
         val running = ServiceStates.store.current().running
         val tone = if (running) color(R.color.teal) else color(R.color.text_sub)
-        activity.findViewById<TextView>(R.id.logBannerText).apply {
+        binding.logsPage.logBannerText.apply {
             text = activity.getString(
                 if (running) R.string.log_service_on else R.string.log_service_off,
                 Process.myPid(),
@@ -169,23 +173,22 @@ internal class LogPageController(
         }
         val memory = Debug.MemoryInfo()
         Debug.getMemoryInfo(memory)
-        activity.findViewById<TextView>(R.id.logBannerRam).apply {
+        binding.logsPage.logBannerRam.apply {
             text = activity.getString(R.string.log_ram, "%.1f".format(Locale.US, memory.totalPss / 1024.0))
             setTextColor(tone)
         }
-        activity.findViewById<View>(R.id.logBannerDot).backgroundTintList =
+        binding.logsPage.logBannerDot.backgroundTintList =
             android.content.res.ColorStateList.valueOf(if (running) color(R.color.teal_live) else color(R.color.slate))
     }
 
-    private fun paintChip(id: Int, level: LogLevel?, count: Int) {
-        val view = activity.findViewById<TextView>(id)
+    private fun paintChip(view: TextView, level: LogLevel?, count: Int) {
         val selected = if (level == null) levels.size == enumValues<LogLevel>().size else level in levels
         val label = level?.name ?: activity.getString(R.string.filter_all)
         view.text = if (level == null || count > 0) "$label  $count" else label
         view.setTextColor(if (selected) Color.WHITE else color(R.color.slate_text))
         view.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
         view.background = GradientDrawable().apply {
-            cornerRadius = dp(16).toFloat()
+            cornerRadius = activity.dimen(R.dimen.dp_16)
             setColor(if (selected) color(R.color.teal_press) else color(R.color.mist))
         }
         val dotColor = when (level) {
@@ -198,21 +201,19 @@ internal class LogPageController(
         if (dotColor == 0) {
             view.setCompoundDrawables(null, null, null, null)
         } else {
-            val size = dp(6).coerceAtLeast(1)
+            val size = activity.px(R.dimen.dp_6)
             val dot = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
                 setColor(dotColor)
                 setBounds(0, 0, size, size)
             }
             view.setCompoundDrawables(dot, null, null, null)
-            view.compoundDrawablePadding = dp(4)
+            view.compoundDrawablePadding = activity.px(R.dimen.dp_4)
         }
     }
 
     private fun bytesLabel(bytes: Long): String =
         if (bytes < 1024) "$bytes B" else "${(bytes + 512) / 1024} KB"
-
-    private fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
 
     private fun color(id: Int) = ContextCompat.getColor(activity, id)
 }
@@ -223,16 +224,23 @@ private class LogRowAdapter(
     private val rows = ArrayList<Pair<Int, LogLine>>()
 
     fun submit(items: List<Pair<Int, LogLine>>) {
+        val old = rows.toList()
+        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = old.size
+            override fun getNewListSize() = items.size
+            override fun areItemsTheSame(a: Int, b: Int) = old[a] == items[b]
+            override fun areContentsTheSame(a: Int, b: Int) = (a == 0) == (b == 0)
+        })
         rows.clear()
         rows.addAll(items)
-        notifyDataSetChanged()
+        diff.dispatchUpdatesTo(this)
     }
 
     override fun getItemCount(): Int = rows.size
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_log_line, parent, false)
-        return Holder(view)
+        val row = ItemLogLineBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        return Holder(row)
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
@@ -240,14 +248,14 @@ private class LogRowAdapter(
         holder.bind(index, line, position == 0, onLongPress)
     }
 
-    class Holder(view: View) : RecyclerView.ViewHolder(view) {
-        private val divider: View = view.findViewById(R.id.logRowDivider)
-        private val date: TextView = view.findViewById(R.id.logRowDate)
-        private val time: TextView = view.findViewById(R.id.logRowTime)
-        private val level: TextView = view.findViewById(R.id.logRowLevel)
-        private val module: TextView = view.findViewById(R.id.logRowModule)
-        private val index: TextView = view.findViewById(R.id.logRowIndex)
-        private val message: TextView = view.findViewById(R.id.logRowMessage)
+    class Holder(row: ItemLogLineBinding) : RecyclerView.ViewHolder(row.root) {
+        private val divider: View = row.logRowDivider
+        private val date: TextView = row.logRowDate
+        private val time: TextView = row.logRowTime
+        private val level: TextView = row.logRowLevel
+        private val module: TextView = row.logRowModule
+        private val index: TextView = row.logRowIndex
+        private val message: TextView = row.logRowMessage
 
         fun bind(number: Int, line: LogLine, first: Boolean, onLongPress: (LogLine) -> Unit) {
             itemView.setBackgroundColor(rowColor(line.level))
@@ -275,9 +283,9 @@ private class LogRowAdapter(
             }
             level.setTextColor(ink)
             level.background = GradientDrawable().apply {
-                cornerRadius = dp(4).toFloat()
+                cornerRadius = itemView.dimen(R.dimen.dp_4)
                 setColor(fill)
-                setStroke(dp(1).coerceAtLeast(1), stroke)
+                setStroke(itemView.px(R.dimen.dp_1), stroke)
             }
         }
 
@@ -290,7 +298,5 @@ private class LogRowAdapter(
             LogLevel.DEBUG -> color(R.color.violet_wash)
         }
 
-        private fun dp(value: Int): Int =
-            (value * itemView.resources.displayMetrics.density).toInt()
     }
 }

@@ -1,5 +1,6 @@
 package com.genie.tts.ui
 
+import com.genie.tts.databinding.DialogImportRoleBinding
 import com.genie.tts.R
 import com.genie.tts.character.CharacterPack
 import com.genie.tts.character.PackPreview
@@ -53,7 +54,8 @@ internal class ImportSheet(
         dismiss()
         val ticket = ++token
         val sheet = Dialog(activity, R.style.Theme_Genie_Sheet)
-        val root = activity.layoutInflater.inflate(R.layout.dialog_import_role, null)
+        val form = DialogImportRoleBinding.inflate(activity.layoutInflater)
+        val root = form.root
         sheet.setContentView(root)
         sheet.setCanceledOnTouchOutside(true)
         sheet.window?.apply {
@@ -61,22 +63,22 @@ internal class ImportSheet(
             setGravity(Gravity.BOTTOM)
             setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         }
-        root.findViewById<TextView>(R.id.importFileName).text = fileName
+        form.importFileName.text = fileName
         val size = if (fileBytes >= 0) sizeLabel(fileBytes) else ""
-        root.findViewById<TextView>(R.id.importFileMeta).text =
+        form.importFileMeta.text =
             if (size.isEmpty()) activity.getString(R.string.import_full_pack)
             else "$size · ${activity.getString(R.string.import_full_pack)}"
-        root.findViewById<TextView>(R.id.importRoleId).text = preview.id
-        val nameField = root.findViewById<EditText>(R.id.importRoleName)
+        form.importRoleId.text = preview.id
+        val nameField = form.importRoleName
         if (existingName != null) {
-            root.findViewById<TextView>(R.id.importTitle).setText(R.string.import_update)
-            root.findViewById<TextView>(R.id.importNameNote).setText(R.string.import_name_note_update)
-            root.findViewById<TextView>(R.id.importConfirmLabel).setText(R.string.import_confirm_update)
+            form.importTitle.setText(R.string.import_update)
+            form.importNameNote.setText(R.string.import_name_note_update)
+            form.importConfirmLabel.setText(R.string.import_confirm_update)
         }
         nameField.setText(existingName ?: preview.name)
         nameField.setSelection(nameField.text.length)
-        val audioLabel = root.findViewById<TextView>(R.id.importAudioLabel)
-        val listen = root.findViewById<TextView>(R.id.importPreview)
+        val audioLabel = form.importAudioLabel
+        val listen = form.importPreview
         audio.bindLabel(listen)
         val audioName = preview.audioName
         if (audioName == null) {
@@ -124,10 +126,10 @@ internal class ImportSheet(
                 }
             }
         }
-        root.findViewById<View>(R.id.importClose).setOnClickListener { sheet.dismiss() }
-        root.findViewById<View>(R.id.importCancel).setOnClickListener { sheet.dismiss() }
-        root.findViewById<View>(R.id.importReselect).setOnClickListener { onReselect() }
-        root.findViewById<View>(R.id.importConfirm).setOnClickListener {
+        form.importClose.setOnClickListener { sheet.dismiss() }
+        form.importCancel.setOnClickListener { sheet.dismiss() }
+        form.importReselect.setOnClickListener { onReselect() }
+        form.importConfirm.setOnClickListener {
             if (busy()) return@setOnClickListener
             val typed = nameField.text.toString().trim()
             sheet.dismiss()
@@ -138,7 +140,7 @@ internal class ImportSheet(
             releaseAudio()
             if (ticket == token) token++
         }
-        val scroll = root.findViewById<android.widget.ScrollView>(R.id.importScroll)
+        val scroll = form.importScroll
         scroll.post {
             val max = (activity.resources.displayMetrics.heightPixels * 0.58f).toInt()
             if (scroll.height > max) scroll.layoutParams = scroll.layoutParams.apply { height = max }

@@ -5,6 +5,6 @@
     android:background="@color/card"
     android:ellipsize="end"
     android:maxLines="1"
-    android:padding="12dp"
+    android:padding="@dimen/dp_12"
     android:textColor="@color/text_main"
     android:textSize="16sp" />

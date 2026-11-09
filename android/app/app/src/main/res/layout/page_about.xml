@@ -10,48 +10,48 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingStart="14dp"
-        android:paddingTop="14dp"
-        android:paddingEnd="14dp"
-        android:paddingBottom="24dp">
+        android:paddingStart="@dimen/dp_14"
+        android:paddingTop="@dimen/dp_14"
+        android:paddingEnd="@dimen/dp_14"
+        android:paddingBottom="@dimen/dp_24">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/bg_prosody_card"
-            android:elevation="2dp"
+            android:elevation="@dimen/dp_2"
             android:gravity="center_horizontal"
             android:orientation="vertical"
-            android:paddingStart="16dp"
-            android:paddingTop="22dp"
-            android:paddingEnd="16dp"
-            android:paddingBottom="16dp">
+            android:paddingStart="@dimen/dp_16"
+            android:paddingTop="@dimen/dp_22"
+            android:paddingEnd="@dimen/dp_16"
+            android:paddingBottom="@dimen/dp_16">
 
             <FrameLayout
-                android:layout_width="96dp"
-                android:layout_height="96dp"
+                android:layout_width="@dimen/dp_96"
+                android:layout_height="@dimen/dp_96"
                 android:background="@drawable/bg_about_logo">
 
                 <ImageView
-                    android:layout_width="72dp"
-                    android:layout_height="72dp"
+                    android:layout_width="@dimen/dp_72"
+                    android:layout_height="@dimen/dp_72"
                     android:layout_gravity="center"
                     android:contentDescription="@string/about_brand"
                     android:src="@drawable/ic_logo" />
 
                 <View
-                    android:layout_width="10dp"
-                    android:layout_height="10dp"
+                    android:layout_width="@dimen/dp_10"
+                    android:layout_height="@dimen/dp_10"
                     android:layout_gravity="end|top"
-                    android:layout_marginTop="6dp"
-                    android:layout_marginEnd="6dp"
+                    android:layout_marginTop="@dimen/dp_6"
+                    android:layout_marginEnd="@dimen/dp_6"
                     android:background="@drawable/bg_about_dot" />
             </FrameLayout>
 
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="@dimen/dp_12"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -66,7 +66,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="4dp"
+                    android:layout_marginStart="@dimen/dp_4"
                     android:text="@string/spark"
                     android:textColor="@color/teal_bright"
                     android:textSize="18sp" />
@@ -75,25 +75,25 @@
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/dp_8"
                 android:background="@drawable/bg_about_pill"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="10dp"
-                android:paddingTop="3dp"
-                android:paddingEnd="10dp"
-                android:paddingBottom="3dp">
+                android:paddingStart="@dimen/dp_10"
+                android:paddingTop="@dimen/dp_3"
+                android:paddingEnd="@dimen/dp_10"
+                android:paddingBottom="@dimen/dp_3">
 
                 <View
-                    android:layout_width="6dp"
-                    android:layout_height="6dp"
+                    android:layout_width="@dimen/dp_6"
+                    android:layout_height="@dimen/dp_6"
                     android:background="@drawable/bg_about_dot" />
 
                 <TextView
                     android:id="@+id/aboutBadge"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
+                    android:layout_marginStart="@dimen/dp_6"
                     android:fontFamily="monospace"
                     android:textColor="@color/primary"
                     android:textSize="12sp" />
@@ -102,7 +102,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="@dimen/dp_12"
                 android:gravity="center"
                 android:letterSpacing="0.08"
                 android:text="@string/about_slogan"
@@ -112,9 +112,9 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
+                android:layout_marginTop="@dimen/dp_14"
                 android:orientation="horizontal"
-                android:paddingTop="12dp">
+                android:paddingTop="@dimen/dp_12">
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -133,7 +133,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
                         android:text="@string/about_abi"
                         android:textColor="@color/header"
                         android:textSize="12sp"
@@ -141,8 +141,8 @@
                 </LinearLayout>
 
                 <View
-                    android:layout_width="1dp"
-                    android:layout_height="28dp"
+                    android:layout_width="@dimen/dp_1"
+                    android:layout_height="@dimen/dp_28"
                     android:layout_gravity="center_vertical"
                     android:background="@color/border" />
 
@@ -164,15 +164,15 @@
                         android:id="@+id/aboutSystem"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
                         android:textColor="@color/header"
                         android:textSize="12sp"
                         android:textStyle="bold" />
                 </LinearLayout>
 
                 <View
-                    android:layout_width="1dp"
-                    android:layout_height="28dp"
+                    android:layout_width="@dimen/dp_1"
+                    android:layout_height="@dimen/dp_28"
                     android:layout_gravity="center_vertical"
                     android:background="@color/border" />
 
@@ -193,7 +193,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
                         android:gravity="center"
                         android:text="@string/about_onnx_short"
                         android:textColor="@color/header"
@@ -206,11 +206,11 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/dp_12"
             android:background="@drawable/bg_prosody_card"
-            android:elevation="2dp"
+            android:elevation="@dimen/dp_2"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="@dimen/dp_16">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -224,20 +224,20 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="@dimen/dp_12"
                 android:background="@drawable/bg_about_row"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="10dp">
+                android:padding="@dimen/dp_10">
 
                 <FrameLayout
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="@dimen/dp_28"
+                    android:layout_height="@dimen/dp_28"
                     android:background="@drawable/bg_prosody_icon">
 
                     <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
+                        android:layout_width="@dimen/dp_16"
+                        android:layout_height="@dimen/dp_16"
                         android:layout_gravity="center"
                         android:contentDescription="@string/about_model"
                         android:src="@drawable/ic_about_phone" />
@@ -246,7 +246,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="@dimen/dp_10"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -270,20 +270,20 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/dp_8"
                 android:background="@drawable/bg_about_row"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="10dp">
+                android:padding="@dimen/dp_10">
 
                 <FrameLayout
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="@dimen/dp_28"
+                    android:layout_height="@dimen/dp_28"
                     android:background="@drawable/bg_prosody_icon">
 
                     <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
+                        android:layout_width="@dimen/dp_16"
+                        android:layout_height="@dimen/dp_16"
                         android:layout_gravity="center"
                         android:contentDescription="@string/about_role"
                         android:src="@drawable/ic_nav_people" />
@@ -292,7 +292,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="@dimen/dp_10"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -316,20 +316,20 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/dp_8"
                 android:background="@drawable/bg_about_row"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="10dp">
+                android:padding="@dimen/dp_10">
 
                 <FrameLayout
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="@dimen/dp_28"
+                    android:layout_height="@dimen/dp_28"
                     android:background="@drawable/bg_prosody_icon">
 
                     <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
+                        android:layout_width="@dimen/dp_16"
+                        android:layout_height="@dimen/dp_16"
                         android:layout_gravity="center"
                         android:contentDescription="@string/about_installed"
                         android:src="@drawable/ic_about_calendar" />
@@ -338,7 +338,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="@dimen/dp_10"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -364,11 +364,11 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/dp_12"
             android:background="@drawable/bg_prosody_card"
-            android:elevation="2dp"
+            android:elevation="@dimen/dp_2"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="@dimen/dp_16">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -390,10 +390,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_about_pill"
-                    android:paddingStart="8dp"
-                    android:paddingTop="2dp"
-                    android:paddingEnd="8dp"
-                    android:paddingBottom="2dp"
+                    android:paddingStart="@dimen/dp_8"
+                    android:paddingTop="@dimen/dp_2"
+                    android:paddingEnd="@dimen/dp_8"
+                    android:paddingBottom="@dimen/dp_2"
                     android:text="@string/about_mit"
                     android:textColor="@color/primary"
                     android:textSize="11sp" />
@@ -402,14 +402,14 @@
                     android:id="@+id/copyAbout"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
+                    android:layout_marginStart="@dimen/dp_8"
                     android:background="@drawable/bg_import_cancel"
                     android:clickable="true"
                     android:focusable="true"
-                    android:paddingStart="10dp"
-                    android:paddingTop="4dp"
-                    android:paddingEnd="10dp"
-                    android:paddingBottom="4dp"
+                    android:paddingStart="@dimen/dp_10"
+                    android:paddingTop="@dimen/dp_4"
+                    android:paddingEnd="@dimen/dp_10"
+                    android:paddingBottom="@dimen/dp_4"
                     android:text="@string/copy"
                     android:textColor="@color/text_main"
                     android:textSize="11sp" />
@@ -418,20 +418,20 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="@dimen/dp_12"
                 android:background="@drawable/bg_about_row"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="10dp">
+                android:padding="@dimen/dp_10">
 
                 <FrameLayout
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="@dimen/dp_28"
+                    android:layout_height="@dimen/dp_28"
                     android:background="@drawable/bg_prosody_icon">
 
                     <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
+                        android:layout_width="@dimen/dp_16"
+                        android:layout_height="@dimen/dp_16"
                         android:layout_gravity="center"
                         android:contentDescription="@string/about_version"
                         android:src="@drawable/ic_nav_help" />
@@ -440,7 +440,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="@dimen/dp_10"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -465,20 +465,20 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/dp_8"
                 android:background="@drawable/bg_about_row"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="10dp">
+                android:padding="@dimen/dp_10">
 
                 <FrameLayout
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="@dimen/dp_28"
+                    android:layout_height="@dimen/dp_28"
                     android:background="@drawable/bg_prosody_icon">
 
                     <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
+                        android:layout_width="@dimen/dp_16"
+                        android:layout_height="@dimen/dp_16"
                         android:layout_gravity="center"
                         android:contentDescription="@string/about_built"
                         android:src="@drawable/ic_about_calendar" />
@@ -487,7 +487,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="@dimen/dp_10"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -512,20 +512,20 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/dp_8"
                 android:background="@drawable/bg_about_row"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="10dp">
+                android:padding="@dimen/dp_10">
 
                 <FrameLayout
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="@dimen/dp_28"
+                    android:layout_height="@dimen/dp_28"
                     android:background="@drawable/bg_prosody_icon">
 
                     <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
+                        android:layout_width="@dimen/dp_16"
+                        android:layout_height="@dimen/dp_16"
                         android:layout_gravity="center"
                         android:contentDescription="@string/about_package"
                         android:src="@drawable/ic_about_chip" />
@@ -534,7 +534,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="@dimen/dp_10"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -559,20 +559,20 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/dp_8"
                 android:background="@drawable/bg_about_row"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="10dp">
+                android:padding="@dimen/dp_10">
 
                 <FrameLayout
-                    android:layout_width="28dp"
-                    android:layout_height="28dp"
+                    android:layout_width="@dimen/dp_28"
+                    android:layout_height="@dimen/dp_28"
                     android:background="@drawable/bg_prosody_icon">
 
                     <ImageView
-                        android:layout_width="16dp"
-                        android:layout_height="16dp"
+                        android:layout_width="@dimen/dp_16"
+                        android:layout_height="@dimen/dp_16"
                         android:layout_gravity="center"
                         android:contentDescription="@string/about_repo"
                         android:src="@drawable/ic_github"
@@ -582,7 +582,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="@dimen/dp_10"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -604,13 +604,13 @@
 
                 <ImageButton
                     android:id="@+id/aboutOpen"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="@dimen/dp_32"
+                    android:layout_height="@dimen/dp_32"
                     android:background="@android:color/transparent"
                     android:contentDescription="@string/about_open"
-                    android:minWidth="32dp"
-                    android:minHeight="32dp"
-                    android:padding="7dp"
+                    android:minWidth="@dimen/dp_32"
+                    android:minHeight="@dimen/dp_32"
+                    android:padding="@dimen/dp_7"
                     android:scaleType="fitCenter"
                     android:src="@drawable/ic_about_open" />
             </LinearLayout>
@@ -619,11 +619,11 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/dp_12"
             android:background="@drawable/bg_prosody_card"
-            android:elevation="2dp"
+            android:elevation="@dimen/dp_2"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="@dimen/dp_16">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -645,10 +645,10 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_about_pill"
-                    android:paddingStart="8dp"
-                    android:paddingTop="2dp"
-                    android:paddingEnd="8dp"
-                    android:paddingBottom="2dp"
+                    android:paddingStart="@dimen/dp_8"
+                    android:paddingTop="@dimen/dp_2"
+                    android:paddingEnd="@dimen/dp_8"
+                    android:paddingBottom="@dimen/dp_2"
                     android:text="@string/about_local"
                     android:textColor="@color/primary"
                     android:textSize="11sp" />
@@ -657,19 +657,19 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="@dimen/dp_12"
                 android:background="@drawable/bg_about_row"
                 android:orientation="horizontal"
-                android:padding="10dp">
+                android:padding="@dimen/dp_10">
 
                 <FrameLayout
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="@dimen/dp_32"
+                    android:layout_height="@dimen/dp_32"
                     android:background="@drawable/bg_prosody_icon">
 
                     <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
+                        android:layout_width="@dimen/dp_18"
+                        android:layout_height="@dimen/dp_18"
                         android:layout_gravity="center"
                         android:contentDescription="@string/about_onnx_title"
                         android:src="@drawable/ic_about_chip" />
@@ -678,7 +678,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="@dimen/dp_10"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -701,10 +701,10 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:background="@drawable/bg_about_pill"
-                            android:paddingStart="6dp"
-                            android:paddingTop="1dp"
-                            android:paddingEnd="6dp"
-                            android:paddingBottom="1dp"
+                            android:paddingStart="@dimen/dp_6"
+                            android:paddingTop="@dimen/dp_1"
+                            android:paddingEnd="@dimen/dp_6"
+                            android:paddingBottom="@dimen/dp_1"
                             android:text="@string/about_pill_local"
                             android:textColor="@color/primary"
                             android:textSize="10sp" />
@@ -713,8 +713,8 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:lineSpacingExtra="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
+                        android:lineSpacingExtra="@dimen/dp_2"
                         android:text="@string/about_onnx_body"
                         android:textColor="@color/text_sub"
                         android:textSize="12sp" />
@@ -724,19 +724,19 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/dp_8"
                 android:background="@drawable/bg_about_row"
                 android:orientation="horizontal"
-                android:padding="10dp">
+                android:padding="@dimen/dp_10">
 
                 <FrameLayout
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="@dimen/dp_32"
+                    android:layout_height="@dimen/dp_32"
                     android:background="@drawable/bg_prosody_icon">
 
                     <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
+                        android:layout_width="@dimen/dp_18"
+                        android:layout_height="@dimen/dp_18"
                         android:layout_gravity="center"
                         android:contentDescription="@string/about_prosody_title"
                         android:src="@drawable/ic_prosody_bars" />
@@ -745,7 +745,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="@dimen/dp_10"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -768,10 +768,10 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:background="@drawable/bg_about_pill"
-                            android:paddingStart="6dp"
-                            android:paddingTop="1dp"
-                            android:paddingEnd="6dp"
-                            android:paddingBottom="1dp"
+                            android:paddingStart="@dimen/dp_6"
+                            android:paddingTop="@dimen/dp_1"
+                            android:paddingEnd="@dimen/dp_6"
+                            android:paddingBottom="@dimen/dp_1"
                             android:text="@string/about_pill_prosody"
                             android:textColor="@color/primary"
                             android:textSize="10sp" />
@@ -780,8 +780,8 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:lineSpacingExtra="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
+                        android:lineSpacingExtra="@dimen/dp_2"
                         android:text="@string/about_prosody_body"
                         android:textColor="@color/text_sub"
                         android:textSize="12sp" />
@@ -791,19 +791,19 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="@dimen/dp_8"
                 android:background="@drawable/bg_about_row"
                 android:orientation="horizontal"
-                android:padding="10dp">
+                android:padding="@dimen/dp_10">
 
                 <FrameLayout
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="@dimen/dp_32"
+                    android:layout_height="@dimen/dp_32"
                     android:background="@drawable/bg_prosody_icon">
 
                     <ImageView
-                        android:layout_width="18dp"
-                        android:layout_height="18dp"
+                        android:layout_width="@dimen/dp_18"
+                        android:layout_height="@dimen/dp_18"
                         android:layout_gravity="center"
                         android:contentDescription="@string/about_api_title"
                         android:src="@drawable/ic_nav_server" />
@@ -812,7 +812,7 @@
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="@dimen/dp_10"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -835,10 +835,10 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:background="@drawable/bg_about_pill"
-                            android:paddingStart="6dp"
-                            android:paddingTop="1dp"
-                            android:paddingEnd="6dp"
-                            android:paddingBottom="1dp"
+                            android:paddingStart="@dimen/dp_6"
+                            android:paddingTop="@dimen/dp_1"
+                            android:paddingEnd="@dimen/dp_6"
+                            android:paddingBottom="@dimen/dp_1"
                             android:text="@string/about_pill_api"
                             android:textColor="@color/primary"
                             android:textSize="10sp" />
@@ -847,8 +847,8 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:lineSpacingExtra="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
+                        android:lineSpacingExtra="@dimen/dp_2"
                         android:text="@string/about_api_body"
                         android:textColor="@color/text_sub"
                         android:textSize="12sp" />
@@ -859,11 +859,11 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/dp_12"
             android:background="@drawable/bg_prosody_card"
-            android:elevation="2dp"
+            android:elevation="@dimen/dp_2"
             android:orientation="vertical"
-            android:padding="16dp">
+            android:padding="@dimen/dp_16">
 
             <TextView
                 android:layout_width="wrap_content"
@@ -877,22 +877,22 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="@dimen/dp_12"
                 android:background="@drawable/bg_prosody_blurb"
                 android:orientation="horizontal"
-                android:padding="12dp">
+                android:padding="@dimen/dp_12">
 
                 <ImageView
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
-                    android:layout_marginTop="1dp"
+                    android:layout_width="@dimen/dp_20"
+                    android:layout_height="@dimen/dp_20"
+                    android:layout_marginTop="@dimen/dp_1"
                     android:contentDescription="@string/about_privacy_title"
                     android:src="@drawable/ic_about_shield" />
 
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
+                    android:layout_marginStart="@dimen/dp_10"
                     android:layout_weight="1"
                     android:orientation="vertical">
 
@@ -907,8 +907,8 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:lineSpacingExtra="2dp"
+                        android:layout_marginTop="@dimen/dp_2"
+                        android:lineSpacingExtra="@dimen/dp_2"
                         android:text="@string/about_privacy_body"
                         android:textColor="@color/teal_deep"
                         android:textSize="12sp" />
@@ -918,20 +918,20 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
+                android:layout_marginTop="@dimen/dp_12"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <ImageView
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
+                    android:layout_width="@dimen/dp_14"
+                    android:layout_height="@dimen/dp_14"
                     android:contentDescription="@string/about_thanks"
                     android:src="@drawable/ic_about_heart" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="6dp"
+                    android:layout_marginStart="@dimen/dp_6"
                     android:text="@string/about_thanks_title"
                     android:textColor="@color/text_main"
                     android:textSize="12sp"
@@ -941,8 +941,8 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:lineSpacingExtra="2dp"
+                android:layout_marginTop="@dimen/dp_4"
+                android:lineSpacingExtra="@dimen/dp_2"
                 android:text="@string/about_thanks"
                 android:textColor="@color/text_sub"
                 android:textSize="12sp" />
@@ -951,7 +951,7 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="@dimen/dp_16"
             android:gravity="center"
             android:text="@string/about_license"
             android:textColor="@color/slate"
@@ -960,19 +960,19 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/dp_8"
             android:gravity="center"
             android:orientation="horizontal">
 
             <View
-                android:layout_width="8dp"
-                android:layout_height="8dp"
+                android:layout_width="@dimen/dp_8"
+                android:layout_height="@dimen/dp_8"
                 android:background="@drawable/bg_prosody_dot" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
+                android:layout_marginStart="@dimen/dp_8"
                 android:text="@string/prosody_footer"
                 android:textColor="@color/slate"
                 android:textSize="12sp" />

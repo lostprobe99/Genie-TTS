@@ -14,9 +14,13 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import java.util.Locale
 
 internal sealed class HelpPiece {
@@ -187,7 +191,7 @@ internal fun helpTopics(context: Context, port: Int): List<HelpTopic> {
 }
 
 internal fun fillHelpList(
-    list: LinearLayout,
+    list: RecyclerView,
     port: Int,
     query: String,
     category: String,
@@ -196,22 +200,85 @@ internal fun fillHelpList(
     onCopy: () -> Unit,
 ): Boolean {
     val needle = query.trim()
-    list.removeAllViews()
-    var shown = false
+    val entries = ArrayList<HelpEntry>()
     helpTopics(list.context, port).forEach { topic ->
         if (category != "all" && category !in topic.tags) return@forEach
         val questions = topic.questions.filter { question ->
             needle.isEmpty() || question.plain(port).contains(needle, ignoreCase = true)
         }
         if (questions.isEmpty()) return@forEach
-        shown = true
-        list.addView(topicHead(list, topic))
+        entries.add(HelpEntry.Head(topic))
         questions.forEach { question ->
             val expanded = open.getOrPut(question.title) { question.startOpen }
-            list.addView(questionCard(list, topic, question, expanded, port, onToggle, onCopy))
+            entries.add(HelpEntry.Card(topic, question, expanded))
         }
     }
-    return shown
+    val adapter = (list.adapter as? HelpListAdapter) ?: HelpListAdapter().also {
+        list.layoutManager = LinearLayoutManager(list.context)
+        list.adapter = it
+        list.itemAnimator = null
+        list.isNestedScrollingEnabled = false
+    }
+    adapter.submit(entries, port, onToggle, onCopy)
+    return entries.any { it is HelpEntry.Card }
+}
+
+private sealed class HelpEntry {
+    data class Head(val topic: HelpTopic) : HelpEntry()
+    data class Card(val topic: HelpTopic, val question: HelpQuestion, val expanded: Boolean) : HelpEntry()
+}
+
+private class HelpListAdapter : RecyclerView.Adapter<HelpListAdapter.Holder>() {
+    private var entries = emptyList<HelpEntry>()
+    private var port = 0
+    private var onToggle: (String) -> Unit = {}
+    private var onCopy: () -> Unit = {}
+
+    fun submit(next: List<HelpEntry>, port: Int, onToggle: (String) -> Unit, onCopy: () -> Unit) {
+        val old = entries
+        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = old.size
+            override fun getNewListSize() = next.size
+            override fun areItemsTheSame(a: Int, b: Int): Boolean = when {
+                old[a] is HelpEntry.Head && next[b] is HelpEntry.Head ->
+                    (old[a] as HelpEntry.Head).topic.title == (next[b] as HelpEntry.Head).topic.title
+                old[a] is HelpEntry.Card && next[b] is HelpEntry.Card ->
+                    (old[a] as HelpEntry.Card).question.title == (next[b] as HelpEntry.Card).question.title
+                else -> false
+            }
+            override fun areContentsTheSame(a: Int, b: Int) = old[a] == next[b]
+        })
+        entries = next
+        this.port = port
+        this.onToggle = onToggle
+        this.onCopy = onCopy
+        diff.dispatchUpdatesTo(this)
+    }
+
+    override fun getItemCount() = entries.size
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
+        val root = LinearLayout(parent.context).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = RecyclerView.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+            )
+        }
+        return Holder(root)
+    }
+
+    override fun onBindViewHolder(holder: Holder, position: Int) {
+        holder.root.removeAllViews()
+        when (val entry = entries[position]) {
+            is HelpEntry.Head -> holder.root.addView(topicHead(holder.root, entry.topic))
+            is HelpEntry.Card -> holder.root.addView(
+                questionCard(holder.root, entry.topic, entry.question, entry.expanded, port, onToggle, onCopy),
+            )
+        }
+    }
+
+    class Holder(val root: LinearLayout) : RecyclerView.ViewHolder(root)
 }
 
 private fun HelpQuestion.plain(port: Int): String {
@@ -491,8 +558,10 @@ private fun stack(list: LinearLayout, fill: Int): LinearLayout {
     }
 }
 
-private fun dp(list: LinearLayout, value: Int): Int {
-    return (value * list.resources.displayMetrics.density).toInt().coerceAtLeast(if (value == 0) 0 else 1)
+private fun dp(list: View, value: Int): Int {
+    if (value == 0) return 0
+    val id = list.resources.getIdentifier("dp_$value", "dimen", list.context.packageName)
+    return list.resources.getDimensionPixelSize(id)
 }
 
 private fun tone(view: View, id: Int) = ContextCompat.getColor(view.context, id)

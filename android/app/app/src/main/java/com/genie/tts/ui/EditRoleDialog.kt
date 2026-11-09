@@ -1,5 +1,6 @@
 package com.genie.tts.ui
 
+import com.genie.tts.databinding.DialogEditRoleBinding
 import androidx.core.content.ContextCompat
 import com.genie.tts.R
 import com.genie.tts.character.CharacterInfo
@@ -45,18 +46,19 @@ internal class EditRoleDialog(
         onSave: (String, Boolean) -> Unit,
         onDelete: () -> Unit,
     ) {
-        val root = activity.layoutInflater.inflate(R.layout.dialog_edit_role, null)
+        val form = DialogEditRoleBinding.inflate(activity.layoutInflater)
+        val root = form.root
         val sheet = light.card(root)
         dialog = sheet
         sheet.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         val limit = max(20, info.name.length)
-        val nameField = root.findViewById<EditText>(R.id.editRoleName)
-        val count = root.findViewById<TextView>(R.id.editRoleCount)
-        val currentPill = root.findViewById<View>(R.id.editRoleCurrent)
-        val switch = root.findViewById<androidx.appcompat.widget.SwitchCompat>(R.id.editRoleSwitch)
-        root.findViewById<TextView>(R.id.editRoleBannerName).text = info.name
-        root.findViewById<TextView>(R.id.editRoleBannerId).text = "ID: ${info.id}"
-        root.findViewById<TextView>(R.id.editRoleId).text = info.id
+        val nameField = form.editRoleName
+        val count = form.editRoleCount
+        val currentPill = form.editRoleCurrent
+        val switch = form.editRoleSwitch
+        form.editRoleBannerName.text = info.name
+        form.editRoleBannerId.text = "ID: ${info.id}"
+        form.editRoleId.text = info.id
         nameField.filters = arrayOf(InputFilter.LengthFilter(limit))
         nameField.setText(info.name)
         nameField.setSelection(nameField.text.length)
@@ -79,16 +81,16 @@ internal class EditRoleDialog(
         switch.setOnCheckedChangeListener { _, checked ->
             currentPill.visibility = if (checked) View.VISIBLE else View.GONE
         }
-        root.findViewById<View>(R.id.editRoleCopy).setOnClickListener {
+        form.editRoleCopy.setOnClickListener {
             val clipboard = activity.getSystemService(ClipboardManager::class.java)
             clipboard.setPrimaryClip(ClipData.newPlainText("character-id", info.id))
             toast(activity.getString(R.string.copied))
         }
-        root.findViewById<View>(R.id.editRoleClear).setOnClickListener { nameField.setText("") }
-        root.findViewById<View>(R.id.editRoleClose).setOnClickListener { sheet.dismiss() }
-        root.findViewById<View>(R.id.editRoleCancel).setOnClickListener { sheet.dismiss() }
-        bindAudio(root, info, sheet)
-        root.findViewById<View>(R.id.editRoleDelete).setOnClickListener {
+        form.editRoleClear.setOnClickListener { nameField.setText("") }
+        form.editRoleClose.setOnClickListener { sheet.dismiss() }
+        form.editRoleCancel.setOnClickListener { sheet.dismiss() }
+        bindAudio(form, info, sheet)
+        form.editRoleDelete.setOnClickListener {
             if (busy()) return@setOnClickListener
             sheet.dismiss()
             light.confirm(
@@ -97,7 +99,7 @@ internal class EditRoleDialog(
                 activity.getString(R.string.delete),
             ) { onDelete() }
         }
-        root.findViewById<View>(R.id.editRoleSave).setOnClickListener {
+        form.editRoleSave.setOnClickListener {
             val typed = nameField.text.toString()
             if (typed.trim().isEmpty()) {
                 toast(activity.getString(R.string.name_empty))
@@ -114,10 +116,10 @@ internal class EditRoleDialog(
         }
     }
 
-    private fun bindAudio(root: View, info: CharacterInfo, sheet: Dialog) {
-        val play = root.findViewById<ImageButton>(R.id.editRolePlay)
-        val label = root.findViewById<TextView>(R.id.editRoleAudio)
-        val meta = root.findViewById<TextView>(R.id.editRoleAudioMeta)
+    private fun bindAudio(form: DialogEditRoleBinding, info: CharacterInfo, sheet: Dialog) {
+        val play = form.editRolePlay
+        val label = form.editRoleAudio
+        val meta = form.editRoleAudioMeta
         val file = CharacterPack.referenceAudio(info.root)
         if (file == null) {
             label.setText(R.string.import_no_audio)

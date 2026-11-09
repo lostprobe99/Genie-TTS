@@ -1,5 +1,6 @@
 package com.genie.tts.ui
 
+import com.genie.tts.databinding.ActivityMainBinding
 import com.genie.tts.BuildConfig
 import com.genie.tts.R
 import android.os.Build
@@ -12,15 +13,16 @@ import java.util.Locale
 /** Builds the about page and its copyable plain-text summary. */
 internal class AboutPageController(
     private val activity: AppCompatActivity,
+    private val binding: ActivityMainBinding,
 ) {
-    private val badge: TextView = activity.findViewById(R.id.aboutBadge)
-    private val system: TextView = activity.findViewById(R.id.aboutSystem)
-    private val model: TextView = activity.findViewById(R.id.aboutModel)
-    private val role: TextView = activity.findViewById(R.id.aboutRole)
-    private val installed: TextView = activity.findViewById(R.id.aboutInstalled)
-    private val built: TextView = activity.findViewById(R.id.aboutBuilt)
-    private val version: TextView = activity.findViewById(R.id.aboutVersion)
-    private val packageName: TextView = activity.findViewById(R.id.aboutPackage)
+    private val badge: TextView = binding.aboutPage.aboutBadge
+    private val system: TextView = binding.aboutPage.aboutSystem
+    private val model: TextView = binding.aboutPage.aboutModel
+    private val role: TextView = binding.aboutPage.aboutRole
+    private val installed: TextView = binding.aboutPage.aboutInstalled
+    private val built: TextView = binding.aboutPage.aboutBuilt
+    private val version: TextView = binding.aboutPage.aboutVersion
+    private val packageName: TextView = binding.aboutPage.aboutPackage
 
     fun render(currentRole: String) {
         badge.text = versionBadge()

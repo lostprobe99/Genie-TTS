@@ -1,24 +1,24 @@
 package com.genie.tts.ui
 
+import com.genie.tts.databinding.ActivityMainBinding
 import com.genie.tts.R
+import com.genie.tts.databinding.ItemSentenceBinding
 import com.genie.tts.speech.Clip
 import com.genie.tts.speech.secondsOf
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
-import android.view.Gravity
 import android.view.View
-import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
-import android.widget.ImageButton
-import android.widget.ImageView
-import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import java.util.Locale
 
 /** 主屏这一刻要画出来的内容。控制器不自己去读合成器或日志。 */
@@ -38,21 +38,24 @@ internal data class SpeakSnapshot(
  * 主屏的分句列表、语速、合成和播放按钮、以及底下的状态。
  * 点下去之后做什么，由外面传进来的回调决定。
  */
-internal class SpeakController(private val activity: AppCompatActivity) {
-    val sentence: EditText = activity.findViewById(R.id.sentence)
-    val speed: SeekBar = activity.findViewById(R.id.speed)
-    private val sentenceCard: View = activity.findViewById(R.id.sentenceCard)
-    private val sentenceScroll: View = activity.findViewById(R.id.sentenceScroll)
-    private val sentenceList: LinearLayout = activity.findViewById(R.id.sentenceList)
-    private val sentenceHeading: TextView = activity.findViewById(R.id.sentenceHeading)
-    private val sentenceBadge: TextView = activity.findViewById(R.id.sentenceBadge)
-    private val workDot: View = activity.findViewById(R.id.workDot)
-    private val workMetrics: TextView = activity.findViewById(R.id.workMetrics)
-    private val workNoteLine: TextView = activity.findViewById(R.id.workNote)
-    private val speedLabel: TextView = activity.findViewById(R.id.speedLabel)
-    private val synthesizeButton: Button = activity.findViewById(R.id.synthesize)
-    private val playButton: Button = activity.findViewById(R.id.play)
-    private val workStatus: TextView = activity.findViewById(R.id.workStatus)
+internal class SpeakController(
+    private val activity: AppCompatActivity,
+    private val binding: ActivityMainBinding,
+) {
+    val sentence: EditText = binding.speakPage.sentence
+    val speed: SeekBar = binding.speakPage.speed
+    private val sentenceCard: View = binding.speakPage.sentenceCard
+    private val sentenceList: RecyclerView = binding.speakPage.sentenceList
+    private val sentences = SentenceAdapter(activity)
+    private val sentenceHeading: TextView = binding.speakPage.sentenceHeading
+    private val sentenceBadge: TextView = binding.speakPage.sentenceBadge
+    private val workDot: View = binding.speakPage.workDot
+    private val workMetrics: TextView = binding.speakPage.workMetrics
+    private val workNoteLine: TextView = binding.speakPage.workNote
+    private val speedLabel: TextView = binding.speakPage.speedLabel
+    private val synthesizeButton: Button = binding.speakPage.synthesize
+    private val playButton: Button = binding.speakPage.play
+    private val workStatus: TextView = binding.speakPage.workStatus
 
     private var drawn = SpeakSnapshot(
         clips = emptyList(),
@@ -67,6 +70,9 @@ internal class SpeakController(private val activity: AppCompatActivity) {
     )
 
     fun bind(onSynthesize: () -> Unit, onTogglePlay: () -> Unit) {
+        sentenceList.layoutManager = LinearLayoutManager(activity)
+        sentenceList.adapter = sentences
+        sentenceList.itemAnimator = null
         synthesizeButton.setOnClickListener { onSynthesize() }
         playButton.setOnClickListener { onTogglePlay() }
     }
@@ -105,84 +111,35 @@ internal class SpeakController(private val activity: AppCompatActivity) {
             else -> ""
         }
         sentenceBadge.visibility = if (sentenceBadge.text.isNullOrBlank()) View.GONE else View.VISIBLE
-        val rowHeight = dp(40)
-        val scrollHeight = rowHeight * 3
-        if (sentenceScroll.layoutParams.height != scrollHeight) {
-            sentenceScroll.layoutParams.height = scrollHeight
-            sentenceScroll.requestLayout()
-        }
-        sentenceList.removeAllViews()
-        state.clips.forEachIndexed { index, clip ->
+        sentences.submit(sentenceRows(state), onPlay)
+        paint(state)
+    }
+
+    private fun sentenceRows(state: SpeakSnapshot): List<SentenceRow> {
+        return state.clips.mapIndexed { index, clip ->
             val hot = index == state.active && (state.playing || state.synthesizing)
             val samples = clip?.samples
-            val row = LinearLayout(activity).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(4), dp(8), dp(4), dp(8))
-                if (hot) background = rounded(color(R.color.mint), 6f)
-            }
-            row.addView(TextView(activity).apply {
-                text = "%02d".format(Locale.US, index + 1)
-                gravity = Gravity.CENTER
-                textSize = 11f
-                typeface = Typeface.MONOSPACE
-                setTextColor(if (hot) Color.WHITE else color(R.color.text_sub))
-                background = rounded(if (hot) color(R.color.primary) else color(R.color.mist), 4f)
-                minWidth = dp(20)
-                minHeight = dp(20)
-            })
-            row.addView(TextView(activity).apply {
-                text = clip?.text.orEmpty()
-                textSize = 12f
-                typeface = Typeface.SERIF
-                maxLines = 1
-                ellipsize = android.text.TextUtils.TruncateAt.END
-                setTextColor(color(if (hot) R.color.text_main else R.color.text_sub))
-                setPadding(dp(8), 0, dp(8), 0)
-            }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
             val detail = when {
                 samples != null -> "${formatSec(secondsOf(samples, clip.sampleRate))}s"
-                !clip?.error.isNullOrBlank() -> clip?.error
+                !clip?.error.isNullOrBlank() -> clip?.error.orEmpty()
                 state.synthesizing && index == state.active -> activity.getString(R.string.sentence_working)
                 else -> ""
             }
-            row.addView(TextView(activity).apply {
-                text = detail
-                textSize = 11f
-                typeface = Typeface.MONOSPACE
-                setTextColor(
-                    when {
-                        !clip?.error.isNullOrBlank() -> color(R.color.amber)
-                        hot -> color(R.color.primary)
-                        else -> color(R.color.text_sub)
-                    },
-                )
-            })
-            if (samples != null) {
-                val button = ImageButton(activity).apply {
-                    setImageResource(R.drawable.ic_role_play)
-                    imageTintList = ColorStateList.valueOf(if (hot) Color.WHITE else color(R.color.text_sub))
-                    background = rounded(if (hot) color(R.color.primary) else color(R.color.mist), 99f)
-                    contentDescription = activity.getString(R.string.play_sentence)
-                    scaleType = ImageView.ScaleType.CENTER
-                    minimumWidth = 0
-                    minimumHeight = 0
-                    setPadding(dp(4), dp(4), dp(4), dp(4))
-                    val side = dp(24)
-                    layoutParams = LinearLayout.LayoutParams(side, side).apply { marginStart = dp(8) }
-                }
-                if (!state.busy) {
-                    button.setOnClickListener { onPlay(index) }
-                    row.setOnClickListener { onPlay(index) }
-                }
-                row.addView(button)
+            val tone = when {
+                !clip?.error.isNullOrBlank() -> R.color.amber
+                hot -> R.color.primary
+                else -> R.color.text_sub
             }
-            sentenceList.addView(
-                row,
-                LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, rowHeight),
+            SentenceRow(
+                index = index,
+                text = clip?.text.orEmpty(),
+                hot = hot,
+                detail = detail,
+                tone = tone,
+                playable = samples != null,
+                enabled = samples != null && !state.busy,
             )
         }
-        paint(state)
     }
 
     fun updateControls(state: SpeakSnapshot) {
@@ -260,8 +217,7 @@ internal class SpeakController(private val activity: AppCompatActivity) {
 
     fun scrollToActive(active: Int) {
         if (active < 0) return
-        val child = sentenceList.getChildAt(active) ?: return
-        sentenceScroll.post { (sentenceScroll as android.widget.ScrollView).smoothScrollTo(0, child.top) }
+        sentenceList.post { sentenceList.smoothScrollToPosition(active) }
     }
 
     private fun metricsLine(state: SpeakSnapshot): String {
@@ -321,14 +277,90 @@ internal class SpeakController(private val activity: AppCompatActivity) {
 
     private fun formatSec(seconds: Double): String = "%.1f".format(Locale.US, seconds)
 
-    private fun rounded(fill: Int, radiusDp: Float): GradientDrawable {
-        return GradientDrawable().apply {
-            setColor(fill)
-            cornerRadius = radiusDp * activity.resources.displayMetrics.density
-        }
+    private fun color(id: Int) = ContextCompat.getColor(activity, id)
+}
+
+private data class SentenceRow(
+    val index: Int,
+    val text: String,
+    val hot: Boolean,
+    val detail: String,
+    val tone: Int,
+    val playable: Boolean,
+    val enabled: Boolean,
+)
+
+private class SentenceAdapter(
+    private val activity: AppCompatActivity,
+) : RecyclerView.Adapter<SentenceAdapter.Holder>() {
+    private var rows = emptyList<SentenceRow>()
+    private var onPlay: (Int) -> Unit = {}
+
+    fun submit(next: List<SentenceRow>, onPlay: (Int) -> Unit) {
+        val old = rows
+        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = old.size
+            override fun getNewListSize() = next.size
+            override fun areItemsTheSame(a: Int, b: Int) = old[a].index == next[b].index
+            override fun areContentsTheSame(a: Int, b: Int) = old[a] == next[b]
+        })
+        rows = next
+        this.onPlay = onPlay
+        diff.dispatchUpdatesTo(this)
     }
 
-    private fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
+    override fun getItemCount() = rows.size
 
-    private fun color(id: Int) = ContextCompat.getColor(activity, id)
+    override fun onCreateViewHolder(parent: android.view.ViewGroup, viewType: Int): Holder {
+        val binding = ItemSentenceBinding.inflate(activity.layoutInflater, parent, false)
+        return Holder(binding)
+    }
+
+    override fun onBindViewHolder(holder: Holder, position: Int) {
+        holder.bind(rows[position], onPlay)
+    }
+
+    class Holder(private val binding: ItemSentenceBinding) : RecyclerView.ViewHolder(binding.root) {
+        fun bind(row: SentenceRow, onPlay: (Int) -> Unit) {
+            val view = binding.root
+            view.background = if (row.hot) rounded(view, R.color.mint, R.dimen.dp_6) else null
+            binding.sentenceIndex.text = "%02d".format(Locale.US, row.index + 1)
+            binding.sentenceIndex.setTextColor(if (row.hot) Color.WHITE else color(view, R.color.text_sub))
+            binding.sentenceIndex.background = rounded(
+                view,
+                if (row.hot) R.color.primary else R.color.mist,
+                R.dimen.dp_4,
+            )
+            binding.sentenceText.text = row.text
+            binding.sentenceText.setTextColor(color(view, if (row.hot) R.color.text_main else R.color.text_sub))
+            binding.sentenceDetail.text = row.detail
+            binding.sentenceDetail.setTextColor(color(view, row.tone))
+            binding.sentencePlay.visibility = if (row.playable) View.VISIBLE else View.GONE
+            if (row.playable) {
+                binding.sentencePlay.imageTintList = ColorStateList.valueOf(
+                    if (row.hot) Color.WHITE else color(view, R.color.text_sub),
+                )
+                binding.sentencePlay.background = rounded(
+                    view,
+                    if (row.hot) R.color.primary else R.color.mist,
+                    R.dimen.dp_99,
+                )
+                val play = if (row.enabled) View.OnClickListener { onPlay(row.index) } else null
+                binding.sentencePlay.setOnClickListener(play)
+                view.setOnClickListener(play)
+            } else {
+                binding.sentencePlay.setOnClickListener(null)
+                view.setOnClickListener(null)
+            }
+        }
+
+        private fun rounded(view: View, fill: Int, radius: Int): GradientDrawable {
+            return GradientDrawable().apply {
+                setColor(color(view, fill))
+                cornerRadius = view.dimen(radius)
+            }
+        }
+
+        private fun color(view: View, id: Int) = ContextCompat.getColor(view.context, id)
+    }
 }

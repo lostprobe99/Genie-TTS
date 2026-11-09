@@ -1,5 +1,6 @@
 package com.genie.tts.ui
 
+import com.genie.tts.databinding.ActivityMainBinding
 import com.genie.tts.R
 import com.genie.tts.speech.Prosody
 import com.genie.tts.speech.Release
@@ -32,23 +33,26 @@ internal data class ProsodySnapshot(
  * 韵律页的状态、进度、路径和下载导入删除按钮。
  * 点下去之后做什么，由外面传进来的回调决定。
  */
-internal class ProsodyController(private val activity: AppCompatActivity) {
-    private val status: TextView = activity.findViewById(R.id.prosodyStatus)
-    private val detail: TextView = activity.findViewById(R.id.prosodyDetail)
-    private val progress: ProgressBar = activity.findViewById(R.id.prosodyProgress)
-    private val badge: TextView = activity.findViewById(R.id.prosodyBadge)
-    private val model: TextView = activity.findViewById(R.id.prosodyModel)
-    private val fileName: TextView = activity.findViewById(R.id.prosodyFile)
-    private val size: TextView = activity.findViewById(R.id.prosodySize)
-    private val path: TextView = activity.findViewById(R.id.prosodyPath)
-    private val updated: TextView = activity.findViewById(R.id.prosodyUpdated)
-    private val downloadSub: TextView = activity.findViewById(R.id.prosodyDownloadSub)
-    private val copy: ImageButton = activity.findViewById(R.id.prosodyCopy)
-    private val deleteCard: View = activity.findViewById(R.id.prosodyDeleteCard)
-    private val download: TextView = activity.findViewById(R.id.downloadProsody)
-    private val importButton: TextView = activity.findViewById(R.id.importProsody)
-    private val delete: TextView = activity.findViewById(R.id.deleteProsody)
-    private val drawerState: TextView = activity.findViewById(R.id.drawerProsodyState)
+internal class ProsodyController(
+    private val activity: AppCompatActivity,
+    private val binding: ActivityMainBinding,
+) {
+    private val status: TextView = binding.prosodyPage.prosodyStatus
+    private val detail: TextView = binding.prosodyPage.prosodyDetail
+    private val progress: ProgressBar = binding.prosodyPage.prosodyProgress
+    private val badge: TextView = binding.prosodyBadge
+    private val model: TextView = binding.prosodyPage.prosodyModel
+    private val fileName: TextView = binding.prosodyPage.prosodyFile
+    private val size: TextView = binding.prosodyPage.prosodySize
+    private val path: TextView = binding.prosodyPage.prosodyPath
+    private val updated: TextView = binding.prosodyPage.prosodyUpdated
+    private val downloadSub: TextView = binding.prosodyPage.prosodyDownloadSub
+    private val copy: ImageButton = binding.prosodyPage.prosodyCopy
+    private val deleteCard: View = binding.prosodyPage.prosodyDeleteCard
+    private val download: TextView = binding.prosodyPage.downloadProsody
+    private val importButton: TextView = binding.prosodyPage.importProsody
+    private val delete: TextView = binding.prosodyPage.deleteProsody
+    private val drawerState: TextView = binding.drawerProsodyState
 
     fun bind(
         onDownload: () -> Unit,
@@ -63,8 +67,8 @@ internal class ProsodyController(private val activity: AppCompatActivity) {
             Release.TAG,
             bytesLabel(Prosody.MODEL_BYTES),
         )
-        activity.findViewById<TextView>(R.id.prosodyTipWhat).text = html(activity.getString(R.string.prosody_tip_what))
-        activity.findViewById<TextView>(R.id.prosodyTipNet).text = html(activity.getString(R.string.prosody_tip_net))
+        binding.prosodyPage.prosodyTipWhat.text = html(activity.getString(R.string.prosody_tip_what))
+        binding.prosodyPage.prosodyTipNet.text = html(activity.getString(R.string.prosody_tip_net))
         download.setOnClickListener { onDownload() }
         importButton.setOnClickListener { onImport() }
         delete.setOnClickListener { onDelete() }

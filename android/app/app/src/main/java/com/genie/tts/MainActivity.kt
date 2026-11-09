@@ -1,5 +1,6 @@
 package com.genie.tts
 
+import com.genie.tts.databinding.ActivityMainBinding
 import com.genie.tts.character.BatchStart
 import com.genie.tts.character.CharacterInfo
 import com.genie.tts.character.CharacterPack
@@ -69,6 +70,7 @@ import java.io.FileInputStream
 import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
+    private lateinit var binding: ActivityMainBinding
     private val session: AppViewModel by viewModels()
     private val splitter = TextSplitter()
     private lateinit var shell: PageShell
@@ -132,20 +134,21 @@ class MainActivity : AppCompatActivity() {
         noteInstalledBuild(filesDir, installed) { line ->
             TtsLog.add(LogLevel.INFO, LogModule.APP, line)
         }
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
         heldAudio = HeldAudio(this)
         light = LightDialogs(this)
         importSheet = ImportSheet(this, heldAudio) { session.playback.stop() }
         editRole = EditRoleDialog(this, light, heldAudio) { session.playback.stop() }
-        aboutController = AboutPageController(this)
-        logController = LogPageController(this) { page == AppPage.Logs }
-        helpController = HelpPageController(this, { page == AppPage.Help }) { aboutController.versionName() }
-        serviceController = ServicePageController(this, { page == AppPage.Service }, ::notificationsAllowed)
-        speakController = SpeakController(this)
-        characterController = CharacterController(this) { id, choices -> session.characters.avatarIndex(id, choices) }
-        prosodyController = ProsodyController(this)
-        shell = PageShell(this) { speakController.sentence.hasFocus() }
-        roles = RoleSpinner(this)
+        aboutController = AboutPageController(this, binding)
+        logController = LogPageController(this, binding) { page == AppPage.Logs }
+        helpController = HelpPageController(this, binding, { page == AppPage.Help }) { aboutController.versionName() }
+        serviceController = ServicePageController(this, binding, { page == AppPage.Service }, ::notificationsAllowed)
+        speakController = SpeakController(this, binding)
+        characterController = CharacterController(this, binding) { id, choices -> session.characters.avatarIndex(id, choices) }
+        prosodyController = ProsodyController(this, binding)
+        shell = PageShell(this, binding) { speakController.sentence.hasFocus() }
+        roles = RoleSpinner(this, binding)
         shell.padForScreen()
         restoreDraft()
         showInterrupted()
@@ -156,10 +159,10 @@ class MainActivity : AppCompatActivity() {
         showPage(AppPage.Speak)
         openRequestedPage(intent)
         val version = aboutController.versionBadge()
-        findViewById<TextView>(R.id.drawerVersion).text = version
-        findViewById<TextView>(R.id.homeVersion).text = version
-        findViewById<TextView>(R.id.logsVersion).text = version
-        findViewById<TextView>(R.id.logsBuild).text = appBuildBanner(installed)
+        binding.drawerVersion.text = version
+        binding.homeVersion.text = version
+        binding.logsVersion.text = version
+        binding.logsBuild.text = appBuildBanner(installed)
         renderProsody()
     }
 
@@ -217,11 +220,11 @@ class MainActivity : AppCompatActivity() {
         shell.bindMenu {
             if (page == AppPage.Speak) shell.openDrawer() else showPage(AppPage.Speak)
         }
-        findViewById<View>(R.id.homeMenu).setOnClickListener { shell.openDrawer() }
-        findViewById<View>(R.id.homeSearch).setOnClickListener { sentence.requestFocus() }
-        findViewById<View>(R.id.homeMore).setOnClickListener { toast(getString(R.string.not_ready)) }
-        findViewById<View>(R.id.prosodyBack).setOnClickListener { shell.openDrawer() }
-        findViewById<View>(R.id.aboutBack).setOnClickListener { showPage(AppPage.Speak) }
+        binding.homeMenu.setOnClickListener { shell.openDrawer() }
+        binding.homeSearch.setOnClickListener { sentence.requestFocus() }
+        binding.homeMore.setOnClickListener { toast(getString(R.string.not_ready)) }
+        binding.prosodyBack.setOnClickListener { shell.openDrawer() }
+        binding.aboutBack.setOnClickListener { showPage(AppPage.Speak) }
         helpController.bind(
             onBack = { showPage(AppPage.Speak) },
             onRefresh = { toast(getString(R.string.up_to_date, aboutController.versionBadge())) },
@@ -236,8 +239,8 @@ class MainActivity : AppCompatActivity() {
             onExport = ::exportLogs,
             onClear = ::confirmClearLogs,
         )
-        findViewById<View>(R.id.serviceBack).setOnClickListener { shell.openDrawer() }
-        findViewById<View>(R.id.serviceLogJump).setOnClickListener { showPage(AppPage.Logs) }
+        binding.serviceBack.setOnClickListener { shell.openDrawer() }
+        binding.serviceLogJump.setOnClickListener { showPage(AppPage.Logs) }
         characterController.bind(
             onQuery = { if (page == AppPage.Characters) renderCards() },
             onBack = {
@@ -321,18 +324,18 @@ class MainActivity : AppCompatActivity() {
             onCopyPath = { copyPlain("prosody", Prosody.modelFile(filesDir).absolutePath) },
         )
         serviceController.bind(::toggleService, ::commitPort)
-        findViewById<View>(R.id.copyLocal).setOnClickListener {
+        binding.servicePage.copyLocal.setOnClickListener {
             copyPlain("tts", serviceController.localUrl.text)
         }
-        findViewById<View>(R.id.copyLan).setOnClickListener {
+        binding.servicePage.copyLan.setOnClickListener {
             copyPlain("tts", serviceController.lanUrl.text)
         }
-        findViewById<View>(R.id.copyAbout).setOnClickListener {
+        binding.aboutPage.copyAbout.setOnClickListener {
             val clipboard = getSystemService(ClipboardManager::class.java)
             clipboard.setPrimaryClip(ClipData.newPlainText("about", aboutController.lines(currentRoleName())))
             toast(getString(R.string.copied))
         }
-        findViewById<View>(R.id.aboutOpen).setOnClickListener { openRepo() }
+        binding.aboutPage.aboutOpen.setOnClickListener { openRepo() }
     }
 
     private fun showPage(next: AppPage) {

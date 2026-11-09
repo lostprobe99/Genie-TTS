@@ -1,5 +1,6 @@
 package com.genie.tts.ui
 
+import com.genie.tts.databinding.ActivityMainBinding
 import com.genie.tts.R
 import android.view.View
 import android.widget.AdapterView
@@ -9,9 +10,12 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 
 /** 主屏上的当前角色。选中后做什么，由外面决定。 */
-internal class RoleSpinner(activity: AppCompatActivity) {
-    private val placeholder: TextView = activity.findViewById(R.id.characterPlaceholder)
-    private val spinner: Spinner = activity.findViewById(R.id.characters)
+internal class RoleSpinner(
+    activity: AppCompatActivity,
+    private val binding: ActivityMainBinding,
+) {
+    private val placeholder: TextView = binding.characterPlaceholder
+    private val spinner: Spinner = binding.characters
     private var suppress = false
     private var generation = 0
     private var onSelect: (Int) -> Unit = {}

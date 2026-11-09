@@ -1,5 +1,6 @@
 package com.genie.tts.ui
 
+import com.genie.tts.databinding.ActivityMainBinding
 import androidx.core.content.ContextCompat
 import com.genie.tts.R
 import com.genie.tts.service.ServiceStates
@@ -18,13 +19,14 @@ import androidx.appcompat.app.AppCompatActivity
 /** Owns the help page's category, expanded-topic and search state. */
 internal class HelpPageController(
     private val activity: AppCompatActivity,
+    private val binding: ActivityMainBinding,
     private val isVisible: () -> Boolean,
     private val versionName: () -> String,
 ) {
     private var category = "all"
     private val open = mutableMapOf<String, Boolean>()
-    private val root: ScrollView = activity.findViewById(R.id.helpPage)
-    private val query: EditText = activity.findViewById(R.id.helpQuery)
+    private val root: ScrollView = binding.helpPage.helpPage
+    private val query: EditText = binding.helpPage.helpQuery
 
     fun bind(
         onBack: () -> Unit,
@@ -35,32 +37,32 @@ internal class HelpPageController(
         onProsody: () -> Unit,
         onOpenLogs: () -> Unit,
     ) {
-        activity.findViewById<View>(R.id.helpBack).setOnClickListener { onBack() }
-        activity.findViewById<View>(R.id.helpRefresh).setOnClickListener { onRefresh() }
-        activity.findViewById<View>(R.id.helpDocs).setOnClickListener { onDocs() }
+        binding.helpBack.setOnClickListener { onBack() }
+        binding.helpRefresh.setOnClickListener { onRefresh() }
+        binding.helpDocs.setOnClickListener { onDocs() }
         listOf(
-            R.id.helpFilterAll to "all",
-            R.id.helpFilterStarter to "starter",
-            R.id.helpFilterLegado to "legado",
-            R.id.helpFilterBattery to "battery",
-            R.id.helpFilterModel to "model",
-            R.id.helpFilterService to "service",
-        ).forEach { (id, key) ->
-            activity.findViewById<View>(id).setOnClickListener { pick(key) }
+            binding.helpPage.helpFilterAll to "all",
+            binding.helpPage.helpFilterStarter to "starter",
+            binding.helpPage.helpFilterLegado to "legado",
+            binding.helpPage.helpFilterBattery to "battery",
+            binding.helpPage.helpFilterModel to "model",
+            binding.helpPage.helpFilterService to "service",
+        ).forEach { (view, key) ->
+            view.setOnClickListener { pick(key) }
         }
         query.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
             override fun afterTextChanged(s: Editable?) {
-                activity.findViewById<View>(R.id.helpQueryClear).visibility =
+                binding.helpPage.helpQueryClear.visibility =
                     if (s.isNullOrEmpty()) View.GONE else View.VISIBLE
                 if (isVisible()) render(true)
             }
         })
-        activity.findViewById<View>(R.id.helpQueryClear).setOnClickListener { query.setText("") }
-        activity.findViewById<View>(R.id.helpRepo).setOnClickListener { onRepo() }
-        activity.findViewById<View>(R.id.helpProsody).setOnClickListener { onProsody() }
-        activity.findViewById<View>(R.id.helpOpenLogs).setOnClickListener { onOpenLogs() }
+        binding.helpPage.helpQueryClear.setOnClickListener { query.setText("") }
+        binding.helpPage.helpRepo.setOnClickListener { onRepo() }
+        binding.helpPage.helpProsody.setOnClickListener { onProsody() }
+        binding.helpPage.helpOpenLogs.setOnClickListener { onOpenLogs() }
         copyEndpoint = onCopyEndpoint
     }
 
@@ -70,7 +72,7 @@ internal class HelpPageController(
         val oldScrollY = root.scrollY
         paintChips()
         val shown = fillHelpList(
-            activity.findViewById(R.id.helpTopics),
+            binding.helpPage.helpTopics,
             ServiceStates.store.current().port,
             query.text.toString(),
             category,
@@ -81,9 +83,9 @@ internal class HelpPageController(
             },
             onCopy = copyEndpoint,
         )
-        activity.findViewById<View>(R.id.helpEmpty).visibility = if (shown) View.GONE else View.VISIBLE
-        activity.findViewById<TextView>(R.id.helpProsodySub).text = "${Release.TAG} / prosody.zip"
-        activity.findViewById<TextView>(R.id.helpVersion).text = "GenieTTS v${versionName()}"
+        binding.helpPage.helpEmpty.visibility = if (shown) View.GONE else View.VISIBLE
+        binding.helpPage.helpProsodySub.text = "${Release.TAG} / prosody.zip"
+        binding.helpPage.helpVersion.text = "GenieTTS v${versionName()}"
         root.post { root.scrollTo(0, if (toTop) 0 else oldScrollY) }
     }
 
@@ -94,25 +96,22 @@ internal class HelpPageController(
 
     private fun paintChips() {
         listOf(
-            R.id.helpFilterAll to "all",
-            R.id.helpFilterStarter to "starter",
-            R.id.helpFilterLegado to "legado",
-            R.id.helpFilterBattery to "battery",
-            R.id.helpFilterModel to "model",
-            R.id.helpFilterService to "service",
-        ).forEach { (id, key) ->
-            val view = activity.findViewById<TextView>(id)
+            binding.helpPage.helpFilterAll to "all",
+            binding.helpPage.helpFilterStarter to "starter",
+            binding.helpPage.helpFilterLegado to "legado",
+            binding.helpPage.helpFilterBattery to "battery",
+            binding.helpPage.helpFilterModel to "model",
+            binding.helpPage.helpFilterService to "service",
+        ).forEach { (view, key) ->
             val selected = category == key
             view.setTextColor(if (selected) Color.WHITE else color(R.color.slate_text))
             view.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
             view.background = GradientDrawable().apply {
-                cornerRadius = dp(16).toFloat()
+                cornerRadius = activity.dimen(R.dimen.dp_16)
                 setColor(if (selected) color(R.color.teal_chip) else Color.WHITE)
             }
         }
     }
-
-    private fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
 
     private fun color(id: Int) = ContextCompat.getColor(activity, id)
 }

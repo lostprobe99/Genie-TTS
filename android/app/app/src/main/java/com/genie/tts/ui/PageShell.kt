@@ -1,5 +1,6 @@
 package com.genie.tts.ui
 
+import com.genie.tts.databinding.ActivityMainBinding
 import com.genie.tts.R
 import android.os.Build
 import android.view.View
@@ -22,32 +23,33 @@ internal enum class AppPage { Speak, Characters, Service, Prosody, About, Logs, 
  */
 internal class PageShell(
     private val activity: AppCompatActivity,
+    private val binding: ActivityMainBinding,
     private val typing: () -> Boolean,
 ) {
-    private val drawer: DrawerLayout = activity.findViewById(R.id.drawer)
-    private val drawerPanel: View = activity.findViewById(R.id.drawerPanel)
-    private val headerSlot: View = activity.findViewById(R.id.headerSlot)
-    private val pageFrame: View = activity.findViewById(R.id.pageFrame)
-    private val homeBar: View = activity.findViewById(R.id.homeBar)
-    private val rolesBar: View = activity.findViewById(R.id.rolesBar)
-    private val prosodyBar: View = activity.findViewById(R.id.prosodyBar)
-    private val aboutBar: View = activity.findViewById(R.id.aboutBar)
-    private val serviceBar: View = activity.findViewById(R.id.serviceBar)
-    private val logsBar: View = activity.findViewById(R.id.logsBar)
-    private val helpBar: View = activity.findViewById(R.id.helpBar)
-    private val otherBar: View = activity.findViewById(R.id.otherBar)
-    private val menuButton: ImageButton = activity.findViewById(R.id.menuButton)
-    private val pageTitle: TextView = activity.findViewById(R.id.pageTitle)
-    val banner: TextView = activity.findViewById(R.id.banner)
-    private val roleCount: TextView = activity.findViewById(R.id.drawerRoleCount)
-    private val speakPage: View = activity.findViewById(R.id.speakPage)
-    private val speakChrome: View = activity.findViewById(R.id.speakChrome)
-    private val characterPage: View = activity.findViewById(R.id.characterPage)
-    private val servicePage: View = activity.findViewById(R.id.servicePage)
-    private val prosodyPage: View = activity.findViewById(R.id.prosodyPage)
-    private val aboutPage: View = activity.findViewById(R.id.aboutPage)
-    private val logsPage: View = activity.findViewById(R.id.logsPage)
-    private val helpPage: View = activity.findViewById(R.id.helpPage)
+    private val drawer: DrawerLayout = binding.drawer
+    private val drawerPanel: View = binding.drawerPanel
+    private val headerSlot: View = binding.headerSlot
+    private val pageFrame: View = binding.pageFrame
+    private val homeBar: View = binding.homeBar
+    private val rolesBar: View = binding.rolesBar
+    private val prosodyBar: View = binding.prosodyBar
+    private val aboutBar: View = binding.aboutBar
+    private val serviceBar: View = binding.serviceBar
+    private val logsBar: View = binding.logsBar
+    private val helpBar: View = binding.helpBar
+    private val otherBar: View = binding.otherBar
+    private val menuButton: ImageButton = binding.menuButton
+    private val pageTitle: TextView = binding.pageTitle
+    val banner: TextView = binding.banner
+    private val roleCount: TextView = binding.drawerRoleCount
+    private val speakPage: View = binding.speakPage.speakPage
+    private val speakChrome: View = binding.speakPage.speakChrome
+    private val characterPage: View = binding.characterPage.characterPage
+    private val servicePage: View = binding.servicePage.root
+    private val prosodyPage: View = binding.prosodyPage.root
+    private val aboutPage: View = binding.aboutPage.root
+    private val logsPage: View = binding.logsPage.logsPage
+    private val helpPage: View = binding.helpPage.helpPage
     private var imeBottom = 0
 
     fun padForScreen() {
@@ -58,9 +60,9 @@ internal class PageShell(
         }
         activity.window.statusBarColor = android.graphics.Color.TRANSPARENT
         activity.window.navigationBarColor = android.graphics.Color.TRANSPARENT
-        val content = activity.findViewById<View>(R.id.contentRoot)
-        val drawerHeader = activity.findViewById<View>(R.id.drawerHeader)
-        val drawerNav = activity.findViewById<View>(R.id.drawerNav)
+        val content = binding.contentRoot
+        val drawerHeader = binding.drawerHeader
+        val drawerNav = binding.drawerNav
         val contentLeft = content.paddingLeft
         val contentRight = content.paddingRight
         val headerTop = headerSlot.paddingTop
@@ -122,7 +124,7 @@ internal class PageShell(
         val headerColor = color(if (light) R.color.header else R.color.ink)
         headerSlot.setBackgroundColor(headerColor)
         pageFrame.setBackgroundColor(pageColor)
-        activity.findViewById<View>(R.id.contentRoot).setBackgroundColor(pageColor)
+        binding.contentRoot.setBackgroundColor(pageColor)
         banner.setTextColor(color(if (light) R.color.primary else R.color.amber))
         val controller = WindowCompat.getInsetsController(activity.window, activity.window.decorView)
         controller.isAppearanceLightStatusBars = false
@@ -148,36 +150,36 @@ internal class PageShell(
     }
 
     fun bindDrawer(onPage: (AppPage) -> Unit, onSettings: () -> Unit) {
-        activity.findViewById<View>(R.id.drawerClose).setOnClickListener { closeDrawer() }
-        activity.findViewById<View>(R.id.openHome).setOnClickListener {
+        binding.drawerClose.setOnClickListener { closeDrawer() }
+        binding.openHome.setOnClickListener {
             closeDrawer()
             onPage(AppPage.Speak)
         }
-        activity.findViewById<View>(R.id.openSettings).setOnClickListener {
+        binding.openSettings.setOnClickListener {
             closeDrawer()
             onSettings()
         }
-        activity.findViewById<View>(R.id.openHelp).setOnClickListener {
+        binding.openHelp.setOnClickListener {
             closeDrawer()
             onPage(AppPage.Help)
         }
-        activity.findViewById<View>(R.id.openLogs).setOnClickListener {
+        binding.openLogs.setOnClickListener {
             closeDrawer()
             onPage(AppPage.Logs)
         }
-        activity.findViewById<View>(R.id.openCharacters).setOnClickListener {
+        binding.openCharacters.setOnClickListener {
             closeDrawer()
             onPage(AppPage.Characters)
         }
-        activity.findViewById<View>(R.id.openService).setOnClickListener {
+        binding.openService.setOnClickListener {
             closeDrawer()
             onPage(AppPage.Service)
         }
-        activity.findViewById<View>(R.id.openProsody).setOnClickListener {
+        binding.openProsody.setOnClickListener {
             closeDrawer()
             onPage(AppPage.Prosody)
         }
-        activity.findViewById<View>(R.id.openAbout).setOnClickListener {
+        binding.openAbout.setOnClickListener {
             closeDrawer()
             onPage(AppPage.About)
         }
@@ -188,7 +190,7 @@ internal class PageShell(
     }
 
     fun bindRoleRow(onClick: () -> Unit) {
-        activity.findViewById<View>(R.id.roleRow).setOnClickListener { onClick() }
+        binding.roleRow.setOnClickListener { onClick() }
     }
 
     fun setRoleCount(count: Int) {
