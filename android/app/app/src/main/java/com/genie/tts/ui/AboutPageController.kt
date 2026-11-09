@@ -51,7 +51,7 @@ internal class AboutPageController(
 
     fun versionBadge(): String = "v${versionName()} (${versionCode()})"
     fun versionLabel(): String = "${versionName()}（${versionCode()}）"
-    fun versionName(): String = packageInfo().versionName ?: "0.0.20"
+    fun versionName(): String = packageInfo().versionName ?: "0.0.21"
 
     private fun versionCode(): Long {
         val info = packageInfo()

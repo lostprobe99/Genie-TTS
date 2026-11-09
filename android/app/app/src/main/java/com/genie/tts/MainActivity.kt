@@ -828,7 +828,7 @@ class MainActivity : AppCompatActivity() {
             info.versionCode.toLong()
         }
         return com.genie.tts.core.AppBuild(
-            info.versionName ?: "0.0.20",
+            info.versionName ?: "0.0.21",
             code,
             BuildConfig.BUILT_AT,
             info.lastUpdateTime,
