@@ -1,0 +1,12 @@
+enc_emb	29,256
+enc_w_ih	768,256
+enc_w_hh	768,256
+enc_b_ih	768
+enc_b_hh	768
+dec_emb	74,256
+dec_w_ih	768,256
+dec_w_hh	768,256
+dec_b_ih	768
+dec_b_hh	768
+fc_w	74,256
+fc_b	74
