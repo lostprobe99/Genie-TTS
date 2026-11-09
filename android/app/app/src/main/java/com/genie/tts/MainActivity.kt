@@ -117,9 +117,9 @@ class MainActivity : AppCompatActivity() {
             contentResolver.openOutputStream(uri)?.use { stream ->
                 stream.write(text.toByteArray(Charsets.UTF_8))
             } ?: error("empty")
-            toast("已导出")
+            toast(getString(R.string.exported))
         } catch (_: Exception) {
-            toast("没有写出去")
+            toast(getString(R.string.export_failed))
         }
     }
 
@@ -224,7 +224,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.aboutBack).setOnClickListener { showPage(AppPage.Speak) }
         helpController.bind(
             onBack = { showPage(AppPage.Speak) },
-            onRefresh = { toast("当前是 ${aboutController.versionBadge()}。应用不在线检查更新。") },
+            onRefresh = { toast(getString(R.string.up_to_date, aboutController.versionBadge())) },
             onDocs = ::openRepo,
             onCopyEndpoint = ::copyHelpEndpoint,
             onRepo = ::openRepo,
@@ -330,7 +330,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<View>(R.id.copyAbout).setOnClickListener {
             val clipboard = getSystemService(ClipboardManager::class.java)
             clipboard.setPrimaryClip(ClipData.newPlainText("about", aboutController.lines(currentRoleName())))
-            toast("已复制")
+            toast(getString(R.string.copied))
         }
         findViewById<View>(R.id.aboutOpen).setOnClickListener { openRepo() }
     }
@@ -362,7 +362,7 @@ class MainActivity : AppCompatActivity() {
         if (text.isBlank()) return
         val pieces = splitter.split(text)
         if (pieces.isEmpty()) {
-            toast("这句没有读出来")
+            toast(getString(R.string.sentence_unread))
             return
         }
         confirmProsody(preview = false) {
@@ -393,8 +393,8 @@ class MainActivity : AppCompatActivity() {
             return
         }
         AlertDialog.Builder(this)
-            .setTitle("还没有韵律模型")
-            .setMessage("可以朗读，但停顿和重音会弱一些。")
+            .setTitle(R.string.prosody_missing_title)
+            .setMessage(R.string.prosody_missing_message)
             .setNegativeButton(if (preview) R.string.continue_preview else R.string.continue_synth) { _, _ ->
                 then()
             }
@@ -403,12 +403,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onCharacterPicked(uri: Uri) {
-        val name = displayName(uri).ifBlank { "角色包.zip" }
+        val name = displayName(uri).ifBlank { getString(R.string.character_pack_name) }
         val size = fileSize(uri)
         session.characters.inspect(uri, name, size) {
             contentResolver.openFileDescriptor(uri, "r")?.use { parcel ->
                 FileInputStream(parcel.fileDescriptor).use { input -> CharacterPack.peek(input.channel) }
-            } ?: error("打不开这个文件")
+            } ?: error(getString(R.string.file_unreadable))
         }
     }
 
@@ -424,7 +424,7 @@ class MainActivity : AppCompatActivity() {
             ::isBusy,
             onConfirm = { typed ->
                 session.characters.import(typed) {
-                    contentResolver.openInputStream(uri) ?: error("打不开这个文件")
+                    contentResolver.openInputStream(uri) ?: error(getString(R.string.file_unreadable))
                 }
             },
             onReselect = {
@@ -500,7 +500,7 @@ class MainActivity : AppCompatActivity() {
         }
         showLightConfirm(
             getString(R.string.batch_manage),
-            "要删除这 ${picked.size} 个角色。",
+            getString(R.string.delete_roles, picked.size),
             getString(R.string.delete),
         ) {
             val roster = session.characters.current().roster
@@ -517,8 +517,8 @@ class MainActivity : AppCompatActivity() {
         }
         showLightConfirm(
             getString(R.string.clear_roles),
-            "已导入的角色都会删掉。首页正在用的角色会回到未选择。",
-            "清空",
+            getString(R.string.clear_roles_message),
+            getString(R.string.clear),
         ) {
             session.characters.remove(session.characters.current().roster.toList())
         }
@@ -555,7 +555,7 @@ class MainActivity : AppCompatActivity() {
     private fun onProsodyPicked(uri: Uri) {
         val name = displayName(uri)
         session.prosody.import(name) {
-            contentResolver.openInputStream(uri) ?: error("打不开这个文件")
+            contentResolver.openInputStream(uri) ?: error(getString(R.string.file_unreadable))
         }
     }
 
@@ -680,24 +680,30 @@ class MainActivity : AppCompatActivity() {
 
     private fun copyHelpEndpoint() {
         val clipboard = getSystemService(ClipboardManager::class.java)
-        clipboard.setPrimaryClip(ClipData.newPlainText("tts", helpCopyText(ServiceStates.store.current().port)))
-        toast("已复制本机朗读接口")
+        clipboard.setPrimaryClip(
+            ClipData.newPlainText("tts", helpCopyText(this, ServiceStates.store.current().port)),
+        )
+        toast(getString(R.string.endpoint_copied))
     }
 
     private fun openLink(url: String) {
         try {
             startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
         } catch (_: ActivityNotFoundException) {
-            toast("打不开这个链接")
+            toast(getString(R.string.link_failed))
         }
     }
 
     private fun confirmClearLogs() {
         if (TtsLog.entries().isEmpty()) {
-            toast("还没有日志")
+            toast(getString(R.string.log_empty))
             return
         }
-        showLightConfirm("清空日志", "要清空已经记下的日志。", "清空") {
+        showLightConfirm(
+            getString(R.string.log_clear),
+            getString(R.string.clear_logs_message),
+            getString(R.string.clear),
+        ) {
             TtsLog.clear()
         }
     }
@@ -711,7 +717,7 @@ class MainActivity : AppCompatActivity() {
     private fun copyPlain(label: String, text: CharSequence) {
         val clipboard = getSystemService(ClipboardManager::class.java)
         clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
-        toast("已复制")
+        toast(getString(R.string.copied))
     }
 
     private fun commitPort() {
@@ -765,7 +771,10 @@ class MainActivity : AppCompatActivity() {
     private fun showInterrupted() {
         if (session.playback.current().bannerOwned) return
         val raw = session.synthesis.consumeMarker() ?: return
-        pinnedBanner = "上次合成没有完成\n版本 ${raw.ifBlank { aboutController.versionLabel() }}"
+        pinnedBanner = getString(
+            R.string.last_synth_banner,
+            raw.ifBlank { aboutController.versionLabel() },
+        )
         applyBanner()
     }
 
@@ -781,7 +790,7 @@ class MainActivity : AppCompatActivity() {
     private fun alert(message: String) {
         AlertDialog.Builder(this)
             .setMessage(message)
-            .setPositiveButton("确定", null)
+            .setPositiveButton(R.string.ok, null)
             .show()
     }
 
@@ -794,7 +803,7 @@ class MainActivity : AppCompatActivity() {
         try {
             startActivity(intent)
         } catch (error: ActivityNotFoundException) {
-            toast("打不开这个链接")
+            toast(getString(R.string.link_failed))
         }
     }
 

@@ -47,7 +47,7 @@ internal class HeldAudio(private val activity: AppCompatActivity) {
             media.start()
             onStarted()
             if (!granted) {
-                Toast.makeText(activity, "声音可能被其他应用占用", Toast.LENGTH_SHORT).show()
+                Toast.makeText(activity, activity.getString(R.string.audio_busy), Toast.LENGTH_SHORT).show()
             }
         } catch (_: Exception) {
             stop()

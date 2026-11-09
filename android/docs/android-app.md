@@ -12,7 +12,7 @@
 
 源码在 `com.genie.tts` 下按职责分包。`MainActivity` 和 `AppViewModel` 留在根包。`ui` 是页面，`character` 是角色包和清单，`speech` 是合成、韵律和 `g2p`，`service` 是朗读接口，`core` 是日志、机器状态、界面状态，以及给界面看的提示。
 
-`MainActivity` 负责应用生命周期、页面切换、权限、选文件、显示提示，以及把状态接到页面上。页面显隐在 `PageShell`，主屏的角色下拉在 `RoleSpinner`。合成、播放、角色、韵律和服务的操作已经分开：
+`MainActivity` 负责应用生命周期、页面切换、权限、选文件、显示提示，以及把状态接到页面上。页面显隐在 `PageShell`，主屏的角色下拉在 `RoleSpinner`。界面上的句子在 `strings.xml`，颜色在 `colors.xml`。合成、播放、角色、韵律和服务的操作已经分开：
 
 - `SpeakController` 只画主屏的分句列表、语速、按钮和底下的状态。
 - `SynthesisActions` 管主屏合成和试听的进度、分句结果和「上次没有合成完」的标记。`PlaybackActions` 管播放和试听的声音。两者都由 `AppViewModel` 拿着。

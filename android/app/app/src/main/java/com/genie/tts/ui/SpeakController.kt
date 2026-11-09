@@ -96,12 +96,12 @@ internal class SpeakController(private val activity: AppCompatActivity) {
 
     fun renderSentences(state: SpeakSnapshot, onPlay: (Int) -> Unit) {
         sentenceCard.visibility = View.VISIBLE
-        sentenceHeading.text = "分句列表（共 ${state.clips.size} 句）"
+        sentenceHeading.text = activity.getString(R.string.sentence_heading, state.clips.size)
         sentenceBadge.text = when {
-            state.synthesizing && state.loadingModel -> "正在加载模型"
-            state.synthesizing -> "正在合成"
-            state.playing -> "正在播放"
-            state.clips.any { it?.samples != null } -> "合成完毕 · 点击单句播放"
+            state.synthesizing && state.loadingModel -> activity.getString(R.string.loading_model)
+            state.synthesizing -> activity.getString(R.string.synthesizing_now)
+            state.playing -> activity.getString(R.string.playing_now)
+            state.clips.any { it?.samples != null } -> activity.getString(R.string.synth_done_hint)
             else -> ""
         }
         sentenceBadge.visibility = if (sentenceBadge.text.isNullOrBlank()) View.GONE else View.VISIBLE
@@ -119,7 +119,7 @@ internal class SpeakController(private val activity: AppCompatActivity) {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(4), dp(8), dp(4), dp(8))
-                if (hot) background = rounded(Color.parseColor("#F0FDFA"), 6f)
+                if (hot) background = rounded(color(R.color.mint), 6f)
             }
             row.addView(TextView(activity).apply {
                 text = "%02d".format(Locale.US, index + 1)
@@ -127,7 +127,7 @@ internal class SpeakController(private val activity: AppCompatActivity) {
                 textSize = 11f
                 typeface = Typeface.MONOSPACE
                 setTextColor(if (hot) Color.WHITE else color(R.color.text_sub))
-                background = rounded(if (hot) color(R.color.primary) else Color.parseColor("#F1F5F9"), 4f)
+                background = rounded(if (hot) color(R.color.primary) else color(R.color.mist), 4f)
                 minWidth = dp(20)
                 minHeight = dp(20)
             })
@@ -143,7 +143,7 @@ internal class SpeakController(private val activity: AppCompatActivity) {
             val detail = when {
                 samples != null -> "${formatSec(secondsOf(samples, clip.sampleRate))}s"
                 !clip?.error.isNullOrBlank() -> clip?.error
-                state.synthesizing && index == state.active -> "合成中"
+                state.synthesizing && index == state.active -> activity.getString(R.string.sentence_working)
                 else -> ""
             }
             row.addView(TextView(activity).apply {
@@ -162,8 +162,8 @@ internal class SpeakController(private val activity: AppCompatActivity) {
                 val button = ImageButton(activity).apply {
                     setImageResource(R.drawable.ic_role_play)
                     imageTintList = ColorStateList.valueOf(if (hot) Color.WHITE else color(R.color.text_sub))
-                    background = rounded(if (hot) color(R.color.primary) else Color.parseColor("#F1F5F9"), 99f)
-                    contentDescription = "播放这一句"
+                    background = rounded(if (hot) color(R.color.primary) else color(R.color.mist), 99f)
+                    contentDescription = activity.getString(R.string.play_sentence)
                     scaleType = ImageView.ScaleType.CENTER
                     minimumWidth = 0
                     minimumHeight = 0
@@ -191,7 +191,7 @@ internal class SpeakController(private val activity: AppCompatActivity) {
         when {
             state.synthesizing && state.loadingModel -> {
                 synthesizeButton.isEnabled = true
-                synthesizeButton.text = "加载中"
+                synthesizeButton.text = activity.getString(R.string.loading_short)
             }
             state.synthesizing -> {
                 synthesizeButton.isEnabled = true
@@ -231,12 +231,12 @@ internal class SpeakController(private val activity: AppCompatActivity) {
             state.workNote.contains("占用") ||
             state.workNote.contains("没有可以播放")
         workStatus.text = when {
-            state.synthesizing && state.loadingModel -> "加载中"
-            state.synthesizing -> "合成中"
-            state.playing -> "播放中"
-            state.clips.any { it?.samples != null } -> "完成"
-            state.clips.isNotEmpty() -> "完成"
-            else -> "未合成"
+            state.synthesizing && state.loadingModel -> activity.getString(R.string.loading_short)
+            state.synthesizing -> activity.getString(R.string.synth_short)
+            state.playing -> activity.getString(R.string.play_short)
+            state.clips.any { it?.samples != null } -> activity.getString(R.string.done)
+            state.clips.isNotEmpty() -> activity.getString(R.string.done)
+            else -> activity.getString(R.string.status_idle)
         }
         val metrics = metricsLine(state)
         val playingLine = state.workNote.startsWith("正在播放")
@@ -252,8 +252,8 @@ internal class SpeakController(private val activity: AppCompatActivity) {
             when {
                 warn -> color(R.color.amber)
                 state.playing || state.synthesizing -> color(R.color.primary)
-                state.clips.any { it?.samples != null } -> Color.parseColor("#10B981")
-                else -> Color.parseColor("#CBD5E1")
+                state.clips.any { it?.samples != null } -> color(R.color.green)
+                else -> color(R.color.mist_line)
             },
         )
     }
@@ -265,19 +265,22 @@ internal class SpeakController(private val activity: AppCompatActivity) {
     }
 
     private fun metricsLine(state: SpeakSnapshot): String {
-        if (state.clips.isEmpty()) return "分句: -/-  耗时: -  时长: -  实时率: -"
+        if (state.clips.isEmpty()) return activity.getString(R.string.metrics_empty)
         val total = state.clips.size
         val finished = state.clips.count { it?.samples != null || !it?.error.isNullOrBlank() }
         val shown = if (state.synthesizing) (state.active + 1).coerceIn(0, total) else finished
-        val parts = mutableListOf("分句: $shown/$total")
-        if (state.elapsedMs > 0) parts += "耗时: ${formatElapsed(state.elapsedMs)}"
+        val parts = mutableListOf(activity.getString(R.string.metrics_pieces, shown, total))
+        if (state.elapsedMs > 0) parts += activity.getString(R.string.metrics_elapsed, formatElapsed(state.elapsedMs))
         val audio = state.clips.sumOf { clip ->
             val samples = clip?.samples ?: return@sumOf 0.0
             secondsOf(samples, clip.sampleRate)
         }
         if (audio > 0) {
-            parts += "时长: ${formatSec(audio)}s"
-            if (state.elapsedMs > 0) parts += "实时率: ${"%.2f".format(Locale.US, (state.elapsedMs / 1000.0) / audio)}x"
+            parts += activity.getString(R.string.metrics_audio, formatSec(audio))
+            if (state.elapsedMs > 0) {
+                val rate = "%.2f".format(Locale.US, (state.elapsedMs / 1000.0) / audio)
+                parts += activity.getString(R.string.metrics_rtf, rate)
+            }
         }
         return parts.joinToString("  ")
     }

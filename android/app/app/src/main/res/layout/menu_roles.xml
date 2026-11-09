@@ -95,7 +95,7 @@
         android:layout_height="1dp"
         android:layout_marginTop="4dp"
         android:layout_marginBottom="4dp"
-        android:background="#F1F5F9" />
+        android:background="@color/mist" />
 
     <LinearLayout
         android:id="@+id/menuClear"
@@ -113,14 +113,14 @@
             android:layout_width="16dp"
             android:layout_height="16dp"
             android:src="@drawable/ic_role_trash"
-            app:tint="#E11D48" />
+            app:tint="@color/rose" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginStart="10dp"
             android:text="@string/clear_roles"
-            android:textColor="#E11D48"
+            android:textColor="@color/rose"
             android:textSize="12sp" />
     </LinearLayout>
 </LinearLayout>

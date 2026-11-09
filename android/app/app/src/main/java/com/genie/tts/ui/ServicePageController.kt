@@ -77,8 +77,8 @@ internal class ServicePageController(
         scheduleUptime()
         dot.backgroundTintList = ColorStateList.valueOf(
             when {
-                open -> Color.parseColor("#10B981")
-                !running && problem.isNullOrBlank() && !switching -> Color.parseColor("#CBD5E1")
+                open -> color(R.color.green)
+                !running && problem.isNullOrBlank() && !switching -> color(R.color.mist_line)
                 else -> color(R.color.amber)
             },
         )
@@ -90,14 +90,14 @@ internal class ServicePageController(
         ids.text = roster.joinToString("、") { it.id }.ifBlank { activity.getString(R.string.service_ids_empty) }
         requests.text = state.requests.toString()
         failures.text = state.failures.toString()
-        failures.setTextColor(if (state.failures > 0) Color.parseColor("#BE123C") else color(R.color.text_main))
+        failures.setTextColor(if (state.failures > 0) color(R.color.rose_ink) else color(R.color.text_main))
         audio.text = audioLength(state.audioMs)
-        drawerState.text = if (running) "运行中" else activity.getString(R.string.service_stopped)
+        drawerState.setText(if (running) R.string.service_drawer_running else R.string.service_stopped)
         drawerState.setTextColor(color(if (running) R.color.primary else R.color.text_sub))
         drawerState.setBackgroundResource(if (running) R.drawable.bg_pill else R.drawable.bg_prosody_idle)
         toggle.setText(if (running) R.string.service_stop else R.string.service_start)
         toggle.setBackgroundResource(if (running) R.drawable.bg_service_stop else R.drawable.bg_service_start)
-        toggle.setTextColor(if (running) Color.parseColor("#BE123C") else Color.WHITE)
+        toggle.setTextColor(if (running) color(R.color.rose_ink) else Color.WHITE)
         toggle.isEnabled = !switching
         toggle.alpha = if (switching) 0.45f else 1f
         val shown = state.port.toString()

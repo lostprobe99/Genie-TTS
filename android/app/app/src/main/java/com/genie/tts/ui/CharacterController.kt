@@ -75,14 +75,14 @@ internal class CharacterController(
         R.drawable.ic_avatar_book,
     )
     private val avatarColors = arrayOf(
-        intArrayOf(0xFF005461.toInt(), 0xFF14B8A6.toInt()),
-        intArrayOf(0xFF059669.toInt(), 0xFF2DD4BF.toInt()),
-        intArrayOf(0xFFD97706.toInt(), 0xFF0F766E.toInt()),
-        intArrayOf(0xFF14B8A6.toInt(), 0xFF22D3EE.toInt()),
-        intArrayOf(0xFF0EA5E9.toInt(), 0xFF818CF8.toInt()),
-        intArrayOf(0xFF475569.toInt(), 0xFF005461.toInt()),
-        intArrayOf(0xFFFB7185.toInt(), 0xFF14B8A6.toInt()),
-        intArrayOf(0xFF115E59.toInt(), 0xFF10B981.toInt()),
+        intArrayOf(color(R.color.header), color(R.color.teal_bright)),
+        intArrayOf(color(R.color.green_mid), color(R.color.mint_bright)),
+        intArrayOf(color(R.color.amber_deep), color(R.color.teal)),
+        intArrayOf(color(R.color.teal_bright), color(R.color.cyan_bright)),
+        intArrayOf(color(R.color.sky), color(R.color.indigo)),
+        intArrayOf(color(R.color.slate_text), color(R.color.header)),
+        intArrayOf(color(R.color.rose_soft), color(R.color.teal_bright)),
+        intArrayOf(color(R.color.teal_deep), color(R.color.green)),
     )
 
     fun bind(
@@ -187,9 +187,9 @@ internal class CharacterController(
     }
 
     private fun footText(state: CharacterSnapshot): CharSequence {
-        val total = "共 ${state.roster.size} 个模型"
+        val total = activity.getString(R.string.role_model_count, state.roster.size)
         val current = state.roster.find { it.id == state.selectedId } ?: return total
-        val text = "$total  |  当前：${current.name}"
+        val text = activity.getString(R.string.role_model_current, total, current.name)
         val start = text.length - current.name.length
         return SpannableString(text).apply {
             setSpan(ForegroundColorSpan(color(R.color.header)), start, text.length, SpannableString.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -219,7 +219,7 @@ internal class CharacterController(
         if (state.batching && info.id in state.picked) {
             card.background = GradientDrawable().apply {
                 cornerRadius = dp(16).toFloat()
-                setColor(Color.parseColor("#E6F4F6"))
+                setColor(color(R.color.teal_soft))
             }
         }
         card.addView(avatarView(info))
@@ -238,10 +238,10 @@ internal class CharacterController(
             ellipsize = android.text.TextUtils.TruncateAt.END
         })
         text.addView(TextView(activity).apply {
-            this.text = "ID: ${info.id}"
+            this.text = activity.getString(R.string.role_id, info.id)
             textSize = 12f
             typeface = Typeface.MONOSPACE
-            setTextColor(Color.parseColor("#94A3B8"))
+            setTextColor(color(R.color.slate))
             setPadding(0, dp(2), 0, 0)
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
@@ -267,7 +267,10 @@ internal class CharacterController(
             setImageResource(if (playingThis) R.drawable.ic_role_bars else R.drawable.ic_role_play)
             imageTintList = ColorStateList.valueOf(color(if (playingThis) R.color.header else R.color.primary))
             scaleType = ImageView.ScaleType.CENTER
-            contentDescription = if (playingThis) "正在试听${info.name}" else "试听${info.name}"
+            contentDescription = activity.getString(
+                if (playingThis) R.string.preview_playing else R.string.preview_role,
+                info.name,
+            )
             isEnabled = !state.busy || playingThis
             alpha = if (isEnabled) 1f else 0.4f
             setOnClickListener { onPreview(info) }
@@ -344,8 +347,12 @@ internal class CharacterController(
         val batch = state.batching && state.onPage
         title.setText(if (batch) R.string.batch_manage else R.string.characters)
         back.setImageResource(if (batch) R.drawable.ic_close else R.drawable.ic_menu)
-        back.contentDescription = if (batch) "取消" else activity.getString(R.string.menu)
-        count.text = if (batch) "已选 ${state.picked.size}" else "${state.roster.size}个角色"
+        back.contentDescription = activity.getString(if (batch) R.string.cancel else R.string.menu)
+        count.text = if (batch) {
+            activity.getString(R.string.role_picked, state.picked.size)
+        } else {
+            activity.getString(R.string.role_count, state.roster.size)
+        }
         more.visibility = if (batch) View.GONE else View.VISIBLE
         foot.visibility = if (batch) View.GONE else View.VISIBLE
         importButton.visibility = if (batch) View.GONE else View.VISIBLE

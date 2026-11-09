@@ -82,7 +82,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginStart="4dp"
                         android:fontFamily="monospace"
-                        android:textColor="#334155"
+                        android:textColor="@color/slate_strong"
                         android:textSize="12sp" />
                 </LinearLayout>
 
@@ -92,7 +92,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="@string/service_notice"
-                    android:textColor="#B45309"
+                    android:textColor="@color/amber_ink"
                     android:textSize="12sp"
                     android:visibility="gone" />
             </LinearLayout>
@@ -143,7 +143,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/service_stat_requests"
-                        android:textColor="#94A3B8"
+                        android:textColor="@color/slate"
                         android:textSize="11sp" />
 
                     <TextView
@@ -152,7 +152,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:fontFamily="monospace"
-                        android:text="0"
+                        android:text="@string/stat_zero"
                         android:textColor="@color/text_main"
                         android:textSize="18sp"
                         android:textStyle="bold" />
@@ -173,7 +173,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/service_stat_failures"
-                        android:textColor="#94A3B8"
+                        android:textColor="@color/slate"
                         android:textSize="11sp" />
 
                     <TextView
@@ -182,7 +182,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:fontFamily="monospace"
-                        android:text="0"
+                        android:text="@string/stat_zero"
                         android:textColor="@color/text_main"
                         android:textSize="18sp"
                         android:textStyle="bold" />
@@ -203,7 +203,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/service_stat_audio"
-                        android:textColor="#94A3B8"
+                        android:textColor="@color/slate"
                         android:textSize="11sp" />
 
                     <TextView
@@ -212,7 +212,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:fontFamily="monospace"
-                        android:text="0:00"
+                        android:text="@string/stat_clock"
                         android:textColor="@color/text_main"
                         android:textSize="18sp"
                         android:textStyle="bold" />
@@ -264,7 +264,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/port"
-                        android:textColor="#94A3B8"
+                        android:textColor="@color/slate"
                         android:textSize="11sp" />
 
                     <TextView
@@ -312,7 +312,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/service_local"
-                        android:textColor="#94A3B8"
+                        android:textColor="@color/slate"
                         android:textSize="11sp" />
 
                     <TextView
@@ -357,7 +357,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/service_lan"
-                        android:textColor="#94A3B8"
+                        android:textColor="@color/slate"
                         android:textSize="11sp" />
 
                     <TextView
@@ -475,7 +475,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:text="@string/service_ids_label"
-                android:textColor="#94A3B8"
+                android:textColor="@color/slate"
                 android:textSize="11sp" />
 
             <TextView
@@ -509,7 +509,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="@string/service_tip_title"
-                android:textColor="#134E4A"
+                android:textColor="@color/teal_ink"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -519,7 +519,7 @@
                 android:layout_marginTop="6dp"
                 android:lineSpacingExtra="3dp"
                 android:text="@string/service_tip"
-                android:textColor="#115E59"
+                android:textColor="@color/teal_deep"
                 android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>

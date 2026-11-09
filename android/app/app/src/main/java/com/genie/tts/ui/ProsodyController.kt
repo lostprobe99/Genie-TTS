@@ -58,7 +58,11 @@ internal class ProsodyController(private val activity: AppCompatActivity) {
     ) {
         model.text = Prosody.FILE_NAME
         fileName.text = Prosody.FILE_NAME
-        downloadSub.text = "拉取 ${Release.TAG} 的 prosody.zip，大约 ${bytesLabel(Prosody.MODEL_BYTES)}，中断后可以接着下。"
+        downloadSub.text = activity.getString(
+            R.string.prosody_download_sub,
+            Release.TAG,
+            bytesLabel(Prosody.MODEL_BYTES),
+        )
         activity.findViewById<TextView>(R.id.prosodyTipWhat).text = html(activity.getString(R.string.prosody_tip_what))
         activity.findViewById<TextView>(R.id.prosodyTipNet).text = html(activity.getString(R.string.prosody_tip_net))
         download.setOnClickListener { onDownload() }
@@ -70,7 +74,7 @@ internal class ProsodyController(private val activity: AppCompatActivity) {
     fun render(state: ProsodySnapshot) {
         status.setText(if (state.ready) R.string.prosody_installed else R.string.prosody_missing)
         status.setBackgroundResource(if (state.ready) R.drawable.bg_prosody_ready else R.drawable.bg_prosody_idle)
-        status.setTextColor(if (state.ready) 0xFF047857.toInt() else color(R.color.text_sub))
+        status.setTextColor(if (state.ready) color(R.color.green_ink) else color(R.color.text_sub))
         badge.setText(if (state.ready) R.string.prosody_ready else R.string.prosody_missing)
         size.text = when {
             state.ready -> bytesLabel(state.fileBytes)
@@ -79,8 +83,11 @@ internal class ProsodyController(private val activity: AppCompatActivity) {
         }
         path.text = state.filePath
         updated.text = when {
-            state.ready -> "上次写入：${writtenAt(state.lastModified)}"
-            state.fileExists -> "大小不是 ${"%,d".format(Locale.US, Prosody.MODEL_BYTES)} 字节"
+            state.ready -> activity.getString(R.string.prosody_written, writtenAt(state.lastModified))
+            state.fileExists -> activity.getString(
+                R.string.prosody_wrong_bytes,
+                "%,d".format(Locale.US, Prosody.MODEL_BYTES),
+            )
             else -> activity.getString(R.string.prosody_absent)
         }
         deleteCard.visibility = if (state.fileExists) View.VISIBLE else View.GONE
@@ -92,7 +99,7 @@ internal class ProsodyController(private val activity: AppCompatActivity) {
             },
         )
         paintProgress(state)
-        drawerState.text = if (state.ready) "已就绪" else "未安装"
+        drawerState.setText(if (state.ready) R.string.prosody_ready else R.string.prosody_missing)
         val enabled = !state.busy
         val alpha = if (enabled) 1f else 0.4f
         download.isEnabled = enabled
@@ -117,8 +124,8 @@ internal class ProsodyController(private val activity: AppCompatActivity) {
         val total = state.downloadTotal
         detail.text = when {
             done == 0L && total == 0L -> activity.getString(R.string.prosody_downloading)
-            total > 0 -> "已下载 ${bytesLabel(done)} / ${bytesLabel(total)}"
-            else -> "已下载 ${bytesLabel(done)}"
+            total > 0 -> activity.getString(R.string.prosody_downloaded_of, bytesLabel(done), bytesLabel(total))
+            else -> activity.getString(R.string.prosody_downloaded, bytesLabel(done))
         }
         if (total > 0) {
             progress.isIndeterminate = false

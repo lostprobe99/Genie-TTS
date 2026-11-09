@@ -24,7 +24,7 @@ internal class AboutPageController(
 
     fun render(currentRole: String) {
         badge.text = versionBadge()
-        system.text = "Android ${Build.VERSION.RELEASE}"
+        system.text = activity.getString(R.string.about_system_value, Build.VERSION.RELEASE)
         model.text = "${Build.MANUFACTURER} ${Build.MODEL}"
         role.text = currentRole
         installed.text = writtenAt(packageInfo().lastUpdateTime)
@@ -34,13 +34,17 @@ internal class AboutPageController(
     }
 
     fun lines(currentRole: String): String {
-        return "版本 ${versionLabel()}\n" +
-            "构建时间 ${writtenAt(BuildConfig.BUILT_AT)}\n" +
-            "包名 ${activity.packageName}\n" +
-            "系统 Android ${Build.VERSION.RELEASE}（API ${Build.VERSION.SDK_INT}）\n" +
-            "机型 ${Build.MANUFACTURER} ${Build.MODEL}\n" +
-            "当前角色 $currentRole\n" +
-            "安装时间 ${writtenAt(packageInfo().lastUpdateTime)}"
+        return activity.getString(
+            R.string.about_lines,
+            versionLabel(),
+            writtenAt(BuildConfig.BUILT_AT),
+            activity.packageName,
+            Build.VERSION.RELEASE,
+            Build.VERSION.SDK_INT,
+            "${Build.MANUFACTURER} ${Build.MODEL}",
+            currentRole,
+            writtenAt(packageInfo().lastUpdateTime),
+        )
     }
 
     fun versionBadge(): String = "v${versionName()} (${versionCode()})"

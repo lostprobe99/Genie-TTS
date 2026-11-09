@@ -95,7 +95,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="✦"
+                    android:text="@string/spark"
                     android:textColor="@color/primary"
                     android:textSize="12sp"
                     android:textStyle="bold" />
@@ -107,7 +107,7 @@
                     android:layout_weight="1"
                     android:lineSpacingExtra="2dp"
                     android:text="@string/prosody_blurb"
-                    android:textColor="#134E4A"
+                    android:textColor="@color/teal_ink"
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -130,7 +130,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/prosody_file"
-                        android:textColor="#94A3B8"
+                        android:textColor="@color/slate"
                         android:textSize="11sp" />
 
                     <TextView
@@ -157,7 +157,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/prosody_size"
-                        android:textColor="#94A3B8"
+                        android:textColor="@color/slate"
                         android:textSize="11sp" />
 
                     <TextView
@@ -195,7 +195,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/prosody_path"
-                        android:textColor="#94A3B8"
+                        android:textColor="@color/slate"
                         android:textSize="11sp" />
 
                     <TextView
@@ -222,7 +222,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="10dp"
-                android:textColor="#94A3B8"
+                android:textColor="@color/slate"
                 android:textSize="11sp" />
         </LinearLayout>
 
@@ -327,7 +327,7 @@
                 android:maxHeight="6dp"
                 android:minHeight="6dp"
                 android:progress="0"
-                android:progressBackgroundTint="#E2E8F0"
+                android:progressBackgroundTint="@color/border"
                 android:progressTint="@color/primary"
                 android:visibility="gone" />
         </LinearLayout>
@@ -420,7 +420,7 @@
                     android:layout_gravity="center"
                     android:contentDescription="@string/prosody_delete_title"
                     android:src="@drawable/ic_role_trash"
-                    app:tint="#E11D48" />
+                    app:tint="@color/rose" />
             </FrameLayout>
 
             <LinearLayout
@@ -434,7 +434,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/prosody_delete_title"
-                    android:textColor="#BE123C"
+                    android:textColor="@color/rose_ink"
                     android:textSize="14sp"
                     android:textStyle="bold" />
 
@@ -443,7 +443,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
                     android:text="@string/prosody_delete_sub"
-                    android:textColor="#FB7185"
+                    android:textColor="@color/rose_soft"
                     android:textSize="12sp" />
             </LinearLayout>
 
@@ -460,7 +460,7 @@
                 android:paddingEnd="12dp"
                 android:paddingBottom="7dp"
                 android:text="@string/prosody_remove"
-                android:textColor="#E11D48"
+                android:textColor="@color/rose"
                 android:textSize="12sp" />
         </LinearLayout>
 
@@ -561,7 +561,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:text="@string/prosody_footer"
-                android:textColor="#94A3B8"
+                android:textColor="@color/slate"
                 android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>

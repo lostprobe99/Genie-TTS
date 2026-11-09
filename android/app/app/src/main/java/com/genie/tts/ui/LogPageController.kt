@@ -1,5 +1,6 @@
 package com.genie.tts.ui
 
+import androidx.core.content.ContextCompat
 import com.genie.tts.R
 import com.genie.tts.core.DEFAULT_LOG_LEVELS
 import com.genie.tts.core.LogLevel
@@ -78,7 +79,7 @@ internal class LogPageController(
         activity.findViewById<View>(R.id.logQueryClear).setOnClickListener { query.setText("") }
         val switchStates = arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf())
         autoScroll.trackTintList =
-            android.content.res.ColorStateList(switchStates, intArrayOf(0xFF0A4B56.toInt(), 0xFFCBD5E1.toInt()))
+            android.content.res.ColorStateList(switchStates, intArrayOf(color(R.color.teal_press), color(R.color.mist_line)))
         autoScroll.thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
         activity.findViewById<View>(R.id.logClear).setOnClickListener { onClear() }
         activity.findViewById<View>(R.id.logCopy).setOnClickListener { copyAll() }
@@ -97,13 +98,15 @@ internal class LogPageController(
         rows.submit(shown)
         val nothing = shown.isEmpty()
         empty.visibility = if (nothing) View.VISIBLE else View.GONE
-        empty.text = if (entries.isEmpty()) "还没有日志" else "没有符合的日志"
+        empty.text = activity.getString(if (entries.isEmpty()) R.string.log_empty else R.string.log_none)
         list.visibility = if (nothing) View.INVISIBLE else View.VISIBLE
         end.visibility = if (nothing) View.GONE else View.VISIBLE
         val allLevels = levels.size == enumValues<LogLevel>().size
-        end.text = if (allLevels && query.text.isNullOrBlank()) "已显示全部日志" else "已显示筛选结果"
+        end.text = activity.getString(
+            if (allLevels && query.text.isNullOrBlank()) R.string.log_shown_all else R.string.log_shown_filtered,
+        )
         activity.findViewById<TextView>(R.id.logCount).text =
-            "共 ${entries.size} 条 · 占用 ${bytesLabel(TtsLog.bytes())}"
+            activity.getString(R.string.log_count, entries.size, bytesLabel(TtsLog.bytes()))
         if (shown.isEmpty()) return
         if (follow) list.scrollToPosition(shown.lastIndex)
         else if (reset) list.scrollToPosition(0)
@@ -117,7 +120,7 @@ internal class LogPageController(
     fun exportText(): String? {
         val text = TtsLog.text()
         if (text.isBlank()) {
-            Toast.makeText(activity, "还没有日志", Toast.LENGTH_SHORT).show()
+            Toast.makeText(activity, activity.getString(R.string.log_empty), Toast.LENGTH_SHORT).show()
             return null
         }
         return text
@@ -126,23 +129,23 @@ internal class LogPageController(
     private fun copyAll() {
         val text = TtsLog.text()
         if (text.isBlank()) {
-            Toast.makeText(activity, "还没有日志", Toast.LENGTH_SHORT).show()
+            Toast.makeText(activity, activity.getString(R.string.log_empty), Toast.LENGTH_SHORT).show()
             return
         }
         val clipboard = activity.getSystemService(ClipboardManager::class.java)
         clipboard.setPrimaryClip(ClipData.newPlainText("tts-log", text))
-        Toast.makeText(activity, "已复制", Toast.LENGTH_SHORT).show()
+        Toast.makeText(activity, activity.getString(R.string.copied), Toast.LENGTH_SHORT).show()
     }
 
     private fun copyPath() {
         val path = TtsLog.path()
         if (path.isBlank()) {
-            Toast.makeText(activity, "还没有日志", Toast.LENGTH_SHORT).show()
+            Toast.makeText(activity, activity.getString(R.string.log_empty), Toast.LENGTH_SHORT).show()
             return
         }
         val clipboard = activity.getSystemService(ClipboardManager::class.java)
         clipboard.setPrimaryClip(ClipData.newPlainText("tts-log", path))
-        Toast.makeText(activity, "已复制日志路径", Toast.LENGTH_SHORT).show()
+        Toast.makeText(activity, activity.getString(R.string.log_path_copied), Toast.LENGTH_SHORT).show()
     }
 
     private fun copyLine(line: LogLine) {
@@ -151,42 +154,45 @@ internal class LogPageController(
             .joinToString(" ")
         val clipboard = activity.getSystemService(ClipboardManager::class.java)
         clipboard.setPrimaryClip(ClipData.newPlainText("tts-log", text))
-        Toast.makeText(activity, "已复制", Toast.LENGTH_SHORT).show()
+        Toast.makeText(activity, activity.getString(R.string.copied), Toast.LENGTH_SHORT).show()
     }
 
     private fun paintBanner() {
         val running = ServiceStates.store.current().running
-        val tone = if (running) 0xFF0F766E.toInt() else 0xFF64748B.toInt()
+        val tone = if (running) color(R.color.teal) else color(R.color.text_sub)
         activity.findViewById<TextView>(R.id.logBannerText).apply {
-            text = if (running) "接口开着 · PID ${Process.myPid()}" else "接口未开启 · PID ${Process.myPid()}"
+            text = activity.getString(
+                if (running) R.string.log_service_on else R.string.log_service_off,
+                Process.myPid(),
+            )
             setTextColor(tone)
         }
         val memory = Debug.MemoryInfo()
         Debug.getMemoryInfo(memory)
         activity.findViewById<TextView>(R.id.logBannerRam).apply {
-            text = "RAM %.1f MB".format(Locale.US, memory.totalPss / 1024.0)
+            text = activity.getString(R.string.log_ram, "%.1f".format(Locale.US, memory.totalPss / 1024.0))
             setTextColor(tone)
         }
         activity.findViewById<View>(R.id.logBannerDot).backgroundTintList =
-            android.content.res.ColorStateList.valueOf(if (running) 0xFF0D9488.toInt() else 0xFF94A3B8.toInt())
+            android.content.res.ColorStateList.valueOf(if (running) color(R.color.teal_live) else color(R.color.slate))
     }
 
     private fun paintChip(id: Int, level: LogLevel?, count: Int) {
         val view = activity.findViewById<TextView>(id)
         val selected = if (level == null) levels.size == enumValues<LogLevel>().size else level in levels
-        val label = level?.name ?: "全部"
+        val label = level?.name ?: activity.getString(R.string.filter_all)
         view.text = if (level == null || count > 0) "$label  $count" else label
-        view.setTextColor(if (selected) Color.WHITE else 0xFF475569.toInt())
+        view.setTextColor(if (selected) Color.WHITE else color(R.color.slate_text))
         view.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
         view.background = GradientDrawable().apply {
             cornerRadius = dp(16).toFloat()
-            setColor(if (selected) 0xFF0A4B56.toInt() else 0xFFF1F5F9.toInt())
+            setColor(if (selected) color(R.color.teal_press) else color(R.color.mist))
         }
         val dotColor = when (level) {
-            LogLevel.INFO -> 0xFF06B6D4.toInt()
-            LogLevel.WARN -> 0xFFF59E0B.toInt()
-            LogLevel.ERROR -> 0xFFF43F5E.toInt()
-            LogLevel.DEBUG -> 0xFFA855F7.toInt()
+            LogLevel.INFO -> color(R.color.info)
+            LogLevel.WARN -> color(R.color.amber_mark)
+            LogLevel.ERROR -> color(R.color.rose_hot)
+            LogLevel.DEBUG -> color(R.color.violet)
             null -> 0
         }
         if (dotColor == 0) {
@@ -207,6 +213,8 @@ internal class LogPageController(
         if (bytes < 1024) "$bytes B" else "${(bytes + 512) / 1024} KB"
 
     private fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
+
+    private fun color(id: Int) = ContextCompat.getColor(activity, id)
 }
 
 private class LogRowAdapter(
@@ -260,10 +268,10 @@ private class LogRowAdapter(
 
         private fun paintLevel(value: LogLevel) {
             val (fill, ink, stroke) = when (value) {
-                LogLevel.INFO -> Triple(0xFFECFEFF.toInt(), 0xFF0E7490.toInt(), 0xFFA5F3FC.toInt())
-                LogLevel.WARN -> Triple(0xFFFFFBEB.toInt(), 0xFFB45309.toInt(), 0xFFFDE68A.toInt())
-                LogLevel.ERROR -> Triple(0xFFFFF1F2.toInt(), 0xFFBE123C.toInt(), 0xFFFECDD3.toInt())
-                LogLevel.DEBUG -> Triple(0xFFFAF5FF.toInt(), 0xFF7E22CE.toInt(), 0xFFE9D5FF.toInt())
+                LogLevel.INFO -> Triple(color(R.color.info_wash), color(R.color.cyan_ink), color(R.color.info_line))
+                LogLevel.WARN -> Triple(color(R.color.amber_wash), color(R.color.amber_ink), color(R.color.amber_line))
+                LogLevel.ERROR -> Triple(color(R.color.rose_wash), color(R.color.rose_ink), color(R.color.rose_line))
+                LogLevel.DEBUG -> Triple(color(R.color.violet_wash), color(R.color.violet_ink), color(R.color.violet_line))
             }
             level.setTextColor(ink)
             level.background = GradientDrawable().apply {
@@ -273,11 +281,13 @@ private class LogRowAdapter(
             }
         }
 
+        private fun color(id: Int) = ContextCompat.getColor(itemView.context, id)
+
         private fun rowColor(value: LogLevel): Int = when (value) {
             LogLevel.INFO -> Color.WHITE
-            LogLevel.WARN -> 0xFFFFFBEB.toInt()
-            LogLevel.ERROR -> 0xFFFFF1F2.toInt()
-            LogLevel.DEBUG -> 0xFFFAF5FF.toInt()
+            LogLevel.WARN -> color(R.color.amber_wash)
+            LogLevel.ERROR -> color(R.color.rose_wash)
+            LogLevel.DEBUG -> color(R.color.violet_wash)
         }
 
         private fun dp(value: Int): Int =

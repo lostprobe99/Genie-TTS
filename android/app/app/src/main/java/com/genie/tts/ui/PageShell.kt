@@ -139,7 +139,7 @@ internal class PageShell(
             },
         )
         menuButton.setImageResource(if (onSpeak) R.drawable.ic_menu else R.drawable.ic_back)
-        menuButton.contentDescription = if (onSpeak) "菜单" else "返回"
+        menuButton.contentDescription = activity.getString(if (onSpeak) R.string.menu else R.string.back)
         val menuPages = onSpeak || onRoles || onService || onProsody
         drawer.setDrawerLockMode(
             if (menuPages) DrawerLayout.LOCK_MODE_UNLOCKED else DrawerLayout.LOCK_MODE_LOCKED_CLOSED,
@@ -192,7 +192,7 @@ internal class PageShell(
     }
 
     fun setRoleCount(count: Int) {
-        roleCount.text = "${count}个角色"
+        roleCount.text = activity.getString(R.string.role_count, count)
     }
 
     fun openDrawer() {

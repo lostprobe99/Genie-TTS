@@ -84,7 +84,10 @@ internal class ImportSheet(
             listen.alpha = 0.4f
             listen.setOnClickListener { toast(activity.getString(R.string.import_no_audio)) }
         } else {
-            audioLabel.text = "参考音频: ${audioName.substringAfterLast('/')}（正在读取）"
+            audioLabel.text = activity.getString(
+                R.string.import_audio_reading,
+                audioName.substringAfterLast('/'),
+            )
             listen.alpha = 0.4f
             listen.isEnabled = false
             worker.execute {
@@ -93,7 +96,7 @@ internal class ImportSheet(
                         FileInputStream(parcel.fileDescriptor).use { input ->
                             CharacterPack.readNamed(input.channel, audioName)
                         }
-                    } ?: error("打不开这个文件")
+                    } ?: error(activity.getString(R.string.file_unreadable))
                     val ext = audioName.substringAfterLast('.', "bin").lowercase()
                     val file = File(activity.cacheDir, "import-reference.$ext")
                     file.writeBytes(bytes)
@@ -149,7 +152,7 @@ internal class ImportSheet(
         stopSpeech()
         audio.play(
             file,
-            onStarted = { button.text = "停止" },
+            onStarted = { button.text = activity.getString(R.string.stop) },
             onStopped = { button.text = activity.getString(R.string.preview) },
         )
     }
@@ -164,7 +167,7 @@ internal class ImportSheet(
     private fun audioCaption(name: String, seconds: Double?): String {
         val file = name.substringAfterLast('/')
         val clock = seconds?.let { " (${formatSeconds(it)}s)" }.orEmpty()
-        return "参考音频: $file$clock"
+        return activity.getString(R.string.import_audio_line, file, clock)
     }
 
     private fun sizeLabel(bytes: Long): String {

@@ -23,7 +23,7 @@ internal object ServiceNotification {
     fun build(context: Context, port: Int): Notification {
         val manager = context.getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel(CHANNEL) == null) {
-            val channel = NotificationChannel(CHANNEL, "朗读接口", NotificationManager.IMPORTANCE_LOW)
+            val channel = NotificationChannel(CHANNEL, context.getString(R.string.notice_channel), NotificationManager.IMPORTANCE_LOW)
             channel.setShowBadge(false)
             manager.createNotificationChannel(channel)
         }
@@ -46,11 +46,11 @@ internal object ServiceNotification {
         return NotificationCompat.Builder(context, CHANNEL)
             .setSmallIcon(R.drawable.ic_stat)
             .setLargeIcon(logo(context))
-            .setContentTitle("朗读接口开着")
+            .setContentTitle(context.getString(R.string.notice_title))
             .setContentText("http://127.0.0.1:$port/tts")
             .setOngoing(true)
             .setContentIntent(pending)
-            .addAction(R.drawable.ic_notify_stop, "停止", stop)
+            .addAction(R.drawable.ic_notify_stop, context.getString(R.string.stop), stop)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
     }

@@ -35,8 +35,8 @@
                     android:gravity="center"
                     android:paddingStart="12dp"
                     android:paddingEnd="12dp"
-                    android:text="全部"
-                    android:textColor="#475569"
+                    android:text="@string/filter_all"
+                    android:textColor="@color/slate_text"
                     android:textSize="12sp" />
 
                 <TextView
@@ -47,8 +47,8 @@
                     android:gravity="center"
                     android:paddingStart="12dp"
                     android:paddingEnd="12dp"
-                    android:text="INFO"
-                    android:textColor="#475569"
+                    android:text="@string/log_level_info"
+                    android:textColor="@color/slate_text"
                     android:textSize="12sp" />
 
                 <TextView
@@ -59,8 +59,8 @@
                     android:gravity="center"
                     android:paddingStart="12dp"
                     android:paddingEnd="12dp"
-                    android:text="WARN"
-                    android:textColor="#475569"
+                    android:text="@string/log_level_warn"
+                    android:textColor="@color/slate_text"
                     android:textSize="12sp" />
 
                 <TextView
@@ -71,8 +71,8 @@
                     android:gravity="center"
                     android:paddingStart="12dp"
                     android:paddingEnd="12dp"
-                    android:text="ERROR"
-                    android:textColor="#475569"
+                    android:text="@string/log_level_error"
+                    android:textColor="@color/slate_text"
                     android:textSize="12sp" />
 
                 <TextView
@@ -83,8 +83,8 @@
                     android:gravity="center"
                     android:paddingStart="12dp"
                     android:paddingEnd="12dp"
-                    android:text="DEBUG"
-                    android:textColor="#475569"
+                    android:text="@string/log_level_debug"
+                    android:textColor="@color/slate_text"
                     android:textSize="12sp" />
             </LinearLayout>
         </HorizontalScrollView>
@@ -108,7 +108,7 @@
                     android:background="@drawable/bg_log_field"
                     android:drawableStart="@drawable/ic_search_field"
                     android:drawablePadding="6dp"
-                    android:hint="搜索日志（如端口、角色、耗时）"
+                    android:hint="@string/log_hint"
                     android:imeOptions="actionSearch"
                     android:importantForAutofill="no"
                     android:inputType="text"
@@ -125,7 +125,7 @@
                     android:layout_height="match_parent"
                     android:layout_gravity="end"
                     android:gravity="center"
-                    android:text="×"
+                    android:text="@string/clear_mark"
                     android:textColor="@color/text_sub"
                     android:textSize="16sp"
                     android:visibility="gone" />
@@ -145,7 +145,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="自动滚动"
+                    android:text="@string/log_autoscroll"
                     android:textColor="@color/text_sub"
                     android:textSize="11sp" />
 
@@ -192,7 +192,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:textColor="#0F766E"
+                android:textColor="@color/teal"
                 android:textSize="11sp" />
 
             <TextView
@@ -205,7 +205,7 @@
                 android:paddingTop="2dp"
                 android:paddingEnd="6dp"
                 android:paddingBottom="2dp"
-                android:textColor="#0F766E"
+                android:textColor="@color/teal"
                 android:textSize="10sp" />
         </LinearLayout>
 
@@ -240,7 +240,7 @@
             android:gravity="center"
             android:paddingTop="10dp"
             android:paddingBottom="6dp"
-            android:text="已显示全部日志"
+            android:text="@string/log_shown_all"
             android:textColor="@color/text_sub"
             android:textSize="10sp" />
     </LinearLayout>
@@ -277,8 +277,8 @@
                 android:paddingTop="2dp"
                 android:paddingEnd="8dp"
                 android:paddingBottom="2dp"
-                android:text="tts-log.txt"
-                android:textColor="#0F766E"
+                android:text="@string/log_file_name"
+                android:textColor="@color/teal"
                 android:textSize="11sp" />
         </LinearLayout>
 
@@ -296,7 +296,7 @@
                 android:layout_weight="1"
                 android:background="@drawable/bg_import_cancel"
                 android:gravity="center"
-                android:text="清空日志"
+                android:text="@string/log_clear"
                 android:textColor="@color/text_main"
                 android:textSize="12sp" />
 
@@ -308,7 +308,7 @@
                 android:layout_weight="1"
                 android:background="@drawable/bg_import_cancel"
                 android:gravity="center"
-                android:text="复制全部"
+                android:text="@string/log_copy_all"
                 android:textColor="@color/header"
                 android:textSize="12sp" />
 
@@ -319,7 +319,7 @@
                 android:layout_weight="1"
                 android:background="@drawable/bg_log_export"
                 android:gravity="center"
-                android:text="导出为文本"
+                android:text="@string/log_export"
                 android:textColor="@android:color/white"
                 android:textSize="12sp" />
         </LinearLayout>

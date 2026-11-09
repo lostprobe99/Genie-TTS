@@ -137,7 +137,7 @@
                         android:paddingTop="2dp"
                         android:paddingEnd="8dp"
                         android:paddingBottom="2dp"
-                        android:textColor="#99F0FDFA"
+                        android:textColor="@color/mint_60"
                         android:textSize="11sp" />
                 </LinearLayout>
             </LinearLayout>
@@ -188,7 +188,7 @@
                         android:paddingTop="2dp"
                         android:paddingEnd="8dp"
                         android:paddingBottom="2dp"
-                        android:textColor="#99F6E4"
+                        android:textColor="@color/mint_pale"
                         android:textSize="11sp" />
 
                     <View
@@ -228,7 +228,7 @@
                     android:paddingEnd="12dp"
                     android:singleLine="true"
                     android:textColor="@android:color/white"
-                    android:textColorHint="#99F6E4"
+                    android:textColorHint="@color/mint_pale"
                     android:textSize="14sp"
                     android:visibility="gone" />
             </LinearLayout>
@@ -272,7 +272,7 @@
                     android:paddingEnd="8dp"
                     android:paddingBottom="2dp"
                     android:text="@string/prosody_missing"
-                    android:textColor="#99F6E4"
+                    android:textColor="@color/mint_pale"
                     android:textSize="11sp" />
             </LinearLayout>
 
@@ -378,7 +378,7 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:background="@android:color/transparent"
-                    android:contentDescription="当前版本"
+                    android:contentDescription="@string/cd_version"
                     android:src="@drawable/ic_refresh"
                     app:tint="@android:color/white" />
 
@@ -387,7 +387,7 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:background="@android:color/transparent"
-                    android:contentDescription="打开仓库"
+                    android:contentDescription="@string/cd_open_repo"
                     android:src="@drawable/ic_nav_help"
                     app:tint="@android:color/white" />
             </LinearLayout>
@@ -445,7 +445,7 @@
                             android:paddingTop="1dp"
                             android:paddingEnd="6dp"
                             android:paddingBottom="1dp"
-                            android:textColor="#5EEAD4"
+                            android:textColor="@color/aqua"
                             android:textSize="10sp" />
                     </LinearLayout>
 
@@ -455,7 +455,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:maxLines="2"
-                        android:textColor="#99CCFBF1"
+                        android:textColor="@color/on_header_60"
                         android:textSize="11sp" />
                 </LinearLayout>
 
@@ -464,7 +464,7 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:background="@android:color/transparent"
-                    android:contentDescription="刷新日志"
+                    android:contentDescription="@string/cd_refresh_log"
                     android:src="@drawable/ic_refresh"
                     app:tint="@android:color/white" />
 
@@ -473,7 +473,7 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:background="@android:color/transparent"
-                    android:contentDescription="导出日志"
+                    android:contentDescription="@string/cd_export_log"
                     android:src="@drawable/ic_role_export"
                     app:tint="@android:color/white" />
 
@@ -482,7 +482,7 @@
                     android:layout_width="36dp"
                     android:layout_height="36dp"
                     android:background="@android:color/transparent"
-                    android:contentDescription="更多"
+                    android:contentDescription="@string/cd_more"
                     android:src="@drawable/ic_more"
                     app:tint="@android:color/white" />
             </LinearLayout>
@@ -565,7 +565,7 @@
                     android:lineSpacingMultiplier="1.6"
                     android:padding="20dp"
                     android:textColor="@color/text_main"
-                    android:textColorHint="#94A3B8"
+                    android:textColorHint="@color/slate"
                     android:textSize="18sp" />
 
                 <LinearLayout
@@ -605,7 +605,7 @@
                             android:layout_weight="1"
                             android:ellipsize="end"
                             android:maxLines="1"
-                            android:text="分句列表（共 0 句）"
+                            android:text="@string/sentence_heading_zero"
                             android:textColor="@color/text_main"
                             android:textSize="12sp" />
 
@@ -669,7 +669,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="6dp"
-                            android:text="未合成"
+                            android:text="@string/status_idle"
                             android:textColor="@color/text_sub"
                             android:textSize="11sp" />
 
@@ -683,7 +683,7 @@
                             android:fontFamily="monospace"
                             android:gravity="end"
                             android:maxLines="1"
-                            android:text="分句: -/-  耗时: -  时长: -  实时率: -"
+                            android:text="@string/metrics_empty"
                             android:textColor="@color/text_sub"
                             android:textSize="11sp" />
                     </LinearLayout>
@@ -729,7 +729,7 @@
                             android:layout_height="wrap_content"
                             android:fontFamily="monospace"
                             android:text="@string/speed_range"
-                            android:textColor="#94A3B8"
+                            android:textColor="@color/slate"
                             android:textSize="11sp" />
                     </LinearLayout>
 
@@ -849,7 +849,7 @@
                                 android:layout_marginTop="4dp"
                                 android:gravity="center"
                                 android:text="@string/role_missing_hint"
-                                android:textColor="#94A3B8"
+                                android:textColor="@color/slate"
                                 android:textSize="12sp" />
                         </LinearLayout>
                     </LinearLayout>
@@ -1030,7 +1030,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="GenieTTS"
+                    android:text="@string/about_brand"
                     android:textColor="@android:color/white"
                     android:textSize="20sp" />
 
@@ -1231,7 +1231,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#F1F5F9" />
+                    android:background="@color/mist" />
 
                 <LinearLayout
                     android:id="@+id/openHelp"
@@ -1290,7 +1290,7 @@
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
-                    android:background="#F1F5F9" />
+                    android:background="@color/mist" />
 
                 <LinearLayout
                     android:id="@+id/openAbout"

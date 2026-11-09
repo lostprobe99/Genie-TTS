@@ -105,7 +105,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:textColor="#94A3B8"
+                        android:textColor="@color/slate"
                         android:textSize="11sp" />
                 </LinearLayout>
 
@@ -177,7 +177,7 @@
                     android:paddingTop="8dp"
                     android:paddingEnd="12dp"
                     android:paddingBottom="8dp"
-                    android:textColor="#475569"
+                    android:textColor="@color/slate_text"
                     android:textSize="12sp" />
 
                 <TextView
@@ -202,7 +202,7 @@
                     android:paddingEnd="12dp"
                     android:paddingBottom="8dp"
                     android:textColor="@color/text_main"
-                    android:textColorHint="#94A3B8"
+                    android:textColorHint="@color/slate"
                     android:textSize="12sp" />
 
                 <TextView
@@ -211,14 +211,14 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="@string/import_name_note"
-                    android:textColor="#94A3B8"
+                    android:textColor="@color/slate"
                     android:textSize="10sp" />
 
                 <View
                     android:layout_width="match_parent"
                     android:layout_height="1dp"
                     android:layout_marginTop="12dp"
-                    android:background="#E2E8F0" />
+                    android:background="@color/border" />
 
                 <LinearLayout
                     android:layout_width="match_parent"

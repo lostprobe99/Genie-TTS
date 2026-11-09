@@ -1,5 +1,6 @@
 package com.genie.tts.ui
 
+import androidx.core.content.ContextCompat
 import com.genie.tts.R
 import com.genie.tts.character.CharacterInfo
 import com.genie.tts.character.CharacterPack
@@ -60,7 +61,7 @@ internal class EditRoleDialog(
         nameField.setText(info.name)
         nameField.setSelection(nameField.text.length)
         fun paintCount() {
-            count.text = "${nameField.text.length} / $limit"
+            count.text = activity.getString(R.string.name_count, nameField.text.length, limit)
         }
         paintCount()
         nameField.addTextChangedListener(object : TextWatcher {
@@ -73,7 +74,7 @@ internal class EditRoleDialog(
         switch.thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
         switch.trackTintList = android.content.res.ColorStateList(
             arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()),
-            intArrayOf(Color.parseColor("#0F766E"), Color.parseColor("#E2E8F0")),
+            intArrayOf(color(R.color.teal), color(R.color.border)),
         )
         switch.setOnCheckedChangeListener { _, checked ->
             currentPill.visibility = if (checked) View.VISIBLE else View.GONE
@@ -81,7 +82,7 @@ internal class EditRoleDialog(
         root.findViewById<View>(R.id.editRoleCopy).setOnClickListener {
             val clipboard = activity.getSystemService(ClipboardManager::class.java)
             clipboard.setPrimaryClip(ClipData.newPlainText("character-id", info.id))
-            toast("已复制")
+            toast(activity.getString(R.string.copied))
         }
         root.findViewById<View>(R.id.editRoleClear).setOnClickListener { nameField.setText("") }
         root.findViewById<View>(R.id.editRoleClose).setOnClickListener { sheet.dismiss() }
@@ -99,7 +100,7 @@ internal class EditRoleDialog(
         root.findViewById<View>(R.id.editRoleSave).setOnClickListener {
             val typed = nameField.text.toString()
             if (typed.trim().isEmpty()) {
-                toast("名字不能是空的")
+                toast(activity.getString(R.string.name_empty))
                 return@setOnClickListener
             }
             if (busy()) return@setOnClickListener
@@ -125,7 +126,7 @@ internal class EditRoleDialog(
         play.visibility = View.VISIBLE
         label.text = file.name
         meta.visibility = View.VISIBLE
-        meta.text = "正在读取"
+        meta.text = activity.getString(R.string.reading)
         worker.execute {
             val seconds = mediaSeconds(file)
             activity.runOnUiThread {
@@ -144,7 +145,7 @@ internal class EditRoleDialog(
                 file,
                 onStarted = {
                     play.setImageResource(R.drawable.ic_role_bars)
-                    play.contentDescription = "停止"
+                    play.contentDescription = activity.getString(R.string.stop)
                 },
                 onStopped = {
                     play.setImageResource(R.drawable.ic_role_play)
@@ -157,4 +158,6 @@ internal class EditRoleDialog(
     private fun toast(message: String) {
         Toast.makeText(activity, message, Toast.LENGTH_SHORT).show()
     }
+
+    private fun color(id: Int) = ContextCompat.getColor(activity, id)
 }

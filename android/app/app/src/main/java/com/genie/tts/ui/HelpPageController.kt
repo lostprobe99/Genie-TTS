@@ -1,5 +1,6 @@
 package com.genie.tts.ui
 
+import androidx.core.content.ContextCompat
 import com.genie.tts.R
 import com.genie.tts.service.ServiceStates
 import com.genie.tts.speech.Release
@@ -102,14 +103,16 @@ internal class HelpPageController(
         ).forEach { (id, key) ->
             val view = activity.findViewById<TextView>(id)
             val selected = category == key
-            view.setTextColor(if (selected) Color.WHITE else 0xFF475569.toInt())
+            view.setTextColor(if (selected) Color.WHITE else color(R.color.slate_text))
             view.setTypeface(null, if (selected) Typeface.BOLD else Typeface.NORMAL)
             view.background = GradientDrawable().apply {
                 cornerRadius = dp(16).toFloat()
-                setColor(if (selected) 0xFF0D7384.toInt() else Color.WHITE)
+                setColor(if (selected) color(R.color.teal_chip) else Color.WHITE)
             }
         }
     }
 
     private fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
+
+    private fun color(id: Int) = ContextCompat.getColor(activity, id)
 }

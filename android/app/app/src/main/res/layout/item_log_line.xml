@@ -13,7 +13,7 @@
         android:layout_width="match_parent"
         android:layout_height="1dp"
         android:layout_marginBottom="8dp"
-        android:background="#F1F5F9" />
+        android:background="@color/mist" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -31,7 +31,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
-                android:textColor="#94A3B8"
+                android:textColor="@color/slate"
                 android:textSize="10sp" />
 
             <TextView
@@ -39,7 +39,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="monospace"
-                android:textColor="#94A3B8"
+                android:textColor="@color/slate"
                 android:textSize="10sp" />
         </LinearLayout>
 
@@ -61,7 +61,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="6dp"
             android:layout_weight="1"
-            android:textColor="#334155"
+            android:textColor="@color/slate_strong"
             android:textSize="11sp"
             android:textStyle="bold" />
 
@@ -69,7 +69,7 @@
             android:id="@+id/logRowIndex"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textColor="#94A3B8"
+            android:textColor="@color/slate"
             android:textSize="10sp" />
     </LinearLayout>
 
@@ -79,6 +79,6 @@
         android:layout_height="wrap_content"
         android:paddingStart="2dp"
         android:paddingTop="4dp"
-        android:textColor="#334155"
+        android:textColor="@color/slate_strong"
         android:textSize="12sp" />
 </LinearLayout>

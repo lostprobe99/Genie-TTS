@@ -28,7 +28,7 @@
                 android:background="@drawable/bg_log_field"
                 android:drawableStart="@drawable/ic_search_field"
                 android:drawablePadding="6dp"
-                android:hint="搜索使用问题、错误或对接方式"
+                android:hint="@string/help_search_hint"
                 android:imeOptions="actionSearch"
                 android:importantForAutofill="no"
                 android:inputType="text"
@@ -45,7 +45,7 @@
                 android:layout_height="match_parent"
                 android:layout_gravity="end"
                 android:gravity="center"
-                android:text="×"
+                android:text="@string/clear_mark"
                 android:textColor="@color/text_sub"
                 android:textSize="16sp"
                 android:visibility="gone" />
@@ -69,8 +69,8 @@
                     android:gravity="center"
                     android:paddingStart="14dp"
                     android:paddingEnd="14dp"
-                    android:text="全部"
-                    android:textColor="#475569"
+                    android:text="@string/filter_all"
+                    android:textColor="@color/slate_text"
                     android:textSize="12sp" />
 
                 <TextView
@@ -81,8 +81,8 @@
                     android:gravity="center"
                     android:paddingStart="14dp"
                     android:paddingEnd="14dp"
-                    android:text="新手上手"
-                    android:textColor="#475569"
+                    android:text="@string/help_chip_starter"
+                    android:textColor="@color/slate_text"
                     android:textSize="12sp" />
 
                 <TextView
@@ -93,8 +93,8 @@
                     android:gravity="center"
                     android:paddingStart="14dp"
                     android:paddingEnd="14dp"
-                    android:text="阅读/Legado"
-                    android:textColor="#475569"
+                    android:text="@string/help_chip_legado"
+                    android:textColor="@color/slate_text"
                     android:textSize="12sp" />
 
                 <TextView
@@ -105,8 +105,8 @@
                     android:gravity="center"
                     android:paddingStart="14dp"
                     android:paddingEnd="14dp"
-                    android:text="后台保活"
-                    android:textColor="#475569"
+                    android:text="@string/help_chip_battery"
+                    android:textColor="@color/slate_text"
                     android:textSize="12sp" />
 
                 <TextView
@@ -117,8 +117,8 @@
                     android:gravity="center"
                     android:paddingStart="14dp"
                     android:paddingEnd="14dp"
-                    android:text="模型导入"
-                    android:textColor="#475569"
+                    android:text="@string/help_chip_model"
+                    android:textColor="@color/slate_text"
                     android:textSize="12sp" />
 
                 <TextView
@@ -129,8 +129,8 @@
                     android:gravity="center"
                     android:paddingStart="14dp"
                     android:paddingEnd="14dp"
-                    android:text="服务管理"
-                    android:textColor="#475569"
+                    android:text="@string/help_chip_service"
+                    android:textColor="@color/slate_text"
                     android:textSize="12sp" />
             </LinearLayout>
         </HorizontalScrollView>
@@ -153,7 +153,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="3 步开启朗读"
+                    android:text="@string/help_steps_title"
                     android:textColor="@android:color/white"
                     android:textSize="14sp"
                     android:textStyle="bold" />
@@ -166,8 +166,8 @@
                     android:paddingTop="2dp"
                     android:paddingEnd="8dp"
                     android:paddingBottom="2dp"
-                    android:text="新手指引"
-                    android:textColor="#F0FDFA"
+                    android:text="@string/help_guide"
+                    android:textColor="@color/mint"
                     android:textSize="11sp" />
             </LinearLayout>
 
@@ -191,8 +191,8 @@
                         android:layout_height="16dp"
                         android:background="@drawable/bg_help_num"
                         android:gravity="center"
-                        android:text="1"
-                        android:textColor="#084C58"
+                        android:text="@string/help_num_1"
+                        android:textColor="@color/pine"
                         android:textSize="10sp"
                         android:textStyle="bold" />
 
@@ -200,7 +200,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:text="导入角色"
+                        android:text="@string/help_step_import"
                         android:textColor="@android:color/white"
                         android:textSize="12sp"
                         android:textStyle="bold" />
@@ -209,8 +209,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="在角色管理导入 zip 角色包"
-                        android:textColor="#CCFBF1"
+                        android:text="@string/help_step_import_sub"
+                        android:textColor="@color/on_header"
                         android:textSize="10sp" />
                 </LinearLayout>
 
@@ -228,8 +228,8 @@
                         android:layout_height="16dp"
                         android:background="@drawable/bg_help_num"
                         android:gravity="center"
-                        android:text="2"
-                        android:textColor="#084C58"
+                        android:text="@string/help_num_2"
+                        android:textColor="@color/pine"
                         android:textSize="10sp"
                         android:textStyle="bold" />
 
@@ -237,7 +237,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:text="安装韵律"
+                        android:text="@string/help_step_prosody"
                         android:textColor="@android:color/white"
                         android:textSize="12sp"
                         android:textStyle="bold" />
@@ -246,8 +246,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="装上韵律包，停顿和重音更自然"
-                        android:textColor="#CCFBF1"
+                        android:text="@string/help_step_prosody_sub"
+                        android:textColor="@color/on_header"
                         android:textSize="10sp" />
                 </LinearLayout>
 
@@ -264,8 +264,8 @@
                         android:layout_height="16dp"
                         android:background="@drawable/bg_help_num"
                         android:gravity="center"
-                        android:text="3"
-                        android:textColor="#084C58"
+                        android:text="@string/help_num_3"
+                        android:textColor="@color/pine"
                         android:textSize="10sp"
                         android:textStyle="bold" />
 
@@ -273,7 +273,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="6dp"
-                        android:text="启动服务"
+                        android:text="@string/help_step_service"
                         android:textColor="@android:color/white"
                         android:textSize="12sp"
                         android:textStyle="bold" />
@@ -282,8 +282,8 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:text="在服务管理开启朗读接口"
-                        android:textColor="#CCFBF1"
+                        android:text="@string/help_step_service_sub"
+                        android:textColor="@color/on_header"
                         android:textSize="10sp" />
                 </LinearLayout>
             </LinearLayout>
@@ -303,7 +303,7 @@
             android:gravity="center"
             android:paddingTop="28dp"
             android:paddingBottom="12dp"
-            android:text="没有符合的问题"
+            android:text="@string/help_none"
             android:textColor="@color/text_sub"
             android:textSize="13sp"
             android:visibility="gone" />
@@ -327,7 +327,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="仓库"
+                    android:text="@string/help_repo"
                     android:textColor="@color/text_main"
                     android:textSize="13sp"
                     android:textStyle="bold" />
@@ -336,7 +336,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
-                    android:text="github.com/lostprobe99/Genie-TTS"
+                    android:text="@string/about_repo_host"
                     android:textColor="@color/text_sub"
                     android:textSize="10sp" />
             </LinearLayout>
@@ -354,7 +354,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="韵律包"
+                    android:text="@string/help_prosody_pack"
                     android:textColor="@color/text_main"
                     android:textSize="13sp"
                     android:textStyle="bold" />
@@ -390,7 +390,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="服务排查与日志"
+                    android:text="@string/help_logs_title"
                     android:textColor="@color/text_main"
                     android:textSize="13sp"
                     android:textStyle="bold" />
@@ -399,7 +399,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
-                    android:text="侧栏或服务管理右上角打开"
+                    android:text="@string/help_logs_sub"
                     android:textColor="@color/text_sub"
                     android:textSize="10sp" />
             </LinearLayout>
