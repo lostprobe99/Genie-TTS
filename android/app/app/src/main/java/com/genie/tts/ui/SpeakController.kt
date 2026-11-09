@@ -54,9 +54,40 @@ internal class SpeakController(private val activity: AppCompatActivity) {
     private val playButton: Button = activity.findViewById(R.id.play)
     private val workStatus: TextView = activity.findViewById(R.id.workStatus)
 
+    private var drawn = SpeakSnapshot(
+        clips = emptyList(),
+        synthesizing = false,
+        loadingModel = false,
+        playing = false,
+        busy = false,
+        active = -1,
+        workNote = "",
+        elapsedMs = 0L,
+        canSpeak = false,
+    )
+
     fun bind(onSynthesize: () -> Unit, onTogglePlay: () -> Unit) {
         synthesizeButton.setOnClickListener { onSynthesize() }
         playButton.setOnClickListener { onTogglePlay() }
+    }
+
+    /** 分句有变化就重画列表，否则只改进度。返回值表示按钮要不要跟着改。 */
+    fun apply(state: SpeakSnapshot, onPlay: (Int) -> Unit): Boolean {
+        val listChanged = state.clips != drawn.clips ||
+            state.synthesizing != drawn.synthesizing ||
+            state.loadingModel != drawn.loadingModel ||
+            state.active != drawn.active ||
+            state.busy != drawn.busy ||
+            state.playing != drawn.playing
+        if (listChanged) renderSentences(state, onPlay) else paint(state)
+        val controlsChanged = listChanged ||
+            state.workNote != drawn.workNote ||
+            state.canSpeak != drawn.canSpeak ||
+            state.elapsedMs != drawn.elapsedMs
+        if (controlsChanged) updateControls(state)
+        if (state.active != drawn.active && state.active >= 0) scrollToActive(state.active)
+        drawn = state
+        return controlsChanged
     }
 
     fun renderSpeed(rate: String) {

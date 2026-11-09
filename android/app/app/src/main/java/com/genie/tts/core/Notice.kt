@@ -34,3 +34,9 @@ internal class Notices(
         store.update { Notice(kind, text, ids.incrementAndGet()) }
     }
 }
+
+/** 同一条告警只取出一次。没有新内容时不显示。 */
+internal fun takeAlert(seen: Long, alert: String?, alertId: Long): Pair<Long, String?> {
+    if (alert == null || alertId == seen) return seen to null
+    return alertId to alert.takeIf { it.isNotEmpty() }
+}

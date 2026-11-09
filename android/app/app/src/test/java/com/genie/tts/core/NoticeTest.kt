@@ -18,4 +18,12 @@ class NoticeTest {
         assertEquals(listOf(1L, 2L), seen.map { it.id })
         assertEquals(NoticeKind.Toast, seen.first().kind)
     }
+
+    @Test
+    fun anAlertIsTakenOnceAndBlankTextIsSkipped() {
+        assertEquals(0L to null, takeAlert(0L, null, 0L))
+        assertEquals(3L to "合成没有完成", takeAlert(0L, "合成没有完成", 3L))
+        assertEquals(3L to null, takeAlert(3L, "合成没有完成", 3L))
+        assertEquals(4L to null, takeAlert(3L, "", 4L))
+    }
 }

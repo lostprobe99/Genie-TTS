@@ -12,7 +12,7 @@
 
 源码在 `com.genie.tts` 下按职责分包。`MainActivity` 和 `AppViewModel` 留在根包。`ui` 是页面，`character` 是角色包和清单，`speech` 是合成、韵律和 `g2p`，`service` 是朗读接口，`core` 是日志、机器状态、界面状态，以及给界面看的提示。
 
-`MainActivity` 负责应用生命周期、页面切换、权限、选文件，以及把状态接到页面上。合成、播放、角色、韵律和服务的操作已经分开：
+`MainActivity` 负责应用生命周期、页面切换、权限、选文件、显示提示，以及把状态接到页面上。页面显隐在 `PageShell`，主屏的角色下拉在 `RoleSpinner`。合成、播放、角色、韵律和服务的操作已经分开：
 
 - `SpeakController` 只画主屏的分句列表、语速、按钮和底下的状态。
 - `SynthesisActions` 管主屏合成和试听的进度、分句结果和「上次没有合成完」的标记。`PlaybackActions` 管播放和试听的声音。两者都由 `AppViewModel` 拿着。
@@ -22,8 +22,8 @@
 - `CharacterActions` 管角色名单、当前角色、导入、删除和改名。`CharacterController` 只画卡片、搜索和批量条。导入确认页和改名页在 `ui`，看完包、保存和删除都回调 `CharacterActions`。试听由 `SynthesisActions` 发起。
 - `ProsodyActions` 管韵律的下载、导入和删除。`ProsodyController` 只画状态、进度和按钮。确认框仍由 `MainActivity` 弹出。
 - `ServiceActions` 管朗读接口的开关和端口。通知权限仍由 `MainActivity` 申请。`ServicePageController` 管服务页上的状态、统计、地址和运行时间。
-- `Notices` 放最新一条对话框或短提示。界面按编号只显示一次。
-- `LogPageController` 管日志筛选、搜索和列表渲染。
+- `Notices` 放最新一条对话框或短提示。合成、播放和角色的失败提示也从这里显示，界面按编号只显示一次。
+- `LogPageController` 管日志筛选、搜索和列表，以及复制全部和复制路径。导出文件仍由 `MainActivity` 选择保存位置。
 - `HelpPageController` 管帮助分类、搜索和问答展开状态。
 - `AboutPageController` 管版本、设备与安装信息。
 

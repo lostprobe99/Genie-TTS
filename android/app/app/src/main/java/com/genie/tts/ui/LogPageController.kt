@@ -47,13 +47,7 @@ internal class LogPageController(
     private val rows = LogRowAdapter { copyLine(it) }
     val autoScroll: SwitchCompat = activity.findViewById(R.id.logAutoScroll)
 
-    fun bind(
-        onBack: () -> Unit,
-        onExport: () -> Unit,
-        onCopyPath: () -> Unit,
-        onClear: () -> Unit,
-        onCopyAll: () -> Unit,
-    ) {
+    fun bind(onBack: () -> Unit, onExport: () -> Unit, onClear: () -> Unit) {
         list.layoutManager = LinearLayoutManager(activity)
         list.adapter = rows
         list.itemAnimator = null
@@ -63,7 +57,7 @@ internal class LogPageController(
             render(true)
         }
         activity.findViewById<View>(R.id.logsHeaderExport).setOnClickListener { onExport() }
-        activity.findViewById<View>(R.id.logsMore).setOnClickListener { onCopyPath() }
+        activity.findViewById<View>(R.id.logsMore).setOnClickListener { copyPath() }
         activity.findViewById<View>(R.id.logFilterAll).setOnClickListener {
             levels = enumValues<LogLevel>().toSet()
             render(follow = false, reset = true)
@@ -87,7 +81,7 @@ internal class LogPageController(
             android.content.res.ColorStateList(switchStates, intArrayOf(0xFF0A4B56.toInt(), 0xFFCBD5E1.toInt()))
         autoScroll.thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
         activity.findViewById<View>(R.id.logClear).setOnClickListener { onClear() }
-        activity.findViewById<View>(R.id.logCopy).setOnClickListener { onCopyAll() }
+        activity.findViewById<View>(R.id.logCopy).setOnClickListener { copyAll() }
         activity.findViewById<View>(R.id.logExport).setOnClickListener { onExport() }
     }
 
@@ -118,6 +112,37 @@ internal class LogPageController(
     private fun toggle(level: LogLevel) {
         levels = toggleLogLevel(levels, level)
         if (isVisible()) render(follow = false, reset = true)
+    }
+
+    fun exportText(): String? {
+        val text = TtsLog.text()
+        if (text.isBlank()) {
+            Toast.makeText(activity, "还没有日志", Toast.LENGTH_SHORT).show()
+            return null
+        }
+        return text
+    }
+
+    private fun copyAll() {
+        val text = TtsLog.text()
+        if (text.isBlank()) {
+            Toast.makeText(activity, "还没有日志", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val clipboard = activity.getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("tts-log", text))
+        Toast.makeText(activity, "已复制", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun copyPath() {
+        val path = TtsLog.path()
+        if (path.isBlank()) {
+            Toast.makeText(activity, "还没有日志", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val clipboard = activity.getSystemService(ClipboardManager::class.java)
+        clipboard.setPrimaryClip(ClipData.newPlainText("tts-log", path))
+        Toast.makeText(activity, "已复制日志路径", Toast.LENGTH_SHORT).show()
     }
 
     private fun copyLine(line: LogLine) {

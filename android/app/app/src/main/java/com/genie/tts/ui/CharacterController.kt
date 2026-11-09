@@ -14,6 +14,7 @@ import android.text.SpannableString
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
+import android.graphics.drawable.ColorDrawable
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -23,6 +24,7 @@ import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -60,6 +62,7 @@ internal class CharacterController(
     private val selectAll: TextView = activity.findViewById(R.id.roleSelectAll)
     private val deletePicked: TextView = activity.findViewById(R.id.roleDeletePicked)
     private val importButton: View = activity.findViewById(R.id.importCharacter)
+    private var menu: PopupWindow? = null
 
     private val avatarIcons = intArrayOf(
         R.drawable.ic_avatar_wave,
@@ -138,6 +141,43 @@ internal class CharacterController(
     fun setImportEnabled(enabled: Boolean) {
         importButton.isEnabled = enabled
         importButton.alpha = if (enabled) 1f else 0.4f
+    }
+
+    fun showMenu(
+        anchor: View,
+        onImport: () -> Unit,
+        onBatch: () -> Unit,
+        onExport: () -> Unit,
+        onClear: () -> Unit,
+    ) {
+        menu?.dismiss()
+        val content = activity.layoutInflater.inflate(R.layout.menu_roles, null)
+        val popup = PopupWindow(content, dp(176), ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        popup.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        popup.isOutsideTouchable = true
+        popup.elevation = dp(12).toFloat()
+        content.findViewById<View>(R.id.menuImport).setOnClickListener {
+            popup.dismiss()
+            onImport()
+        }
+        content.findViewById<View>(R.id.menuBatch).setOnClickListener {
+            popup.dismiss()
+            onBatch()
+        }
+        content.findViewById<View>(R.id.menuExport).setOnClickListener {
+            popup.dismiss()
+            onExport()
+        }
+        content.findViewById<View>(R.id.menuClear).setOnClickListener {
+            popup.dismiss()
+            onClear()
+        }
+        popup.showAsDropDown(anchor, 0, 0, Gravity.END)
+        menu = popup
+    }
+
+    fun dismissMenu() {
+        menu?.dismiss()
     }
 
     private fun toggleSearch() {

@@ -3,6 +3,7 @@ package com.genie.tts
 import com.genie.tts.character.CharacterActions
 import com.genie.tts.character.CharacterRepository
 import com.genie.tts.core.Notices
+import com.genie.tts.core.takeAlert
 import com.genie.tts.core.RunMarker
 import com.genie.tts.core.TaskLane
 import com.genie.tts.service.ServiceActions
@@ -51,6 +52,9 @@ internal class AppViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     val notices = Notices()
+    private var seenSynthesisAlert = 0L
+    private var seenPlaybackAlert = 0L
+    private var seenCharacterAlert = 0L
 
     val prosody = ProsodyActions(
         filesDir = app.filesDir,
@@ -83,6 +87,21 @@ internal class AppViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         Engines.get(app.filesDir) { app.assets.open(it) }
+        synthesis.listen { state ->
+            val (seen, text) = takeAlert(seenSynthesisAlert, state.alert, state.alertId)
+            seenSynthesisAlert = seen
+            if (text != null) notices.dialog(text)
+        }
+        playback.listen { state ->
+            val (seen, text) = takeAlert(seenPlaybackAlert, state.alert, state.alertId)
+            seenPlaybackAlert = seen
+            if (text != null) notices.dialog(text)
+        }
+        characters.listen { state ->
+            val (seen, text) = takeAlert(seenCharacterAlert, state.alert, state.alertId)
+            seenCharacterAlert = seen
+            if (text != null) notices.dialog(text)
+        }
     }
 
     override fun onCleared() {
